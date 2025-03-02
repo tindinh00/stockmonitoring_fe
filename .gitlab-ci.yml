@@ -1,0 +1,50 @@
+variables:
+  IMAGE_NAME: duonggiotai/stockmonitoring-fe
+  IMAGE_TAG:  react:1.0
+
+stages:
+  - test
+  - build
+  - deploy
+
+# Chạy test trên tất cả các nhánh
+run_tests:
+  stage: test
+  image: node:22-alpine
+  before_script:
+    - apk add --no-cache make
+  script:
+    - make test
+  only:
+    - branches  # Chạy trên tất cả các nhánh
+
+# Build & Dockerize (chỉ chạy trên nhánh main)
+.build:
+  stage: build
+  image: docker:27.4.0
+  services:
+    - docker:27.4.0-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo $REGISTRY_PASSWORD | docker login -u $REGISTRY_USER --password-stdin
+  script:
+    - docker build -t $IMAGE_NAME:v1.0.0-$CI_COMMIT_SHA .
+    - docker push $IMAGE_NAME:v1.0.0-$CI_COMMIT_SHA
+
+build-dev:
+  extends: .build
+  only:
+    - main
+
+# Deploy lên Vercel (chỉ chạy trên nhánh main)
+deploy-vercel:
+  image: node:22-alpine
+  stage: deploy
+  script:
+    - echo "Deploying to Vercel..."
+    - npx vercel --token=$VERCEL_TOKEN --prod --env VERCEL_ORG_ID=$VERCEL_ORG_ID --env VERCEL_PROJECT_ID=$VERCEL_PROJECT_ID
+  needs:
+    - build-dev
+  only:
+    - main
