@@ -44,17 +44,25 @@ const Header = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex-shrink-0 flex items-center">
-            <div className="flex items-center h-12 w-12">
-              <img src={logo} className="h-12 w-12 object-contain" alt="StockFlow Logo" />
+          <div className="flex-shrink-0 flex items-center" style={{ height: '100%' }}>
+            <div className="flex items-center justify-center ml-6">
+              <img 
+                src={logo} 
+                className="h-14 w-14 object-contain" 
+                alt="StockFlow Logo" 
+                style={{ 
+                  display: 'block',
+                  transform: 'translateY(2px)' /* Fine-tune vertical alignment */
+                }}
+              />
             </div>
             <a
               href="/"
-              className="text-2xl font-extrabold"
+              className="text-2xl font-extrabold flex items-center -ml-2"
               style={{
                 background: "linear-gradient(to right, #80EE98, #0ABDB4)",
                 WebkitBackgroundClip: "text",
-                color: "transparent",
+                WebkitTextFillColor: "transparent",
               }}
             >
               StockFlow

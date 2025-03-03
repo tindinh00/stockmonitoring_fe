@@ -197,19 +197,21 @@ const StockDerivatives = () => {
                           {stock.code}
                         </TableCell>
                       </DialogTrigger>
-                      <DialogContent className="bg-[#1C1C1C] text-white border-[#333] max-w-[90vw] max-h-[90vh]">
+                      <DialogContent className="bg-[#1C1C1C] text-white border-[#333] max-w-[95vw] max-h-[95vh] w-[95vw]">
                         <DialogHeader>
                           <DialogTitle>Biểu đồ {stock.code}</DialogTitle>
                         </DialogHeader>
                         {selectedStock && (
-                          <div className="p-4 h-[80vh]">
+                          <div className="p-4 h-[85vh]">
                             <div className="text-sm text-gray-400 mb-2">
                               Mã: {selectedStock} | Dữ liệu: {chartData[selectedStock]?.length || 0} điểm
                             </div>
-                            <CandlestickChart
-                              stockCode={selectedStock}
-                              data={chartData[selectedStock] || []}
-                            />
+                            <div className="h-[calc(100%-30px)] w-full">
+                              <CandlestickChart
+                                stockCode={selectedStock}
+                                data={chartData[selectedStock] || []}
+                              />
+                            </div>
                           </div>
                         )}
                       </DialogContent>
