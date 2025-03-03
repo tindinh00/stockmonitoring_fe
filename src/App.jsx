@@ -12,6 +12,8 @@ import { Toaster } from "sonner";
 import Register from './pages/RegisterPage';
 import OtpPage from './pages/OtpPage';
 import StockDerivatives from './pages/StockDerivatives';
+import ForgotPassword from './pages/ForgotPasswordPage';
+import ResetPassword from './pages/ResetPasswordPage';
 import { AuthProvider } from "../src/Authentication/AuthContext";
 
 function App() {
@@ -29,8 +31,8 @@ function App() {
             <Route path="/register" element={<Register/>} />
             <Route path="/otp" element={<OtpPage/>} />
             <Route path="/stock" element={<StockDerivatives/>} />
-
-           
+            <Route path="/forgot-password" element={<ForgotPassword/>} />
+            <Route path="/reset-password" element={<ResetPassword/>} />
           </Routes>
           <Toaster position="top-right" richColors />
         </main>

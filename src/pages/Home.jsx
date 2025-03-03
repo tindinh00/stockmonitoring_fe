@@ -112,14 +112,19 @@ function Home() {
           <div className="space-y-10">
             <AnimatedSection direction="left" delay={0.2}>
               <h1
-                className="text-5xl md:text-6xl font-extrabold leading-tight "
-                style={{ background: "linear-gradient(to right, #80EE98, #0ABDB4)", WebkitBackgroundClip: "text", color: "transparent" }}
+                className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.2] text-center"
+                style={{ 
+                  background: "linear-gradient(to right, #80EE98, #0ABDB4)", 
+                  WebkitBackgroundClip: "text", 
+                  color: "transparent",
+                  padding: "0.6rem 0"
+                }}
               >
-                Đầu Tư Chứng Khoán Thông Minh
+                Đầu Tư Chứng<br className="hidden md:inline" /> Khoán Thông Minh
               </h1>
             </AnimatedSection>
             <AnimatedSection direction="right" delay={0.4}>
-              <p className="text-xl text-[#CFCFCF] max-w-lg">
+              <p className="text-xl text-[#CFCFCF] max-w-lg mx-auto text-center">
                 Tăng trưởng tài sản với phân tích chuyên sâu, chiến lược đầu tư sáng tạo và quản lý rủi ro tối ưu.
               </p>
             </AnimatedSection>
@@ -128,40 +133,40 @@ function Home() {
             <AnimatedSection delay={0.6}>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <motion.div whileHover={{ y: -12, rotate: 3 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-3 text-lg font-semibold text-[#80EE98]">
+                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex flex-col items-center space-y-2 text-lg font-semibold text-[#80EE98]">
                         <i className="fas fa-chart-line" style={{ color: "#0ABDB4" }}></i>
                         <span>Phân Tích Thị Trường</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="text-center">
                       <p className="text-sm text-[#CFCFCF]">Dữ liệu real-time, xu hướng rõ ràng</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div whileHover={{ y: -12, rotate: -3 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-3 text-lg font-semibold text-[#80EE98]">
+                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex flex-col items-center space-y-2 text-lg font-semibold text-[#80EE98]">
                         <i className="fas fa-briefcase" style={{ color: "#0ABDB4" }}></i>
                         <span>Chiến Lược Đầu Tư</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="text-center">
                       <p className="text-sm text-[#CFCFCF]">Đề xuất từ AI và chuyên gia</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div whileHover={{ y: -12, rotate: 3 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-3 text-lg font-semibold text-[#80EE98]">
+                  <Card className="bg-[#15919B]/80 backdrop-blur-md border border-[#46DFB1]/30 shadow-xl h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex flex-col items-center space-y-2 text-lg font-semibold text-[#80EE98]">
                         <i className="fas fa-shield-alt" style={{ color: "#0ABDB4" }}></i>
                         <span>Quản Lý Rủi Ro</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="text-center">
                       <p className="text-sm text-[#CFCFCF]">Bảo vệ vốn với công nghệ tiên tiến</p>
                     </CardContent>
                   </Card>
@@ -171,7 +176,7 @@ function Home() {
 
             {/* Call to Action */}
             <AnimatedSection delay={0.8}>
-              <div className="flex space-x-6">
+              <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 justify-center">
                 <motion.div whileHover={{ scale: 1.1, rotate: 3 }} transition={{ type: "spring", stiffness: 400 }}>
                   <Button
                     asChild
@@ -181,7 +186,7 @@ function Home() {
                       background: "linear-gradient(to right, #46DFB1, #09D1C7)",
                       color: "#122132",
                     }}
-                    className="hover:bg-[#46DFB1] font-semibold shadow-lg"
+                    className="hover:bg-[#46DFB1] font-semibold shadow-lg w-full sm:w-auto"
                   >
                     <Link to="/AuthPages">Bắt Đầu Đầu Tư</Link>
                   </Button>
@@ -192,7 +197,7 @@ function Home() {
                     variant="outline"
                     size="lg"
                     style={{ borderColor: "#0ABDB4", color: "#0ABDB4" }}
-                    className="hover:bg-[#0ABDB4]/20 hover:text-[#80EE98] font-semibold"
+                    className="hover:bg-[#0ABDB4]/20 hover:text-[#80EE98] font-semibold w-full sm:w-auto"
                   >
                     <Link to="/tools">Nhận Tư Vấn</Link>
                   </Button>
