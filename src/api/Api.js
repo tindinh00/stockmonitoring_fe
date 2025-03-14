@@ -218,6 +218,38 @@ export const apiService = {
       };
     }
   },
+
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post("/api/users/forgot-password", {
+        email: email
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      if (error.response?.status === 404) {
+        throw new Error("Không tìm thấy API quên mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
+      }
+      throw error.response?.data || error;
+    }
+  },
+  
+  resetPassword: async (email, code, newPassword) => {
+    try {
+      const response = await api.post("/api/users/reset-password", {
+        email: email,
+        code: code.toString(),
+        newPassword: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Reset password error:", error);
+      if (error.response?.status === 404) {
+        throw new Error("Không tìm thấy API đặt lại mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
+      }
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default api;
