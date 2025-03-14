@@ -12,20 +12,15 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "sonner";
 import { apiService } from "../api/Api";
 import { Eye, EyeOff, Lock, ArrowLeft, CheckCircle } from "lucide-react";
 import logo from "../assets/logo.png";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Schema validation với Zod
 const resetPasswordSchema = z
   .object({
-    code: z
-      .string()
-      .nonempty("Mã xác thực là bắt buộc")
-      .length(6, "Mã xác thực phải có 6 ký tự"),
     password: z
       .string()
       .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
@@ -47,22 +42,23 @@ const ResetPassword = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    // Lấy email từ query parameters
-    const searchParams = new URLSearchParams(location.search);
-    const emailParam = searchParams.get("email");
-    if (emailParam) {
-      setEmail(emailParam);
-    } else {
-      toast.error("Email không hợp lệ. Vui lòng thử lại.", {
+    // Kiểm tra xem người dùng đã xác thực OTP chưa
+    const otpVerified = localStorage.getItem("otpVerified");
+    const verifiedEmail = localStorage.getItem("verifiedEmail");
+    
+    if (!otpVerified || !verifiedEmail) {
+      toast.error("Bạn cần xác thực OTP trước khi đặt lại mật khẩu", {
         position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
+        duration: 5000,
       });
+      navigate("/forgot-password");
+      return;
     }
-  }, [location]);
+    
+    setEmail(verifiedEmail);
+  }, [navigate]);
 
   const {
     register,
@@ -71,7 +67,6 @@ const ResetPassword = () => {
   } = useForm({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      code: "",
       password: "",
       confirmPassword: "",
     },
@@ -84,30 +79,44 @@ const ResetPassword = () => {
     if (!email) {
       toast.error("Email không hợp lệ. Vui lòng thử lại.", {
         position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
+        duration: 5000,
       });
       return;
     }
 
     setLoading(true);
     try {
-      await apiService.resetPassword(email, data.code, data.password);
-      setResetSuccess(true);
-      toast.success("Đặt lại mật khẩu thành công!", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
-      setTimeout(() => {
-        navigate("/login");
-      }, 3000);
+      console.log("Resetting password for:", email);
+      
+      const result = await apiService.resetPassword(email, data.password);
+      console.log("Reset password result:", result);
+      
+      if (result.success) {
+        setResetSuccess(true);
+        // Xóa dữ liệu xác thực OTP
+        localStorage.removeItem("otpVerified");
+        localStorage.removeItem("verifiedEmail");
+        
+        toast.success("Đặt lại mật khẩu thành công!", {
+          position: "top-right",
+          duration: 3000,
+        });
+        
+        setTimeout(() => {
+          navigate("/login");
+        }, 3000);
+      } else {
+        toast.error(result.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại sau.", {
+          position: "top-right",
+          duration: 5000,
+        });
+      }
     } catch (error) {
+      console.error("Reset password error:", error);
       const errorMsg = error.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại sau.";
       toast.error(errorMsg, {
         position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -124,9 +133,6 @@ const ResetPassword = () => {
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/80 z-10"></div>
 
-      {/* Toast Container */}
-      <ToastContainer />
-
       {/* Form Container */}
       <Card className="w-full max-w-md mx-4 p-6 bg-gray-900/95 text-teal-400 z-20 border border-teal-500/40 shadow-lg rounded-xl">
         <CardHeader className="flex flex-col items-center mb-2">
@@ -142,7 +148,7 @@ const ResetPassword = () => {
           {email && (
             <p className="mt-2 text-teal-400/70 text-sm text-center">
               {!resetSuccess
-                ? `Vui lòng nhập mã xác thực đã được gửi đến ${email} và mật khẩu mới của bạn.`
+                ? `Vui lòng nhập mật khẩu mới cho tài khoản ${email}.`
                 : "Mật khẩu của bạn đã được đặt lại thành công!"}
             </p>
           )}
@@ -151,26 +157,6 @@ const ResetPassword = () => {
         <CardContent>
           {!resetSuccess ? (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Verification Code Input */}
-              <div className="space-y-2">
-                <div className="relative">
-                  <Input
-                    id="code"
-                    type="text"
-                    placeholder="Nhập mã xác thực (6 chữ số)"
-                    {...register("code")}
-                    disabled={loading}
-                    className="bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all text-center text-lg tracking-widest"
-                    maxLength={6}
-                  />
-                </div>
-                {errors.code && (
-                  <p className="text-red-400 text-sm text-left">
-                    {errors.code.message}
-                  </p>
-                )}
-              </div>
-
               {/* Password Input */}
               <div className="space-y-2">
                 <div className="relative">
@@ -275,8 +261,15 @@ const ResetPassword = () => {
                 <CheckCircle className="h-8 w-8 text-teal-400" />
               </div>
               <p className="text-center text-teal-400/90">
-                Mật khẩu của bạn đã được đặt lại thành công. Bạn sẽ được chuyển hướng đến trang đăng nhập trong vài giây.
+                Mật khẩu của bạn đã được đặt lại thành công. Bạn có thể đăng nhập bằng mật khẩu mới.
               </p>
+              <Button
+                type="button"
+                className="mt-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2.5 rounded-lg shadow-md transition-all"
+                onClick={() => navigate("/login")}
+              >
+                Đến trang đăng nhập
+              </Button>
             </div>
           )}
         </CardContent>
@@ -291,4 +284,4 @@ const ResetPassword = () => {
   );
 };
 
-export default ResetPassword; 
+export default ResetPassword;

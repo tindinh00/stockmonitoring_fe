@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,11 +14,14 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { apiService } from "../api/Api";
+import { toast } from "sonner";
+import { useAuth } from "@/Authentication/AuthContext";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import logo from "../assets/logo.png";
+import axios from "axios";
+
+// API URL
+const API_URL = "https://stockmonitoring.onrender.com";
 
 // Schema validation với Zod
 const loginSchema = z.object({
@@ -25,20 +29,7 @@ const loginSchema = z.object({
     .string()
     .nonempty("Email là bắt buộc")
     .email("Email không hợp lệ")
-    .max(50, "Email không được dài quá 50 ký tự") // Giới hạn độ dài
-    .refine(
-      (email) => {
-        const allowedDomains = ["gmail.com", "yahoo.com", "hotmail.com"];
-        const domain = email.split("@")[1];
-        return allowedDomains.includes(domain);
-      },
-      {
-        message: "Chỉ chấp nhận email từ Gmail, Yahoo hoặc Hotmail",
-      }
-    )
-    .refine((email) => !/[!#$%^&*()+=[\]{};':"\\|,<>/?]/.test(email.split("@")[0]), {
-      message: "Phần trước @ không được chứa ký tự đặc biệt ngoài dấu chấm",
-    }),
+    .max(50, "Email không được dài quá 50 ký tự"), // Bỏ các ràng buộc không cần thiết
   password: z
     .string()
     .min(6, "Mật khẩu phải có ít nhất 6 ký tự")
@@ -49,6 +40,10 @@ const loginSchema = z.object({
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     register,
@@ -64,40 +59,119 @@ const Login = () => {
     },
   });
 
+  // Xử lý code từ Google OAuth redirect
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const code = searchParams.get('code');
+    
+    if (code) {
+      handleGoogleLoginCallback(code);
+    }
+  }, [location]);
+
+  const handleGoogleLoginCallback = async (code) => {
+    setGoogleLoading(true);
+    try {
+      console.log("Received Google auth code:", code);
+      const result = await loginWithGoogle(code);
+      
+      if (result.success) {
+        toast.success("Đăng nhập Google thành công!", {
+          position: "top-right",
+          duration: 2000,
+        });
+        
+        // Xóa code từ URL để tránh đăng nhập lại khi refresh
+        window.history.replaceState({}, document.title, "/login");
+        
+        setTimeout(() => {
+          navigate("/");
+        }, 2000);
+      } else {
+        toast.error(result.message || "Đăng nhập Google thất bại", {
+          position: "top-right",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Đăng nhập Google thất bại. Vui lòng thử lại.", {
+        position: "top-right",
+        duration: 5000,
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  // Xử lý đăng nhập bằng Google
+  const handleGoogleLogin = () => {
+    setGoogleLoading(true);
+    try {
+      // Chuyển hướng đến API endpoint để bắt đầu quá trình đăng nhập Google
+      window.location.href = `${API_URL}/api/OAuth/google-authentication-login`;
+    } catch (error) {
+      console.error("Google login redirect error:", error);
+      toast.error("Không thể kết nối đến dịch vụ đăng nhập Google. Vui lòng thử lại sau.", {
+        position: "top-right",
+        duration: 5000,
+      });
+      setGoogleLoading(false);
+    }
+  };
+
   const toggleShowPassword = () => setShowPassword(!showPassword);
 
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      const response = await apiService.login({
-        email: data.email,
-        password: data.password,
+      console.log("Login attempt with:", data.email); // Debug log
+      
+      // Thêm xử lý lỗi và timeout
+      const loginPromise = login(data.email, data.password);
+      
+      // Đặt timeout để tránh treo quá lâu
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Đăng nhập quá thời gian, vui lòng thử lại")), 15000);
       });
+      
+      // Chạy cả hai promise và lấy kết quả từ cái hoàn thành trước
+      const result = await Promise.race([loginPromise, timeoutPromise]);
+      
+      console.log("Login result:", result); // Debug log
+      console.log("User data after login:", result.user); // Debug log
 
-      if (response.data) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            name: response.data.name,
-            email: response.data.email,
-            avatar: response.data.avatar,
-          })
-        );
+      if (result.success) {
         toast.success("Đăng nhập thành công!", {
           position: "top-right",
-          autoClose: 2000,
-          theme: "dark",
+          duration: 2000,
         });
-        setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 2000);
+        
+        // Đảm bảo chuyển hướng an toàn
+        try {
+          setTimeout(() => {
+            console.log("Navigating to home page...");
+            navigate("/");
+          }, 2000);
+        } catch (navError) {
+          console.error("Navigation error:", navError);
+          // Nếu có lỗi khi chuyển hướng, thử tải lại trang
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 2000);
+        }
+      } else {
+        toast.error(result.message || "Tài khoản hoặc mật khẩu không chính xác", {
+          position: "top-right",
+          duration: 5000,
+        });
       }
     } catch (error) {
+      console.error("Login error:", error); // Debug log
       const errorMsg = error.message || "Tài khoản hoặc mật khẩu không chính xác";
       toast.error(errorMsg, {
         position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -113,9 +187,6 @@ const Login = () => {
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/80 z-10"></div>
-
-      {/* Toast Container */}
-      <ToastContainer />
 
       {/* Form Container */}
       <Card className="w-full max-w-md mx-4 p-6 bg-gray-900/95 text-teal-400 z-20 border border-teal-500/40 shadow-lg rounded-xl">
@@ -208,7 +279,7 @@ const Login = () => {
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2.5 rounded-lg shadow-md transition-all"
             >
               {loading ? (
@@ -250,15 +321,42 @@ const Login = () => {
             <Button
               type="button"
               variant="outline"
+              disabled={loading || googleLoading}
+              onClick={handleGoogleLogin}
               className="w-full bg-red-700 hover:bg-red-800 text-white border-none font-semibold py-2.5 rounded-lg shadow-md transition-all flex items-center justify-center"
             >
-              <svg style={{ transform: 'translateY(1px)' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px">
-                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
-                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
-                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
-                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
-              </svg>
-              <span>Đăng nhập với Google</span>
+              {googleLoading ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white mx-auto"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+              ) : (
+                <>
+                  <svg style={{ transform: 'translateY(1px)' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px" className="mr-2">
+                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+                  </svg>
+                  <span>Đăng nhập với Google</span>
+                </>
+              )}
             </Button>
 
             {/* Register Link */}

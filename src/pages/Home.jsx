@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "../Authentication/AuthContext";
 
 const AnimatedSection = ({ children, delay = 0, direction = null }) => {
   const ref = React.useRef(null);
@@ -43,6 +44,16 @@ const AnimatedSection = ({ children, delay = 0, direction = null }) => {
 };
 
 function Home() {
+  const { isAuthenticated } = useAuth();
+
+  const handlePlatformClick = () => {
+    if (isAuthenticated) {
+      window.location.href = '/stock';
+    } else {
+      window.location.href = '/login';
+    }
+  };
+
   return (
     <div
       className="min-h-screen text-white overflow-hidden relative"
@@ -179,16 +190,16 @@ function Home() {
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 justify-center">
                 <motion.div whileHover={{ scale: 1.1, rotate: 3 }} transition={{ type: "spring", stiffness: 400 }}>
                   <Button
-                    asChild
+                    onClick={handlePlatformClick}
                     variant="default"
                     size="lg"
                     style={{
                       background: "linear-gradient(to right, #46DFB1, #09D1C7)",
-                      color: "#122132",
+                      color: "white",
                     }}
                     className="hover:bg-[#46DFB1] font-semibold shadow-lg w-full sm:w-auto"
                   >
-                    <Link to="/AuthPages">Bắt Đầu Đầu Tư</Link>
+                    Trải nghiệm Web Platform ngay
                   </Button>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.1, rotate: -3 }} transition={{ type: "spring", stiffness: 400 }}>
@@ -204,12 +215,35 @@ function Home() {
                 </motion.div>
               </div>
             </AnimatedSection>
+            
+            {/* WhatsApp Image - Centered and Responsive */}
+            <AnimatedSection delay={1.0}>
+              <div className="flex justify-center -mt-5">
+                <motion.div 
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="relative w-full max-w-[150px] sm:max-w-[180px] md:max-w-[200px] px-2"
+                >
+                  <img
+                    src="https://static.whatsapp.net/rsrc.php/v3/yY/r/Q5OhYIrTxr_.png"
+                    alt="WhatsApp QR Code"
+                    className="w-full h-auto rounded-x mx-auto"
+                  />
+                  <motion.div
+                    className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full opacity-30"
+                    style={{ backgroundColor: "#46DFB1" }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.5, 0.3] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </motion.div>
+              </div>
+            </AnimatedSection>
           </div>
 
           {/* Hero Image */}
           <AnimatedSection direction="right" delay={1}>
             <motion.div
-              className="relative"
+              className="relative mx-auto max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl"
               whileHover={{ scale: 1.05, rotate: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
             >

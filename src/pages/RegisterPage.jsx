@@ -14,16 +14,16 @@ import {
 } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import logo from "../assets/logo.png";
-import { apiService } from "../api/Api";
 import { useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify"; // Import ToastContainer
-import "react-toastify/dist/ReactToastify.css"; // Import CSS cho toast
+import { toast } from "sonner";
+import { useAuth } from "@/Authentication/AuthContext";
 
 const Register = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const validationSchema = Yup.object().shape({
     email: Yup.string().email("Email không hợp lệ").required("Email là bắt buộc"),
@@ -63,29 +63,37 @@ const Register = () => {
     onSubmit: async (values) => {
       setLoading(true);
       try {
-        const response = await apiService.register({
+        console.log("Đăng ký với:", values); // Debug log
+        
+        const result = await register({
           name: values.name,
           email: values.email,
           password: values.password,
           phone: values.phone,
         });
 
-        if (response.status === 200) {
+        console.log("Kết quả đăng ký:", result); // Debug log
+
+        if (result.success) {
           localStorage.setItem("registerEmail", values.email);
           toast.success("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.", {
             position: "top-right",
-            autoClose: 2000,
-            theme: "dark",
+            duration: 2000,
           });
           setTimeout(() => {
             navigate("/otp");
           }, 2000); // Chờ 2s để người dùng thấy toast
+        } else {
+          toast.error(result.message || "Đăng ký thất bại", {
+            position: "top-right",
+            duration: 5000,
+          });
         }
       } catch (error) {
+        console.error("Lỗi đăng ký:", error); // Debug log
         toast.error(error.message || "Đăng ký thất bại", {
           position: "top-right",
-          autoClose: 5000,
-          theme: "dark",
+          duration: 5000,
         });
       } finally {
         setLoading(false);
@@ -102,9 +110,6 @@ const Register = () => {
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/60 z-10"></div>
-
-      {/* Toast Container */}
-      <ToastContainer />
 
       {/* Form Container */}
       <Card className="w-full max-w-md mx-4 p-6 bg-gray-900/95 text-teal-400 z-20 border border-teal-500/40 shadow-lg rounded-xl">

@@ -65,14 +65,38 @@ const CandlestickChart = ({ stockCode, data }) => {
           show: true,
           tools: {
             download: false,
-            selection: true,
+            selection: false,
             zoom: true,
             zoomin: true,
             zoomout: true,
             pan: true,
-            reset: true
+            reset: true,
+            close: false
           },
-          autoSelected: 'zoom'
+          autoSelected: 'zoom',
+          export: {
+            svg: {
+              show: false,
+            },
+            csv: {
+              show: false,
+            },
+            png: {
+              show: false,
+            }
+          },
+          dialog: {
+            enabled: true,
+            closeOnEscape: true,
+            header: {
+              closeButton: {
+                show: false
+              }
+            }
+          },
+          closeButton: {
+            show: false
+          }
         },
         zoom: {
           enabled: true,
@@ -984,17 +1008,6 @@ const CandlestickChart = ({ stockCode, data }) => {
             </div>
           </div>
         )}
-        
-        <div style={{ 
-          position: 'absolute', 
-          bottom: '5px', 
-          right: '5px', 
-          fontSize: '10px', 
-          color: '#a9a9a9',
-          opacity: 0.7
-        }}>
-          FE Stock Monitoring
-        </div>
       </div>
     </div>
   );

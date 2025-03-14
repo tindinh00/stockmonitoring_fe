@@ -12,12 +12,11 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "sonner";
 import { apiService } from "../api/Api";
 import { Mail, ArrowLeft, Send } from "lucide-react";
 import logo from "../assets/logo.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Schema validation với Zod
 const forgotPasswordSchema = z.object({
@@ -26,19 +25,6 @@ const forgotPasswordSchema = z.object({
     .nonempty("Email là bắt buộc")
     .email("Email không hợp lệ")
     .max(50, "Email không được dài quá 50 ký tự")
-    .refine(
-      (email) => {
-        const allowedDomains = ["gmail.com", "yahoo.com", "hotmail.com"];
-        const domain = email.split("@")[1];
-        return allowedDomains.includes(domain);
-      },
-      {
-        message: "Chỉ chấp nhận email từ Gmail, Yahoo hoặc Hotmail",
-      }
-    )
-    .refine((email) => !/[!#$%^&*()+=[\]{};':"\\|,<>/?]/.test(email.split("@")[0]), {
-      message: "Phần trước @ không được chứa ký tự đặc biệt ngoài dấu chấm",
-    }),
 });
 
 const ForgotPassword = () => {
@@ -46,11 +32,13 @@ const ForgotPassword = () => {
   const [emailSent, setEmailSent] = useState(false);
   const [timeoutSeconds, setTimeoutSeconds] = useState(0);
   const [timeoutActive, setTimeoutActive] = useState(false);
+  const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    getValues,
   } = useForm({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
@@ -74,21 +62,75 @@ const ForgotPassword = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      await apiService.forgotPassword(data.email);
-      setEmailSent(true);
-      setTimeoutSeconds(5);
-      setTimeoutActive(true);
-      toast.success("Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn!", {
-        position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
-      });
+      console.log("Requesting password reset for:", data.email);
+      
+      const result = await apiService.resendOtp(data.email);
+      console.log("Password reset request result:", result);
+      
+      if (result.success) {
+        setEmailSent(true);
+        setTimeoutSeconds(60); // 1 phút chờ trước khi gửi lại
+        setTimeoutActive(true);
+        
+        // Lưu email để sử dụng trong trang OTP
+        localStorage.setItem("resetPasswordEmail", data.email);
+        
+        toast.success("Mã OTP đã được gửi đến email của bạn!", {
+          position: "top-right",
+          duration: 5000,
+        });
+        
+        // Chuyển hướng đến trang OTP sau 2 giây
+        setTimeout(() => {
+          navigate("/otp");
+        }, 2000);
+      } else {
+        toast.error(result.message || "Không thể gửi mã OTP. Vui lòng thử lại sau.", {
+          position: "top-right",
+          duration: 5000,
+        });
+      }
     } catch (error) {
+      console.error("Password reset request error:", error);
       const errorMsg = error.message || "Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau.";
       toast.error(errorMsg, {
         position: "top-right",
-        autoClose: 5000,
-        theme: "dark",
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (timeoutActive) return;
+    
+    setLoading(true);
+    try {
+      const email = getValues("email");
+      console.log("Resending OTP to:", email);
+      
+      const result = await apiService.resendOtp(email);
+      console.log("Resend OTP result:", result);
+      
+      if (result.success) {
+        setTimeoutSeconds(60); // 1 phút chờ trước khi gửi lại
+        setTimeoutActive(true);
+        toast.success("Mã OTP đã được gửi lại!", {
+          position: "top-right",
+          duration: 5000,
+        });
+      } else {
+        toast.error(result.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.", {
+          position: "top-right",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      toast.error("Không thể gửi lại mã OTP. Vui lòng thử lại sau.", {
+        position: "top-right",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -105,9 +147,6 @@ const ForgotPassword = () => {
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/80 z-10"></div>
 
-      {/* Toast Container */}
-      <ToastContainer />
-
       {/* Form Container */}
       <Card className="w-full max-w-md mx-4 p-6 bg-gray-900/95 text-teal-400 z-20 border border-teal-500/40 shadow-lg rounded-xl">
         <CardHeader className="flex flex-col items-center mb-2">
@@ -122,8 +161,8 @@ const ForgotPassword = () => {
           </CardDescription>
           <p className="mt-2 text-teal-400/70 text-sm text-center">
             {!emailSent
-              ? "Nhập địa chỉ email để nhận liên kết đặt lại mật khẩu."
-              : "Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn."}
+              ? "Nhập địa chỉ email để nhận mã OTP đặt lại mật khẩu."
+              : "Chúng tôi đã gửi mã OTP đến email của bạn."}
           </p>
         </CardHeader>
 
@@ -180,7 +219,7 @@ const ForgotPassword = () => {
                 ) : (
                   <div className="flex items-center justify-center">
                     <Send className="h-4 w-4 mr-2" />
-                    Gửi yêu cầu
+                    Gửi mã OTP
                   </div>
                 )}
               </Button>
@@ -191,24 +230,18 @@ const ForgotPassword = () => {
                 <Mail className="h-8 w-8 text-teal-400" />
               </div>
               <p className="text-center text-teal-400/90">
-                Kiểm tra hộp thư đến để nhận hướng dẫn đặt lại mật khẩu.
+                Kiểm tra hộp thư đến để nhận mã OTP đặt lại mật khẩu.
               </p>
               <Button
                 type="button"
                 className="mt-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2.5 rounded-lg shadow-md transition-all"
                 disabled={timeoutActive}
-                onClick={() => {
-                  setEmailSent(false);
-                  if (!timeoutActive) {
-                    setTimeoutSeconds(5);
-                    setTimeoutActive(true);
-                  }
-                }}
+                onClick={handleResendEmail}
               >
                 {timeoutActive ? (
                   `Vui lòng đợi ${timeoutSeconds}s`
                 ) : (
-                  "Gửi lại email"
+                  "Gửi lại mã OTP"
                 )}
               </Button>
             </div>
@@ -225,4 +258,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword; 
+export default ForgotPassword;
