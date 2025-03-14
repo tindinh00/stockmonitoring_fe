@@ -14,16 +14,16 @@ import {
 } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import logo from "../assets/logo.png";
-import { apiService } from "../api/Api";
 import { useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify"; // Import ToastContainer
-import "react-toastify/dist/ReactToastify.css"; // Import CSS cho toast
+import { toast } from "sonner";
+import { useAuth } from "@/Authentication/AuthContext";
 
 const Register = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const validationSchema = Yup.object().shape({
     email: Yup.string().email("Email không hợp lệ").required("Email là bắt buộc"),
@@ -63,29 +63,37 @@ const Register = () => {
     onSubmit: async (values) => {
       setLoading(true);
       try {
-        const response = await apiService.register({
+        console.log("Đăng ký với:", values); // Debug log
+        
+        const result = await register({
           name: values.name,
           email: values.email,
           password: values.password,
           phone: values.phone,
         });
 
-        if (response.status === 200) {
+        console.log("Kết quả đăng ký:", result); // Debug log
+
+        if (result.success) {
           localStorage.setItem("registerEmail", values.email);
           toast.success("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.", {
             position: "top-right",
-            autoClose: 2000,
-            theme: "dark",
+            duration: 2000,
           });
           setTimeout(() => {
             navigate("/otp");
           }, 2000); // Chờ 2s để người dùng thấy toast
+        } else {
+          toast.error(result.message || "Đăng ký thất bại", {
+            position: "top-right",
+            duration: 5000,
+          });
         }
       } catch (error) {
+        console.error("Lỗi đăng ký:", error); // Debug log
         toast.error(error.message || "Đăng ký thất bại", {
           position: "top-right",
-          autoClose: 5000,
-          theme: "dark",
+          duration: 5000,
         });
       } finally {
         setLoading(false);
@@ -103,17 +111,14 @@ const Register = () => {
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/60 z-10"></div>
 
-      {/* Toast Container */}
-      <ToastContainer />
-
       {/* Form Container */}
       <Card className="w-full max-w-md mx-4 p-6 bg-gray-900/95 text-teal-400 z-20 border border-teal-500/40 shadow-lg rounded-xl">
         <CardHeader className="flex flex-col items-center mb-4">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="StockSmart" className="h-16 w-auto" />
-            <CardTitle className="text-3xl font-bold text-teal-400">StockSmart</CardTitle>
+          <div className="flex items-center -ml-5">
+            <img src={logo} alt="StockSmart" className="h-16 w-auto" style={{ transform: 'translateY(3px)' }} />
+            <CardTitle className="text-3xl font-bold text-teal-400 -ml-3">StockSmart</CardTitle>
           </div>
-          <CardDescription className="text-teal-400/80 mt-2 text-lg font-semibold text-left">
+          <CardDescription className="text-teal-400/80 mt-2 text-lg font-bold text-left">
             Đăng ký
           </CardDescription>
         </CardHeader>
@@ -299,15 +304,21 @@ const Register = () => {
             <Button
               type="button"
               variant="outline"
-              className="w-full bg-red-600 hover:bg-red-700 text-white border-none font-semibold py-2.5 rounded-lg shadow-md transition-all"
+              className="w-full bg-red-700 hover:bg-red-800 text-white border-none font-semibold py-2.5 rounded-lg shadow-md transition-all flex items-center justify-center"
             >
-              Google
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px">
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+              </svg>
+              <span>Đăng ký với Google</span>
             </Button>
 
             {/* Login Link */}
             <p className="text-sm text-teal-400 text-center">
               Đã có tài khoản?{" "}
-              <a href="/LoginPages" className="font-medium hover:underline">
+              <a href="/login" className="font-medium hover:underline">
                 Đăng nhập
               </a>
             </p>

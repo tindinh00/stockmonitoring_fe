@@ -102,17 +102,120 @@ export const apiService = {
 
   verifyOtp: async (email, code) => {
     try {
+      console.log(`Verifying OTP for email: ${email}, code: ${code}`);
+      
       const response = await api.post("/api/otp/verify-otp-register", {
         email: email,
         code: code.toString(),
       });
-      return response.data;
+      
+      console.log("OTP verification response:", response);
+      
+      // Kiểm tra cấu trúc dữ liệu phản hồi
+      const responseData = response.data;
+      
+      // Xử lý cấu trúc dữ liệu lồng nhau
+      if (responseData.value) {
+        console.log("Extracted data from value:", responseData.value);
+        return responseData.value;
+      }
+      
+      return {
+        success: response.status === 200,
+        message: responseData.message || "Xác thực OTP thành công"
+      };
     } catch (error) {
       console.error("Verify OTP error:", error);
+      console.error("Error details:", error.response?.data);
+      
       if (error.response?.status === 404) {
         throw new Error("Không tìm thấy API verify OTP. Vui lòng kiểm tra lại đường dẫn API.");
       }
-      throw error.response?.data || error;
+      
+      // Trả về đối tượng lỗi có cấu trúc phù hợp
+      return {
+        success: false,
+        message: error.response?.data?.message || "Xác thực OTP thất bại"
+      };
+    }
+  },
+
+  resendOtp: async (email) => {
+    try {
+      console.log(`Requesting OTP for email: ${email}`);
+      
+      const response = await api.post("/api/otp/resend-otp", {
+        email: email
+      });
+      
+      console.log("Resend OTP response:", response);
+      
+      // Kiểm tra cấu trúc dữ liệu phản hồi
+      const responseData = response.data;
+      
+      // Xử lý cấu trúc dữ liệu lồng nhau
+      if (responseData.value) {
+        console.log("Extracted data from value:", responseData.value);
+        return {
+          success: true,
+          message: "Mã OTP đã được gửi đến email của bạn",
+          data: responseData.value
+        };
+      }
+      
+      return {
+        success: response.status === 200,
+        message: responseData.message || "Mã OTP đã được gửi đến email của bạn"
+      };
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      console.error("Error details:", error.response?.data);
+      
+      // Trả về đối tượng lỗi có cấu trúc phù hợp
+      return {
+        success: false,
+        message: error.response?.data?.message || "Không thể gửi mã OTP"
+      };
+    }
+  },
+  
+  resetPassword: async (email, newPassword) => {
+    try {
+      console.log(`Resetting password for email: ${email}`);
+      
+      const response = await api.post("/api/users/reset-password", {
+        email: email,
+        newPassword: newPassword
+      });
+      
+      console.log("Reset password response:", response);
+      
+      // Kiểm tra cấu trúc dữ liệu phản hồi
+      const responseData = response.data;
+      
+      // Xử lý cấu trúc dữ liệu lồng nhau
+      if (responseData.value) {
+        console.log("Extracted data from value:", responseData.value);
+        return {
+          success: true,
+          message: "Mật khẩu đã được đặt lại thành công",
+          data: responseData.value
+        };
+      }
+      
+      return {
+        success: response.status === 200,
+        message: responseData.message || "Mật khẩu đã được đặt lại thành công"
+      };
+    } catch (error) {
+      console.error("Reset password error:", error);
+      console.error("Error details:", error.response?.data);
+      
+      // Trả về đối tượng lỗi có cấu trúc phù hợp
+      return {
+        success: false,
+        message: error.response?.data?.message || "Không thể đặt lại mật khẩu"
+      };
     }
   },
 };

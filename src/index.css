@@ -28,7 +28,19 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --brand: 217.2 91.2% 59.8%;
+    --brand-foreground: 0 0% 98%;
+    --highlight: 47.9 95.8% 53.1%;
+    --highlight-foreground: 240 5.9% 10%;
   }
   .dark {
     --background: 240 10% 3.9%;
@@ -54,7 +66,76 @@
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --brand: 213.3 93.9% 67.8%;
+    --brand-foreground: 0 0% 98%;
+    --highlight: 48 96% 53%;
+    --highlight-foreground: 240 5.9% 10%;
+  }
+  [data-registry="plate"] {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --brand: 217.2 91.2% 59.8%;
+    --highlight: 47.9 95.8% 53.1%;
+  }
+  [data-registry="plate"].dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --brand: 213.3 93.9% 67.8%;
+    --highlight: 48 96% 53%;
   }
 }
 
@@ -65,4 +146,289 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .prose {
+    @apply text-base leading-7;
+  }
+  
+  .prose h1 {
+    @apply text-3xl font-bold mt-6 mb-4;
+  }
+  
+  .prose h2 {
+    @apply text-2xl font-bold mt-5 mb-3;
+  }
+  
+  .prose h3 {
+    @apply text-xl font-bold mt-4 mb-2;
+  }
+  
+  .prose p {
+    @apply my-4;
+  }
+  
+  .prose ul {
+    @apply list-disc pl-6 my-4;
+  }
+  
+  .prose ol {
+    @apply list-decimal pl-6 my-4;
+  }
+  
+  .prose li {
+    @apply mb-1;
+  }
+  
+  .prose blockquote {
+    @apply border-l-4 border-gray-300 pl-4 italic my-4;
+  }
+  
+  .prose img {
+    @apply max-w-full rounded-lg my-4;
+  }
+  
+  .prose a {
+    @apply text-blue-600 hover:underline;
+  }
+  
+  .prose code {
+    @apply bg-gray-100 px-1 py-0.5 rounded text-sm;
+  }
+  
+  .prose pre {
+    @apply bg-gray-100 p-4 rounded-lg overflow-x-auto my-4;
+  }
+  
+  .prose pre code {
+    @apply bg-transparent p-0;
+  }
+  
+  .prose hr {
+    @apply my-8 border-t border-gray-300;
+  }
+  
+  .prose *:first-child {
+    @apply mt-0;
+  }
+  
+  .prose *:last-child {
+    @apply mb-0;
+  }
+  
+  .prose [data-align="center"] {
+    @apply text-center;
+  }
+  
+  .prose [data-align="right"] {
+    @apply text-right;
+  }
+  
+  .prose [data-align="left"] {
+    @apply text-left;
+  }
+}
+
+/* Dialog styles - Đặt ở đầu để có độ ưu tiên cao hơn */
+.dialog-content {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure dialog overlay doesn't block content */
+[data-state="open"][role="dialog"] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+[data-state="open"] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Fix for Radix UI Dialog */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+/* Tippy.js styles for slash command menu */
+.tippy-box {
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.tippy-content {
+  padding: 0 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+.tippy-slash-command {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  z-index: 99999 !important;
+  visibility: visible !important;
+}
+
+.tippy-slash-command * {
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+/* Ensure tippy is clickable */
+[data-tippy-root] {
+  pointer-events: auto !important;
+  z-index: 99999 !important;
+  visibility: visible !important;
+}
+
+/* Make sure editor content is above other elements but not blocking inputs */
+.ProseMirror {
+  position: relative;
+  pointer-events: auto !important;
+  z-index: 1 !important;
+}
+
+/* Định dạng cho các thẻ heading trong editor */
+.ProseMirror h1 {
+  font-size: 2em !important;
+  font-weight: bold !important;
+  margin-top: 0.67em !important;
+  margin-bottom: 0.67em !important;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em !important;
+  font-weight: bold !important;
+  margin-top: 0.83em !important;
+  margin-bottom: 0.83em !important;
+}
+
+.ProseMirror h3 {
+  font-size: 1.17em !important;
+  font-weight: bold !important;
+  margin-top: 1em !important;
+  margin-bottom: 1em !important;
+}
+
+/* Only apply z-index to buttons when needed */
+.rich-text-editor button:focus {
+  z-index: 50;
+}
+
+/* Fix for dialog backdrop */
+[data-radix-dialog-overlay] {
+  pointer-events: auto !important;
+  opacity: 0.8 !important;
+  visibility: visible !important;
+  z-index: 9000 !important;
+}
+
+/* Fix for dialog content */
+[data-radix-dialog-content] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure dialog doesn't close when clicking inside */
+.dialog-content * {
+  pointer-events: auto !important;
+}
+
+/* Fix for Tippy.js and Dialog interaction */
+.tippy-box[data-placement^='bottom'] {
+  margin-top: 10px !important;
+}
+
+/* Ensure proper stacking context */
+.rich-text-editor {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure slash command menu is visible and interactive */
+.tippy-box[data-theme~='light'] {
+  background-color: white !important;
+  color: black !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 6px !important;
+}
+
+/* Ẩn mũi tên của tippy */
+.tippy-box[data-theme~='light'] .tippy-arrow {
+  display: none !important;
+}
+
+.tippy-box .tippy-arrow {
+  display: none !important;
+}
+
+/* Ẩn tippy khi không cần thiết */
+.tippy-box[data-state='hidden'] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Fix for dialog and tippy interaction */
+.dialog-content .ProseMirror {
+  z-index: 1 !important;
+}
+
+.dialog-content .tippy-box {
+  z-index: 99999 !important;
+}
+
+/* Ensure buttons in editor are clickable */
+.rich-text-editor button {
+  position: relative;
+  z-index: 2;
+}
+
+/* Fix for dialog overlay */
+[data-radix-dialog-overlay][data-state="open"] {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+
+/* Add to your global CSS */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: white !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0a0a14 inset;
+  caret-color: white;
+}
+
+/* Firefox */
+input {
+  color-scheme: dark;
 }
