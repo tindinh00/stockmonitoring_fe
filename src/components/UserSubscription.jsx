@@ -80,7 +80,7 @@ const UserSubscription = ({ subscriptions = [] }) => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Gói dịch vụ của bạn</h2>
+      
       
       {displaySubscriptions.length === 0 ? (
         <Card>

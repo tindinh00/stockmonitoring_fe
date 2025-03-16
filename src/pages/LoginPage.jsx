@@ -150,9 +150,8 @@ const Login = () => {
         // Đảm bảo chuyển hướng an toàn
         try {
           setTimeout(() => {
-            console.log("Navigating to home page...");
-            navigate("/");
-          }, 2000);
+            navigate("/stock");
+          }, 1000);
         } catch (navError) {
           console.error("Navigation error:", navError);
           // Nếu có lỗi khi chuyển hướng, thử tải lại trang

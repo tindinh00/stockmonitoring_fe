@@ -5,6 +5,20 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Input } from "@/components/ui/input";
 import moment from 'moment';
 import CandlestickChart from '@/components/CandlestickChart';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts';
+import Chart from 'react-apexcharts';
 
 const StockDerivatives = () => {
   const [activeTab, setActiveTab] = useState('price');
@@ -86,6 +100,93 @@ const StockDerivatives = () => {
       foreignSell: '0'
     }
   ];
+
+  // Add mock data for charts
+  const vnIndexData = Array.from({ length: 360 }, (_, i) => ({
+    time: new Date(2024, 0, 1, 9, i).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    value: 1200 + Math.sin(i / 30) * 50 + Math.random() * 20,
+    volume: Math.random() * 1000000
+  }));
+
+  const liquidityData = Array.from({ length: 360 }, (_, i) => ({
+    time: new Date(2024, 0, 1, 9, i).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    value: Math.random() * 24000,
+    previousDay: Math.random() * 24000,
+    yesterday: Math.random() * 24000
+  }));
+
+  const distributionData = [
+    { range: "-7%", count: 24, color: "#FF4A4A" },
+    { range: "-5%", count: 15, color: "#FF4A4A" },
+    { range: "-3%", count: 35, color: "#FF4A4A" },
+    { range: "-2%", count: 30, color: "#FF4A4A" },
+    { range: "-1%", count: 66, color: "#FF4A4A" },
+    { range: "-0.1%", count: 111, color: "#FF4A4A" },
+    { range: "0%", count: 531, color: "#F4BE37" },
+    { range: "+0.1%", count: 56, color: "#00FF00" },
+    { range: "+2%", count: 38, color: "#00FF00" },
+    { range: "+3%", count: 14, color: "#00FF00" },
+    { range: "+5%", count: 8, color: "#00FF00" },
+    { range: "+7%", count: 20, color: "#00FF00" },
+  ];
+
+  const distributionChartOptions = {
+    chart: {
+      type: 'bar',
+      background: '#1a1a1a',
+      toolbar: {
+        show: false
+      }
+    },
+    plotOptions: {
+      bar: {
+        columnWidth: '80%',
+        distributed: true,
+        dataLabels: {
+          position: 'top'
+        }
+      }
+    },
+    colors: ['#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#F4BE37', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00'],
+    dataLabels: {
+      enabled: true,
+      formatter: function (val) {
+        return val
+      },
+      offsetY: -20,
+      style: {
+        fontSize: '12px',
+        colors: ['#fff']
+      }
+    },
+    legend: {
+      show: false
+    },
+    grid: {
+      show: false
+    },
+    xaxis: {
+      categories: ['-7%', '-5%', '-3%', '-2%', '-1%', '-0.1%', '0%', '+0.1%', '+2%', '+3%', '+5%', '+7%'],
+      labels: {
+        style: {
+          colors: '#999',
+          fontSize: '11px'
+        }
+      },
+      axisBorder: {
+        show: false
+      },
+      axisTicks: {
+        show: false
+      }
+    },
+    yaxis: {
+      show: false
+    },
+    tooltip: {
+      enabled: false
+    }
+  };
 
   const handleStockClick = (stock) => {
     setSelectedStock(stock);
@@ -479,19 +580,504 @@ const StockDerivatives = () => {
           </div>
         ) : (
           <div className="p-4 text-white animate-[fadeIn_0.3s_ease-in-out]">
-            {/* Toàn cảnh thị trường content */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-[#1a1a1a] p-4 rounded-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg animate-[fadeIn_0.3s_ease-in-out]">
-                <h3 className="text-lg font-medium mb-4">Top tăng giá</h3>
-                {/* Add content for top gainers */}
+            {/* Market Overview Header */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#FF4A4A] text-lg font-medium">VNINDEX</span>
+                      <span className="text-[#FF4A4A]">1,326.15</span>
+                      <span className="text-[#FF4A4A]">-0.12 (-0.01%)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <span className="text-[#00FF00]">↑170 (0)</span>
+                      <span className="text-[#FF4A4A]">↓283</span>
+                      <span className="text-[#999]">(0)</span>
+                      <span className="text-white">1,023,002,500CP</span>
+                      <span className="text-white">23,043.57TY</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="bg-[#1a1a1a] p-4 rounded-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg animate-[fadeIn_0.4s_ease-in-out]">
-                <h3 className="text-lg font-medium mb-4">Top giảm giá</h3>
-                {/* Add content for top losers */}
+              <div className="flex items-center gap-2 text-sm text-[#999]">
+                <span>Hết giờ</span>
               </div>
-              <div className="bg-[#1a1a1a] p-4 rounded-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg animate-[fadeIn_0.5s_ease-in-out]">
-                <h3 className="text-lg font-medium mb-4">Top khối lượng</h3>
-                {/* Add content for top volume */}
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 gap-4">
+              {/* HOSE Charts */}
+              <div>
+                <div className="text-sm font-medium text-white mb-1">Sàn HOSE</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* VN-Index Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#FF4A4A]"></div>
+                          <span className="text-sm font-medium text-white">Dữ liệu thống kê HOSE</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Mở cửa:</span>
+                            <span className="text-white">1,328.15</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Cao:</span>
+                            <span className="text-[#00FF00]">1,331.27</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Thấp:</span>
+                            <span className="text-[#FF4A4A]">1,325.89</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">GTGD (tỷ)</span>
+                          <span className="text-white font-medium">23,043.57</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">KLGD (triệu CP)</span>
+                          <span className="text-white font-medium">1,023.00</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Dư mua (tỷ)</span>
+                          <span className="text-[#00FF00] font-medium">+2,145.32</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Dư bán (tỷ)</span>
+                          <span className="text-[#FF4A4A] font-medium">-1,897.45</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={vnIndexData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.5} />
+                          <XAxis 
+                            dataKey="time"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            yAxisId="price"
+                            orientation="right"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            yAxisId="volume"
+                            orientation="left"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(26,26,26,0.95)', 
+                              border: '1px solid #333',
+                              borderRadius: '4px'
+                            }}
+                            labelStyle={{ color: '#999' }}
+                          />
+                          <Line 
+                            yAxisId="price"
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke="#FF4A4A"
+                            dot={false}
+                          />
+                          <Bar
+                            yAxisId="volume"
+                            dataKey="volume"
+                            fill="#2a2a2a"
+                            opacity={0.5}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Liquidity Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#F4BE37]"></div>
+                          <span className="text-sm font-medium text-white">Thanh khoản HOSE (TỶ VND)</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#FF4A4A] rounded-full"></div>
+                              <span className="text-[#999]">Hiện tại</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#00FF00] rounded-full"></div>
+                              <span className="text-[#999]">Hôm qua</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#F4BE37] rounded-full"></div>
+                              <span className="text-[#999]">TB 5 ngày</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Hiện tại</span>
+                          <span className="text-[#FF4A4A] font-medium">23,043.57</span>
+                          <span className="text-[#FF4A4A] text-[10px]">-12.5%</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Hôm qua</span>
+                          <span className="text-[#00FF00] font-medium">26,321.45</span>
+                          <span className="text-[#00FF00] text-[10px]">+8.2%</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">TB 5 ngày</span>
+                          <span className="text-[#F4BE37] font-medium">24,567.89</span>
+                          <span className="text-[#F4BE37] text-[10px]">-2.1%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={liquidityData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.5} />
+                          <XAxis 
+                            dataKey="time"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(26,26,26,0.95)', 
+                              border: '1px solid #333',
+                              borderRadius: '4px'
+                            }}
+                            labelStyle={{ color: '#999' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke="#FF4A4A"
+                            dot={false}
+                            name="Hiện tại"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="previousDay" 
+                            stroke="#00FF00"
+                            dot={false}
+                            name="Hôm qua"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="yesterday" 
+                            stroke="#F4BE37"
+                            dot={false}
+                            name="TB 5 ngày trước"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Distribution Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#00FF00]"></div>
+                          <span className="text-sm font-medium text-white">Biến động cổ phiếu HOSE</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="px-2 py-1 rounded bg-[#1E1E1E] border border-[#333]">
+                            <span className="text-[#FF4A4A]">Giảm: 283</span>
+                            <span className="text-[#999] mx-2">|</span>
+                            <span className="text-[#F4BE37]">Đứng: 0</span>
+                            <span className="text-[#999] mx-2">|</span>
+                            <span className="text-[#00FF00]">Tăng: 170</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Trần</span>
+                          <span className="text-[#FF424E] font-medium">15</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Sàn</span>
+                          <span className="text-[#00C9FF] font-medium">23</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Tăng mạnh</span>
+                          <span className="text-[#00FF00] font-medium">42</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Giảm mạnh</span>
+                          <span className="text-[#FF4A4A] font-medium">38</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <Chart
+                        options={distributionChartOptions}
+                        series={[{
+                          name: 'Số lượng CP',
+                          data: distributionData.map(item => item.count)
+                        }]}
+                        type="bar"
+                        height="100%"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* HNX Charts */}
+              <div>
+                <div className="text-sm font-medium text-white mb-1 mt-2">Sàn HNX</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* HNX-Index Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#00B4D8]"></div>
+                          <span className="text-sm font-medium text-white">Dữ liệu thống kê HNX</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Mở cửa:</span>
+                            <span className="text-white">228.15</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Cao:</span>
+                            <span className="text-[#00FF00]">231.27</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#999]">Thấp:</span>
+                            <span className="text-[#FF4A4A]">225.89</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">GTGD (tỷ)</span>
+                          <span className="text-white font-medium">3,043.57</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">KLGD (triệu CP)</span>
+                          <span className="text-white font-medium">223.00</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Dư mua (tỷ)</span>
+                          <span className="text-[#00FF00] font-medium">+445.32</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Dư bán (tỷ)</span>
+                          <span className="text-[#FF4A4A] font-medium">-397.45</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={vnIndexData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.5} />
+                          <XAxis 
+                            dataKey="time"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            yAxisId="price"
+                            orientation="right"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            yAxisId="volume"
+                            orientation="left"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(26,26,26,0.95)', 
+                              border: '1px solid #333',
+                              borderRadius: '4px'
+                            }}
+                            labelStyle={{ color: '#999' }}
+                          />
+                          <Line 
+                            yAxisId="price"
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke="#00B4D8"
+                            dot={false}
+                          />
+                          <Bar
+                            yAxisId="volume"
+                            dataKey="volume"
+                            fill="#2a2a2a"
+                            opacity={0.5}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* HNX Liquidity Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#F4BE37]"></div>
+                          <span className="text-sm font-medium text-white">Thanh khoản HNX (TỶ VND)</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#00B4D8] rounded-full"></div>
+                              <span className="text-[#999]">Hiện tại</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#00FF00] rounded-full"></div>
+                              <span className="text-[#999]">Hôm qua</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-[#F4BE37] rounded-full"></div>
+                              <span className="text-[#999]">TB 5 ngày</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Hiện tại</span>
+                          <span className="text-[#00B4D8] font-medium">3,043.57</span>
+                          <span className="text-[#00B4D8] text-[10px]">-8.5%</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Hôm qua</span>
+                          <span className="text-[#00FF00] font-medium">3,321.45</span>
+                          <span className="text-[#00FF00] text-[10px]">+5.2%</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">TB 5 ngày</span>
+                          <span className="text-[#F4BE37] font-medium">3,567.89</span>
+                          <span className="text-[#F4BE37] text-[10px]">-1.1%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={liquidityData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.5} />
+                          <XAxis 
+                            dataKey="time"
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 11, fill: '#999' }}
+                            stroke="#333"
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(26,26,26,0.95)', 
+                              border: '1px solid #333',
+                              borderRadius: '4px'
+                            }}
+                            labelStyle={{ color: '#999' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke="#00B4D8"
+                            dot={false}
+                            name="Hiện tại"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="previousDay" 
+                            stroke="#00FF00"
+                            dot={false}
+                            name="Hôm qua"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="yesterday" 
+                            stroke="#F4BE37"
+                            dot={false}
+                            name="TB 5 ngày trước"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* HNX Distribution Chart */}
+                  <div className="bg-[#1a1a1a] rounded-lg p-2">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#00B4D8]"></div>
+                          <span className="text-sm font-medium text-white">Biến động cổ phiếu HNX</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="px-2 py-1 rounded bg-[#1E1E1E] border border-[#333]">
+                            <span className="text-[#FF4A4A]">Giảm: 83</span>
+                            <span className="text-[#999] mx-2">|</span>
+                            <span className="text-[#F4BE37]">Đứng: 0</span>
+                            <span className="text-[#999] mx-2">|</span>
+                            <span className="text-[#00FF00]">Tăng: 70</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Trần</span>
+                          <span className="text-[#FF424E] font-medium">5</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Sàn</span>
+                          <span className="text-[#00C9FF] font-medium">3</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Tăng mạnh</span>
+                          <span className="text-[#00FF00] font-medium">12</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[#999]">Giảm mạnh</span>
+                          <span className="text-[#FF4A4A] font-medium">8</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[200px]">
+                      <Chart
+                        options={{
+                          ...distributionChartOptions,
+                          colors: ['#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#FF4A4A', '#F4BE37', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00']
+                        }}
+                        series={[{
+                          name: 'Số lượng CP',
+                          data: [14, 8, 25, 20, 46, 81, 231, 36, 28, 10, 5, 10]
+                        }]}
+                        type="bar"
+                        height="100%"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

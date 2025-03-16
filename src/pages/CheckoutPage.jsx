@@ -341,9 +341,20 @@ export default function CheckoutPage() {
                           <span>{selectedPlan.period}</span>
                         </div>
                       </div>
-                      <span className={`text-2xl font-bold bg-gradient-to-r ${selectedPlan.gradient} bg-clip-text text-transparent`}>
-                        {selectedPlan.price.toLocaleString()}đ
-                      </span>
+                      {selectedPlan.onSale && selectedPlan.originalPrice > selectedPlan.price ? (
+                        <div className="flex flex-col items-end">
+                          <span className={`text-2xl font-bold bg-gradient-to-r ${selectedPlan.gradient} bg-clip-text text-transparent`}>
+                            {selectedPlan.price.toLocaleString()}đ
+                          </span>
+                          <span className="text-sm text-gray-400 line-through">
+                            {selectedPlan.originalPrice.toLocaleString()}đ
+                          </span>
+                        </div>
+                      ) : (
+                        <span className={`text-2xl font-bold bg-gradient-to-r ${selectedPlan.gradient} bg-clip-text text-transparent`}>
+                          {selectedPlan.price.toLocaleString()}đ
+                        </span>
+                      )}
                     </div>
 
                     <div className="space-y-3">
@@ -360,9 +371,19 @@ export default function CheckoutPage() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between pt-4 border-t border-gray-800">
                       <span className="text-lg font-medium text-gray-400">Tổng cộng</span>
-                      <span className="text-2xl font-bold text-white">
-                        {selectedPlan.price.toLocaleString()}đ
-                      </span>
+                      <div className="text-right">
+                        {selectedPlan.onSale && selectedPlan.originalPrice > selectedPlan.price && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm text-gray-400">Tiết kiệm:</span>
+                            <span className="text-sm text-green-500 font-medium">
+                              {(selectedPlan.originalPrice - selectedPlan.price).toLocaleString()}đ
+                            </span>
+                          </div>
+                        )}
+                        <span className="text-2xl font-bold text-white">
+                          {selectedPlan.price.toLocaleString()}đ
+                        </span>
+                      </div>
                     </div>
 
                     <Button 

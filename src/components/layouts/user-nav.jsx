@@ -85,7 +85,7 @@ export function UserNav() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 bg-[#131325] border-[#1f1f30] text-white" align="end" forceMount>
+      <DropdownMenuContent className="w-56 bg-white border-gray-200 text-black" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user?.name || "Người dùng"}</p>
@@ -97,24 +97,24 @@ export function UserNav() {
             )}
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-[#1f1f30]" />
+        <DropdownMenuSeparator className="bg-gray-200" />
         <DropdownMenuGroup>
           <DropdownMenuItem 
-            className="hover:bg-[#1f1f30] focus:bg-[#1f1f30] cursor-pointer"
+            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile')}
           >
             <User className="mr-2 h-4 w-4" />
             <span>Hồ sơ</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            className="hover:bg-[#1f1f30] focus:bg-[#1f1f30] cursor-pointer"
+            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile?tab=subscriptions')}
           >
             <CreditCard className="mr-2 h-4 w-4" />
             <span>Gói dịch vụ {user?.tier && `(${user.tier})`}</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            className="hover:bg-[#1f1f30] focus:bg-[#1f1f30] cursor-pointer"
+            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile?tab=settings')}
           >
             <Settings className="mr-2 h-4 w-4" />
@@ -123,7 +123,7 @@ export function UserNav() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator className="bg-[#1f1f30]" />
         <DropdownMenuItem 
-          className="hover:bg-[#1f1f30] focus:bg-[#1f1f30] cursor-pointer text-red-400 hover:text-red-300"
+          className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer text-red-400 hover:text-red-300"
           onClick={handleLogout}
         >
           <LogOut className="mr-2 h-4 w-4" />

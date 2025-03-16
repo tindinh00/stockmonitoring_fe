@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Shield, TrendingUp, Clock, Award } from "lucide-react"
+import { Check, Sparkles, Zap, Shield, TrendingUp, Clock, Award, Percent } from "lucide-react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
+import { Badge } from "@/components/ui/badge"
 
 const pricingPlans = [
   {
     name: "Basic Trader",
     price: 199000,
+    originalPrice: 299000,
+    onSale: true,
     description: "Khởi đầu hành trình đầu tư của bạn",
     gradient: "from-[#3CA55C] to-[#B5AC49]",
     bgGlow: "group-hover:shadow-[#3CA55C]/20",
@@ -28,6 +31,8 @@ const pricingPlans = [
   {
     name: "Elite Trader",
     price: 499000,
+    originalPrice: 699000,
+    onSale: true,
     description: "Tối ưu lợi nhuận với công nghệ AI",
     gradient: "from-[#FF512F] to-[#DD2476]",
     bgGlow: "group-hover:shadow-[#DD2476]/20",
@@ -50,6 +55,8 @@ const pricingPlans = [
   {
     name: "Institutional",
     price: 1499000,
+    originalPrice: 1499000,
+    onSale: false,
     description: "Giải pháp toàn diện cho tổ chức",
     gradient: "from-[#7F00FF] to-[#E100FF]",
     bgGlow: "group-hover:shadow-[#7F00FF]/20",
@@ -70,6 +77,12 @@ const pricingPlans = [
     }
   },
 ]
+
+// Tính phần trăm giảm giá
+const calculateDiscountPercentage = (originalPrice, salePrice) => {
+  if (!originalPrice || !salePrice || originalPrice <= salePrice) return 0;
+  return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+};
 
 const StatCard = ({ icon, label, value, gradient }) => (
   <div className="flex items-center gap-3 p-3 rounded-lg bg-black/40 backdrop-blur-sm border border-gray-800">
@@ -132,6 +145,14 @@ export default function UpgradePackage() {
                     Phổ biến nhất
                   </div>
                 )}
+                
+                {plan.onSale && plan.originalPrice > plan.price && (
+                  <div className="absolute -top-4 right-4 px-3 py-1 bg-gradient-to-r from-red-500 to-orange-500 
+                    rounded-full text-white text-sm font-medium shadow-lg shadow-red-500/30 flex items-center gap-1">
+                    <Percent className="w-3 h-3" />
+                    Giảm {calculateDiscountPercentage(plan.originalPrice, plan.price)}%
+                  </div>
+                )}
 
                 <div className="p-6 flex flex-col flex-grow">
                   <div className="flex items-center gap-3 mb-4">
@@ -145,10 +166,24 @@ export default function UpgradePackage() {
                   </div>
 
                   <div className="mb-6">
-                    <span className={`text-4xl font-bold bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>
-                      {plan.price.toLocaleString()}đ
-                    </span>
-                    <span className="text-gray-400 ml-2">/tháng</span>
+                    {plan.onSale && plan.originalPrice > plan.price ? (
+                      <div className="flex flex-col">
+                        <span className={`text-4xl font-bold bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>
+                          {plan.price.toLocaleString()}đ
+                        </span>
+                        <span className="text-gray-400 line-through text-lg">
+                          {plan.originalPrice.toLocaleString()}đ
+                        </span>
+                        <span className="text-gray-400 mt-1">/tháng</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className={`text-4xl font-bold bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>
+                          {plan.price.toLocaleString()}đ
+                        </span>
+                        <span className="text-gray-400 ml-2">/tháng</span>
+                      </>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-6">
@@ -194,6 +229,8 @@ export default function UpgradePackage() {
                             plan: {
                               name: plan.name,
                               price: plan.price,
+                              originalPrice: plan.originalPrice,
+                              onSale: plan.onSale,
                               gradient: plan.gradient,
                               period: "1 tháng",
                               features: plan.features,

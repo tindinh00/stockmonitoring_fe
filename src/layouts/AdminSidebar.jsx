@@ -12,10 +12,7 @@ import {
   PanelLeft,
   User,
   Settings,
-  LayoutDashboard,
-  FileText,
-  BookOpen,
-  Database
+  LayoutDashboard
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,31 +54,44 @@ import { toast } from 'sonner';
 export const navItems = [
   {
     title: "Dashboard",
-    url: "/manager/dashboard",
+    url: "/admin/dashboard",
     icon: "layoutDashboard",
     isActive: true
   },
   {
-    title: "Kiến thức",
-    url: "/manager/knowledge",
-    icon: "bookOpen",
-    isActive: true
+    title: "Quản lý",
+    url: "#",
+    icon: "settings",
+    isActive: true,
+    items: [
+      { title: "Người dùng", url: "/admin/users" },
+      { title: "Gói dịch vụ", url: "/admin/packages" }
+    ]
   },
   {
-    title: "Báo cáo khiếu nại",
-    url: "/manager/reports",
-    icon: "fileText",
-    isActive: true
+    title: "Playground",
+    url: "#",
+    icon: "box",
+    isActive: true,
+    items: [
+      { title: "History", url: "/history" },
+      { title: "Starred", url: "/starred" },
+      { title: "Settings", url: "/settings" }
+    ]
   },
   {
-    title: "Quản lý Scraper",
-    url: "/manager/scraper",
-    icon: "database",
-    isActive: true
+    title: "Models",
+    url: "/models",
+    icon: "database"
   },
   {
-    title: "Cài đặt",
-    url: "/manager/settings",
+    title: "Documentation",
+    url: "/docs",
+    icon: "fileText"
+  },
+  {
+    title: "Settings",
+    url: "/settings",
     icon: "settings"
   }
 ];
@@ -90,16 +100,16 @@ export const navItems = [
 export const company = {
   name: 'StockFlow',
   logo: GalleryVerticalEnd,
-  plan: 'Manager'
+  plan: 'Enterprise'
 };
 
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
   layoutDashboard: () => <LayoutDashboard className="size-4" />,
-  bookOpen: () => <BookOpen className="size-4" />,
-  fileText: () => <FileText className="size-4" />,
-  database: () => <Database className="size-4" />,
+  box: () => <GalleryVerticalEnd className="size-4" />,
+  database: () => <GalleryVerticalEnd className="size-4" />,
+  fileText: () => <GalleryVerticalEnd className="size-4" />,
   settings: () => <Settings className="size-4" />
 };
 
@@ -111,7 +121,7 @@ export function CustomSidebarTrigger() {
   return null;
 }
 
-export default function AppSidebar() {
+export default function AdminSidebar() {
   const { state, isMobile } = useSidebar();
   const location = useLocation();
   const pathname = location.pathname;

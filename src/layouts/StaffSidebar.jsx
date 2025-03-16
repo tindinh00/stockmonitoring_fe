@@ -13,9 +13,8 @@ import {
   User,
   Settings,
   LayoutDashboard,
-  FileText,
-  BookOpen,
-  Database
+  MessageSquare,
+  FileText
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,31 +56,25 @@ import { toast } from 'sonner';
 export const navItems = [
   {
     title: "Dashboard",
-    url: "/manager/dashboard",
+    url: "/staff/dashboard",
     icon: "layoutDashboard",
     isActive: true
   },
   {
-    title: "Kiến thức",
-    url: "/manager/knowledge",
-    icon: "bookOpen",
+    title: "Chat với khách hàng",
+    url: "/staff/chat",
+    icon: "messageSquare",
     isActive: true
   },
   {
     title: "Báo cáo khiếu nại",
-    url: "/manager/reports",
+    url: "/staff/reports",
     icon: "fileText",
     isActive: true
   },
   {
-    title: "Quản lý Scraper",
-    url: "/manager/scraper",
-    icon: "database",
-    isActive: true
-  },
-  {
     title: "Cài đặt",
-    url: "/manager/settings",
+    url: "/staff/settings",
     icon: "settings"
   }
 ];
@@ -90,16 +83,15 @@ export const navItems = [
 export const company = {
   name: 'StockFlow',
   logo: GalleryVerticalEnd,
-  plan: 'Manager'
+  plan: 'Staff'
 };
 
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
   layoutDashboard: () => <LayoutDashboard className="size-4" />,
-  bookOpen: () => <BookOpen className="size-4" />,
+  messageSquare: () => <MessageSquare className="size-4" />,
   fileText: () => <FileText className="size-4" />,
-  database: () => <Database className="size-4" />,
   settings: () => <Settings className="size-4" />
 };
 
@@ -111,7 +103,7 @@ export function CustomSidebarTrigger() {
   return null;
 }
 
-export default function AppSidebar() {
+export default function StaffSidebar() {
   const { state, isMobile } = useSidebar();
   const location = useLocation();
   const pathname = location.pathname;
@@ -276,15 +268,11 @@ export default function AppSidebar() {
                 <DropdownMenuSeparator />
 
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <DropdownMenuItem onClick={() => navigate('/staff/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     Hồ sơ
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=subscriptions')}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Gói dịch vụ {user?.tier && `(${user.tier})`}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=settings')}>
+                  <DropdownMenuItem onClick={() => navigate('/staff/settings')}>
                     <Settings className="mr-2 h-4 w-4" />
                     Cài đặt
                   </DropdownMenuItem>
