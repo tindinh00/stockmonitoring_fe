@@ -17,7 +17,7 @@ import ResetPassword from './pages/ResetPasswordPage';
 import Knowledge from './pages/KnowledgePage';
 import ProfilePage from './pages/ProfilePage';
 import { AuthProvider } from "../src/Authentication/AuthContext";
-import ManagerKnowledge from './pages/Manager/ManagerKnowledge';
+import ManagerKnowledge from './pages/manager/ManagerKnowledge';
 import PackageManagementPage from './pages/admin/PackageManagementPage';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './layouts/Sidebar';
