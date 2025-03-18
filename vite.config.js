@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "/", // 🔥 Đảm bảo đường dẫn đúng khi deploy
+  base: "/", // Đảm bảo đường dẫn đúng khi deploy
   plugins: [react()],
   resolve: {
     alias: {
@@ -11,9 +11,11 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "dist", // 🏗️ Đảm bảo Vite xuất file vào thư mục dist
+    outDir: "dist", //  Đảm bảo Vite xuất file vào thư mục dist
   },
   server: {
-    historyApiFallback: true, // 📌 Cần thiết nếu dùng React Router
+    historyApiFallback: true, //  Cần thiết nếu dùng React Router
   },
+
+  // contributed 
 });
