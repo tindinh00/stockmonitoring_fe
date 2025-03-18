@@ -24,10 +24,9 @@ const api = axios.create({
 // Add request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get("userToken"); // Lấy token từ cookie
+    const token = Cookies.get("auth_token"); // Lấy token từ cookie
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log("Interceptor - Using Bearer token:", token); // Debug
     } else {
       console.log("Interceptor - Using Basic Auth"); // Debug
     }
@@ -40,6 +39,138 @@ api.interceptors.request.use(
 
 // Tạo một service cho các yêu cầu API
 export const apiService = {
+  // Lấy danh sách người dùng từ API (Yêu cầu quyền Admin)
+  getUsers: async () => {
+    try {
+      // Lấy token từ cookie
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found. Admin access required.");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
+      }
+      
+      // Gửi request - không cần thêm headers vì interceptor đã thêm token
+      const response = await api.get("/api/users");
+      console.log("Get users response:", response.data);
+      
+      // Kiểm tra cấu trúc dữ liệu phản hồi
+      if (response.data && response.data.value) {
+        return response.data.value.data || [];
+      }
+      
+      return response.data.data || [];
+    } catch (error) {
+      console.error("Get users error:", error);
+      
+      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể xem danh sách người dùng.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Cập nhật role của người dùng
+  updateUserRole: async (userId, newRole, userEmail) => {
+    try {
+      // Lấy token từ cookie
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found. Admin access required.");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
+      }
+      
+      // Đảm bảo chúng ta có email
+      if (!userEmail) {
+        console.error("Email is required for role update");
+        throw new Error("Email người dùng là bắt buộc để thay đổi role");
+      }
+
+      // Xác định endpoint dựa trên role mới
+      let endpoint;
+      if (newRole === "manager") {
+        endpoint = `/api/users/make-manager?email=${encodeURIComponent(userEmail)}`;
+      } else if (newRole === "staff") {
+        endpoint = `/api/users/make-staff?email=${encodeURIComponent(userEmail)}`;
+      } else {
+        throw new Error("Role không hợp lệ. Chỉ hỗ trợ manager hoặc staff.");
+      }
+      
+      // Debug logs
+      console.log("Making API call to:", endpoint);
+      console.log("Using token:", token.substring(0, 10) + "...");
+      
+      // Tạo config với header Authorization
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'accept': '*/*'
+        }
+      };
+      
+      // Gửi request PUT với query parameter
+      const response = await api.put(endpoint, null, config);
+      
+      console.log("Update user role response:", response.data);
+      
+      if (response.data) {
+        return response.data;
+      }
+      
+      throw new Error("Không nhận được phản hồi hợp lệ từ server");
+    } catch (error) {
+      console.error("Update user role error:", error);
+      console.error("Error details:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      
+      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể thay đổi role người dùng.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+  
+  // Cập nhật trạng thái ban/unban của người dùng
+  updateUserStatus: async (userId, isBanned) => {
+    try {
+      // Lấy token từ cookie
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found. Admin access required.");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
+      }
+      
+      // Gửi request cập nhật trạng thái
+      const action = isBanned ? "ban" : "unban";
+      const response = await api.put(`/api/users/${userId}/status`, {
+        action: action
+      });
+      
+      console.log(`${action} user response:`, response.data);
+      
+      if (response.data) {
+        return response.data;
+      }
+      
+      throw new Error("Không nhận được phản hồi hợp lệ từ server");
+    } catch (error) {
+      console.error("Update user status error:", error);
+      
+      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể thay đổi trạng thái người dùng.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
   login: async (credentials) => {
     try {
       const response = await api.post("/api/users/login", {
@@ -52,7 +183,7 @@ export const apiService = {
       if (response.data && response.data.value) {
         const userData = response.data.value.data;
         if (userData.token) {
-          Cookies.set("userToken", userData.token, { expires: 7 }); // Lưu token vào cookie, hết hạn sau 7 ngày
+          Cookies.set("auth_token", userData.token, { expires: 7 }); // Lưu token vào cookie, hết hạn sau 7 ngày
           api.defaults.headers.common["Authorization"] = `Bearer ${userData.token}`;
           console.log("Token saved to cookie:", userData.token);
         }
@@ -79,7 +210,7 @@ export const apiService = {
 
   logout: async () => {
     try {
-      Cookies.remove("userToken"); // Xóa token khỏi cookie
+      Cookies.remove("auth_token"); // Xóa token khỏi cookie
       delete api.defaults.headers.common["Authorization"];
       console.log("Token removed from cookie");
       return true;
@@ -248,6 +379,141 @@ export const apiService = {
         throw new Error("Không tìm thấy API đặt lại mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
       }
       throw error.response?.data || error;
+    }
+  },
+
+  getPackages: async (pageIndex = 1, pageSize = 10) => {
+    try {
+      // Lấy token từ cookie
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      // Gửi request GET với query parameters - không cần thêm config vì interceptor đã xử lý token
+      const response = await api.get(`/api/package?pageIndex=${pageIndex}&pageSize=${pageSize}`);
+      
+      console.log("Get packages response:", response.data);
+      
+      // Xử lý cấu trúc response đúng
+      if (response.data?.value?.data) {
+        return response.data.value.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Get packages error:", error);
+      
+      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm lấy danh sách features
+  getFeatures: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.get("/api/feature");
+      console.log("Get features response:", response.data);
+
+      if (response.data?.value?.data) {
+        return response.data.value.data;
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Get features error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm tạo gói mới
+  createPackage: async (packageData) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      // Gửi request với body đúng format
+      const response = await api.post("/api/package", packageData);
+
+      console.log("Create package response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Create package error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm cập nhật gói
+  updatePackage: async (id, packageData) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      // Gửi request với body đúng format
+      const response = await api.put(`/api/package/${id}`, packageData);
+
+      console.log("Update package response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Update package error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm xóa gói
+  deletePackage: async (id) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      // Gửi request DELETE với token
+      const response = await api.delete(`/api/package/${id}`);
+
+      console.log("Delete package response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Delete package error:", error);
+      throw error.response?.data || error.message;
     }
   },
 };
