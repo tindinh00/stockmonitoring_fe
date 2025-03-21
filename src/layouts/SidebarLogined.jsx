@@ -11,7 +11,9 @@ import {
   LogOut,
   PanelLeft,
   User,
-  Settings
+  Settings,
+  LineChart,
+  Bookmark
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -52,34 +54,19 @@ import { toast } from 'sonner';
 // Mock data for navigation items
 export const navItems = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: "layoutDashboard",
+    title: "Bảng giá",
+    url: "/stock",
+    icon: "lineChart",
     isActive: true
   },
   {
-    title: "Playground",
-    url: "#",
-    icon: "box",
-    isActive: true,
-    items: [
-      { title: "History", url: "/history" },
-      { title: "Starred", url: "/starred" },
-      { title: "Settings", url: "/settings" }
-    ]
+    title: "Danh sách theo dõi",
+    url: "/watchlist",
+    icon: "bookmark",
+    isActive: true
   },
   {
-    title: "Models",
-    url: "/models",
-    icon: "database"
-  },
-  {
-    title: "Documentation",
-    url: "/docs",
-    icon: "fileText"
-  },
-  {
-    title: "Settings",
+    title: "Cài đặt",
     url: "/settings",
     icon: "settings"
   }
@@ -95,11 +82,9 @@ export const company = {
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
-  layoutDashboard: () => <PanelLeft className="size-4" />,
-  box: () => <GalleryVerticalEnd className="size-4" />,
-  database: () => <GalleryVerticalEnd className="size-4" />,
-  fileText: () => <GalleryVerticalEnd className="size-4" />,
-  settings: () => <GalleryVerticalEnd className="size-4" />
+  lineChart: () => <LineChart className="size-4" />,
+  bookmark: () => <Bookmark className="size-4" />,
+  settings: () => <Settings className="size-4" />
 };
 
 // Custom sidebar trigger component

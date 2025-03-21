@@ -20,6 +20,19 @@ import {
   Area,
 } from 'recharts';
 import Chart from 'react-apexcharts';
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DialogHeader,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const StockDerivatives = () => {
   const [activeTab, setActiveTab] = useState('price');
@@ -32,12 +45,16 @@ const StockDerivatives = () => {
   const [chartData, setChartData] = useState([]);
   const [realTimeStockData, setRealTimeStockData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [watchlist, setWatchlist] = useState([]);
+  const [isPriceAlertOpen, setIsPriceAlertOpen] = useState(false);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [alertType, setAlertType] = useState('above');
+  const [selectedAlertStock, setSelectedAlertStock] = useState(null);
 
   // Thêm dữ liệu cho các sàn
   const exchanges = [
     { id: 'HOSE', name: 'HOSE', color: '#00C087', description: 'Sở GDCK TP.HCM' },
-    { id: 'HNX', name: 'HNX', color: '#00B4D8', description: 'Sở GDCK Hà Nội' },
-    { id: 'UPCOM', name: 'UPCOM', color: '#FF9F1C', description: 'Thị trường OTC' },
+    { id: 'HNX', name: 'HNX', color: '#00B4D8', description: 'Sở GDCK Hà Nội' }
   ];
 
   // Dữ liệu mẫu cho các mã phái sinh
@@ -241,6 +258,8 @@ const StockDerivatives = () => {
           sellPrice3: stock.price3Sell || '--',
           sellVolume3: stock.volume3Sell?.toLocaleString() || '--',
           totalVolume: stock.volumeAccumulation?.toLocaleString() || '--',
+          high: stock.highPrice?.toFixed(2) || '--',
+          low: stock.lowPrice?.toFixed(2) || '--',
           foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
           foreignSell: stock.foreignSellVolume?.toLocaleString() || '--'
         }));
@@ -351,6 +370,53 @@ const StockDerivatives = () => {
 
     ${priceChangeAnimation}
   `;
+
+  // Thêm hàm xử lý thêm vào watchlist
+  const handleAddToWatchlist = (stock) => {
+    if (watchlist.some(item => item.code === stock.code)) {
+      // Nếu đã có trong watchlist thì xóa đi
+      setWatchlist(watchlist.filter(item => item.code !== stock.code));
+      toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
+    } else {
+      // Nếu chưa có thì thêm vào
+      setWatchlist([...watchlist, stock]);
+      toast.success(`Đã thêm ${stock.code} vào danh sách theo dõi`);
+    }
+  };
+
+  // Thêm hàm xử lý cài đặt thông báo giá
+  const handleSetPriceAlert = (stock) => {
+    setSelectedAlertStock(stock);
+    setAlertPrice('');
+    setAlertType('above');
+    setIsPriceAlertOpen(true);
+  };
+
+  // Thêm hàm xử lý lưu cài đặt thông báo giá
+  const handleSavePriceAlert = () => {
+    if (!alertPrice || isNaN(alertPrice)) {
+      toast.error('Vui lòng nhập giá hợp lệ');
+      return;
+    }
+
+    const price = parseFloat(alertPrice);
+    const currentPrice = parseFloat(selectedAlertStock.matchPrice);
+
+    if (alertType === 'above' && price <= currentPrice) {
+      toast.error('Giá cảnh báo phải cao hơn giá hiện tại');
+      return;
+    }
+
+    if (alertType === 'below' && price >= currentPrice) {
+      toast.error('Giá cảnh báo phải thấp hơn giá hiện tại');
+      return;
+    }
+
+    // Lưu cài đặt thông báo
+    // TODO: Implement API call to save price alert
+    toast.success(`Đã cài đặt thông báo khi giá ${selectedAlertStock.code} ${alertType === 'above' ? 'vượt lên' : 'giảm xuống'} ${alertPrice}`);
+    setIsPriceAlertOpen(false);
+  };
 
   return (
     <div className="bg-[#0a0a14] h-[calc(100vh-132px)] -mx-4 md:-mx-8">
@@ -515,6 +581,57 @@ const StockDerivatives = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Price Alert Dialog */}
+      <Dialog open={isPriceAlertOpen} onOpenChange={setIsPriceAlertOpen}>
+        <DialogContent className="bg-[#1a1a1a] text-white border-[#2a2e39] sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">
+              Cài đặt thông báo giá - {selectedAlertStock?.code}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-400">
+              Thiết lập mức giá bạn muốn nhận thông báo
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-sm">Loại</label>
+              <div className="col-span-3">
+                <Select value={alertType} onValueChange={setAlertType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn loại thông báo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="above">Khi giá vượt lên</SelectItem>
+                    <SelectItem value="below">Khi giá giảm xuống</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-sm">Giá</label>
+              <div className="col-span-3">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={alertPrice}
+                  onChange={(e) => setAlertPrice(e.target.value)}
+                  className="bg-[#2a2a2a] border-[#333]"
+                  placeholder={`Giá hiện tại: ${selectedAlertStock?.matchPrice}`}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="bg-red-500 hover:bg-red-600" variant="outline" onClick={() => setIsPriceAlertOpen(false)}>
+              Hủy
+            </Button>
+            <Button className="bg-green-500 hover:bg-green-600" onClick={handleSavePriceAlert}>
+              Lưu cài đặt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Content with smooth transitions */}
       <div className="relative">
         {activeTab === 'price' ? (
@@ -534,31 +651,32 @@ const StockDerivatives = () => {
 <div className="h-[calc(82vh-132px)] overflow-auto">
   <table className="w-full border-collapse">
     <colgroup>
-      <col className="w-[80px]" /> {/* Mã CK */}
-      <col className="w-[80px]" /> {/* Trần */}
-      <col className="w-[80px]" /> {/* Sàn */}
-      <col className="w-[80px]" /> {/* TC */}
-      <col className="w-[80px]" /> {/* Giá 3 */}
+      <col className="w-[60px]" /> {/* Mã CK */}
+      <col className="w-[60px]" /> {/* Trần */}
+      <col className="w-[60px]" /> {/* Sàn */}
+      <col className="w-[60px]" /> {/* TC */}
+      <col className="w-[60px]" /> {/* Giá 3 */}
       <col className="w-[80px]" /> {/* KL 3 */}
-      <col className="w-[80px]" /> {/* Giá 2 */}
+      <col className="w-[60px]" /> {/* Giá 2 */}
       <col className="w-[80px]" /> {/* KL 2 */}
-      <col className="w-[80px]" /> {/* Giá 1 */}
+      <col className="w-[60px]" /> {/* Giá 1 */}
       <col className="w-[80px]" /> {/* KL 1 */}
-      <col className="w-[80px]" /> {/* Giá */}
+      <col className="w-[60px]" /> {/* Giá */}
       <col className="w-[80px]" /> {/* KL */}
-      <col className="w-[80px]" /> {/* +/- */}
-      <col className="w-[80px]" /> {/* Giá 1 */}
+      <col className="w-[70px]" /> {/* +/- */}
+      <col className="w-[60px]" /> {/* Giá 1 */}
       <col className="w-[80px]" /> {/* KL 1 */}
-      <col className="w-[80px]" /> {/* Giá 2 */}
+      <col className="w-[60px]" /> {/* Giá 2 */}
       <col className="w-[80px]" /> {/* KL 2 */}
-      <col className="w-[80px]" /> {/* Giá 3 */}
+      <col className="w-[60px]" /> {/* Giá 3 */}
       <col className="w-[80px]" /> {/* KL 3 */}
-      <col className="w-[80px]" /> {/* Cao */}
-      <col className="w-[80px]" /> {/* Thấp */}
-      <col className="w-[80px]" /> {/* TB */}
+      <col className="w-[60px]" /> {/* Cao */}
+      <col className="w-[60px]" /> {/* Thấp */}
+      <col className="w-[60px]" /> {/* TB */}
       <col className="w-[100px]" /> {/* Tổng KL */}
       <col className="w-[80px]" /> {/* Mua */}
       <col className="w-[80px]" /> {/* Bán */}
+      <col className="w-[100px]" /> {/* Thao tác */}
     </colgroup>
     <thead className="sticky top-0 bg-[#1a1a1a] z-50">
       <tr>
@@ -574,6 +692,7 @@ const StockDerivatives = () => {
         <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TB</th>
         <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
         <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
+        <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
       </tr>
       <tr>
         <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
@@ -610,36 +729,64 @@ const StockDerivatives = () => {
                         >
                           {stock.code}
             </td>
-            <td className="text-[#FF424E] border-r border-[#333] text-center py-2">{stock.ceiling}</td>
-            <td className="text-[#00C9FF] border-r border-[#333] text-center py-2">{stock.floor}</td>
-            <td className="text-[#F4BE37] border-r border-[#333] text-center py-2">{stock.ref}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyPrice3}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyVolume3}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyPrice2}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyVolume2}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyPrice1}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.buyVolume1}</td>
-            <td className={`border-r border-[#333] text-center transition-colors duration-300 py-2 ${
+            <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
+            <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
+            <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
+            <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
                             priceChangeColors[stock.code] || 'text-white'
             }`}>
                           {stock.matchPrice}
             </td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.matchVolume}</td>
-            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center py-2`}>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
+            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
                           {stock.matchChange}
             </td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellPrice1}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellVolume1}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellPrice2}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellVolume2}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellPrice3}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.sellVolume3}</td>
-            <td className="text-[#00FF00] border-r border-[#333] text-center py-2">{stock.high || '--'}</td>
-            <td className="text-[#FF4A4A] border-r border-[#333] text-center py-2">{stock.low || '--'}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">--</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.totalVolume}</td>
-            <td className="text-white border-r border-[#333] text-center py-2">{stock.foreignBuy}</td>
-            <td className="text-white text-center py-2">{stock.foreignSell}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
+            <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
+            <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
+            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+            <td className="text-center py-2">
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToWatchlist(stock);
+                  }}
+                  className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
+                  title="Thêm vào danh sách theo dõi"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSetPriceAlert(stock);
+                  }}
+                  className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
+                  title="Cài đặt thông báo giá"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                </button>
+              </div>
+            </td>
           </tr>
         ))}
     </tbody>

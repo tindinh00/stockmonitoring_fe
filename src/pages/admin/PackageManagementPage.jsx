@@ -44,6 +44,9 @@ export default function PackageManagementPage() {
   const [features, setFeatures] = useState([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch packages from API
   useEffect(() => {
@@ -100,6 +103,7 @@ export default function PackageManagementPage() {
 
   const handleDelete = async (id) => {
     try {
+      setIsDeleting(true);
       // Gọi API xóa gói
       await apiService.deletePackage(id);
       
@@ -110,6 +114,8 @@ export default function PackageManagementPage() {
     } catch (error) {
       console.error("Failed to delete package:", error);
       toast.error(error.message || "Không thể xóa gói. Vui lòng thử lại!");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -187,6 +193,7 @@ export default function PackageManagementPage() {
     }
 
     try {
+      setIsCreating(true);
       // Tạo ID mới cho package
       const packageId = `pkg_${Math.random().toString(36).substr(2, 9)}`;
       
@@ -222,6 +229,8 @@ export default function PackageManagementPage() {
     } catch (error) {
       console.error("Failed to create package:", error);
       toast.error(error.message || "Không thể tạo gói mới. Vui lòng thử lại!");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -383,6 +392,7 @@ export default function PackageManagementPage() {
     }
 
     try {
+      setIsUpdating(true);
       // Đảm bảo features là mảng và loại bỏ null
       const selectedFeatureIds = Array.isArray(editingPackage.features) 
         ? editingPackage.features.filter(id => id !== null)
@@ -420,6 +430,8 @@ export default function PackageManagementPage() {
     } catch (error) {
       console.error("Failed to update package:", error);
       toast.error(error.message || "Không thể cập nhật gói. Vui lòng thử lại!");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -740,15 +752,25 @@ export default function PackageManagementPage() {
                 setEditingPackage(null);
                 setErrors({});
               }}
+              disabled={isUpdating}
             >
               Hủy
             </Button>
             <Button 
               onClick={handleSaveEdit}
-              disabled={!editingPackage?.name || !editingPackage?.description || !editingPackage?.price || !editingPackage?.features.length}
+              disabled={!editingPackage?.name || !editingPackage?.description || !editingPackage?.price || !editingPackage?.features.length || isUpdating}
             >
-              <Save className="w-4 h-4 mr-2" />
-              Lưu thay đổi
+              {isUpdating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Đang cập nhật...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Lưu thay đổi
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -899,15 +921,25 @@ export default function PackageManagementPage() {
                   features: []
                 });
               }}
+              disabled={isCreating}
             >
               Hủy
             </Button>
             <Button 
               onClick={handleSaveNew}
-              disabled={!newPackage.name || !newPackage.description || !newPackage.price || !newPackage.features.length}
+              disabled={!newPackage.name || !newPackage.description || !newPackage.price || !newPackage.features.length || isCreating}
             >
-              <Save className="w-4 h-4 mr-2" />
-              Lưu
+              {isCreating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Lưu
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -957,14 +989,25 @@ export default function PackageManagementPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
               Hủy
             </Button>
             <Button 
               variant="destructive" 
               onClick={() => handleDelete(selectedPackage.id)}
+              disabled={isDeleting}
             >
-              Xóa gói
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa gói
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

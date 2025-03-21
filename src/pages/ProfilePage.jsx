@@ -43,6 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/Authentication/AuthContext";
 import UserSubscription from "@/components/UserSubscription";
 import TransactionHistory from "@/components/TransactionHistory";
+import { apiService } from "@/api/Api";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -181,8 +182,14 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
-      // Giả lập API call để lưu thông tin
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gọi API cập nhật thông tin
+      await apiService.updateProfile({
+        name: userInfo.name,
+        email: userInfo.email,
+        phone: userInfo.phone,
+        birthDate: userInfo.dateOfBirth,
+        address: userInfo.address
+      });
       
       // Cập nhật thông tin ban đầu
       setInitialUserInfo({...userInfo});
@@ -190,7 +197,7 @@ const ProfilePage = () => {
       toast.success("Cập nhật thông tin thành công");
     } catch (error) {
       console.error("Error saving profile:", error);
-      toast.error("Không thể cập nhật thông tin");
+      toast.error(error.message || "Không thể cập nhật thông tin");
     } finally {
       setIsLoading(false);
     }
