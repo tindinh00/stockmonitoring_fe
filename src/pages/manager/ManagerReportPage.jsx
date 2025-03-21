@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -50,52 +50,35 @@ import { toast } from "sonner";
 import { FileText, AlertTriangle, CheckCircle, Clock, Search, Filter, Eye, MoreVertical } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-
-// Mock data for reports
-const mockReports = [
-  {
-    id: 1,
-    title: "Lỗi không thể đặt lệnh mua",
-    type: "Lỗi hệ thống",
-    severity: "high",
-    status: "pending",
-    createdAt: new Date(),
-    description: "Người dùng không thể đặt lệnh mua cổ phiếu do lỗi kết nối",
-    staffName: "Nguyễn Văn A",
-    staffId: "STF001",
-  },
-  {
-    id: 2,
-    title: "Giao diện không hiển thị đúng",
-    type: "Giao diện",
-    severity: "medium",
-    status: "resolved",
-    createdAt: new Date(Date.now() - 86400000),
-    description: "Biểu đồ giá không hiển thị chính xác trên mobile",
-    staffName: "Trần Thị B",
-    staffId: "STF002",
-  },
-  {
-    id: 3,
-    title: "Hiệu năng chậm khi load dữ liệu",
-    type: "Hiệu năng",
-    severity: "high",
-    status: "urgent",
-    createdAt: new Date(Date.now() - 172800000),
-    description: "Hệ thống phản hồi chậm khi tải dữ liệu thị trường",
-    staffName: "Lê Văn C",
-    staffId: "STF003",
-  },
-];
+import { apiService } from "@/api/Api";
 
 export default function ManagerReportPage() {
-  const [reports, setReports] = useState(mockReports);
+  const [reports, setReports] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedSeverity, setSelectedSeverity] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiService.getReports();
+      console.log("Fetched reports:", data);
+      setReports(data);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      toast.error(error.message || "Không thể tải danh sách báo cáo");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getSeverityColor = (severity) => {
     switch (severity) {
@@ -146,25 +129,43 @@ export default function ManagerReportPage() {
     return matchesSearch && matchesType && matchesStatus && matchesSeverity;
   });
 
-  const handleStatusChange = (reportId, newStatus) => {
-    setReports(reports.map(report => 
-      report.id === reportId ? { ...report, status: newStatus } : report
-    ));
-    
-    const statusText = newStatus === "resolved" ? "đã xử lý" : "khẩn cấp";
-    toast.success(`Đã cập nhật trạng thái báo cáo thành ${statusText}`, {
-      position: "top-right",
-      duration: 3000,
-    });
-    
-    if (isDetailOpen) {
-      setIsDetailOpen(false);
+  const handleStatusChange = async (reportId, newStatus) => {
+    try {
+      const reportToUpdate = reports.find(r => r.id === reportId);
+      if (!reportToUpdate) return;
+
+      const updatedReport = {
+        ...reportToUpdate,
+        status: newStatus
+      };
+
+      await apiService.updateReport(reportId, updatedReport);
+      
+      const statusText = newStatus === "resolved" ? "đã xử lý" : "khẩn cấp";
+      toast.success(`Đã cập nhật trạng thái báo cáo thành ${statusText}`);
+      
+      // Refresh the reports list
+      await fetchReports();
+      
+      if (isDetailOpen) {
+        setIsDetailOpen(false);
+      }
+    } catch (error) {
+      console.error("Error updating report status:", error);
+      toast.error(error.message || "Không thể cập nhật trạng thái báo cáo");
     }
   };
 
-  const viewReportDetail = (report) => {
-    setSelectedReport(report);
-    setIsDetailOpen(true);
+  const viewReportDetail = async (report) => {
+    try {
+      const response = await apiService.getReportById(report.id);
+      const detailData = response.value || response;
+      setSelectedReport(detailData);
+      setIsDetailOpen(true);
+    } catch (error) {
+      console.error("Error fetching report details:", error);
+      toast.error(error.message || "Không thể tải chi tiết báo cáo");
+    }
   };
 
   return (
@@ -246,7 +247,34 @@ export default function ManagerReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredReports.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center h-24">
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin h-6 w-6 text-primary"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredReports.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                       Không có báo cáo nào
@@ -260,7 +288,7 @@ export default function ManagerReportPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-left">
-                          <span>{report.staffName}</span>
+                          <span>{report.staffName || 'N/A'}</span>
                           <span className="text-xs text-muted-foreground">
                             ({report.staffId})
                           </span>
@@ -287,7 +315,7 @@ export default function ManagerReportPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className='text-left'>
-                        {format(report.createdAt, "dd/MM/yyyy HH:mm", { locale: vi })}
+                        {format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                       </TableCell>
                       <TableCell className='text-center'>
                         <DropdownMenu>
@@ -351,7 +379,7 @@ export default function ManagerReportPage() {
                   <div>
                     <h4 className="text-sm font-medium mb-2">Ngày tạo</h4>
                     <p className="text-base bg-muted/50 p-3 rounded-lg">
-                      {format(selectedReport.createdAt, "dd/MM/yyyy HH:mm", { locale: vi })}
+                      {format(new Date(selectedReport.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                     </p>
                   </div>
                   <div>

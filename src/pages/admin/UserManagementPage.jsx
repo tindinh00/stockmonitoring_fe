@@ -67,6 +67,8 @@ export default function UserManagementPage() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Tải danh sách người dùng từ API
   useEffect(() => {
@@ -160,6 +162,7 @@ export default function UserManagementPage() {
     if (!selectedUser || !selectedRole) return;
 
     try {
+      setIsUpdatingRole(true);
       // Gọi API để thay đổi role của người dùng
       await apiService.updateUserRole(selectedUser.id, selectedRole, selectedUser.email);
 
@@ -179,6 +182,8 @@ export default function UserManagementPage() {
     } catch (error) {
       console.error("Failed to update user role:", error);
       toast.error(error.message || "Không thể cập nhật role. Vui lòng thử lại!");
+    } finally {
+      setIsUpdatingRole(false);
     }
   };
 
@@ -186,6 +191,27 @@ export default function UserManagementPage() {
   const handleOpenDeleteDialog = (user) => {
     setSelectedUser(user);
     setShowDeleteDialog(true);
+  };
+
+  // Xử lý xóa user
+  const handleDelete = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setIsDeleting(true);
+      // Gọi API để xóa người dùng
+      await apiService.deleteUser(selectedUser.id);
+
+      // Cập nhật state local
+      setUsers(users.filter(user => user.id !== selectedUser.id));
+      setShowDeleteDialog(false);
+      toast.success("Xóa người dùng thành công!");
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      toast.error(error.message || "Không thể xóa người dùng. Vui lòng thử lại!");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Hiển thị thông báo loading
@@ -398,7 +424,7 @@ export default function UserManagementPage() {
         </CardContent>
       </Card>
 
-      {/* Role Change Confirmation Dialog */}
+      {/* Role Change Dialog */}
       <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
         <DialogContent>
           <DialogHeader>
@@ -436,7 +462,11 @@ export default function UserManagementPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Role mới:</span>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <Select 
+                    value={selectedRole} 
+                    onValueChange={setSelectedRole}
+                    disabled={isUpdatingRole}
+                  >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Chọn role mới" />
                     </SelectTrigger>
@@ -456,14 +486,25 @@ export default function UserManagementPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRoleDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRoleDialog(false)}
+              disabled={isUpdatingRole}
+            >
               Hủy
             </Button>
-            <Button 
+            <Button
               onClick={handleRoleChange}
-              disabled={!selectedRole || selectedRole === selectedUser?.role}
+              disabled={!selectedRole || selectedRole === selectedUser?.role || isUpdatingRole}
             >
-              Xác nhận
+              {isUpdatingRole ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Đang cập nhật...
+                </>
+              ) : (
+                "Xác nhận"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -511,17 +552,29 @@ export default function UserManagementPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
               Hủy
             </Button>
-            <Button variant="destructive" onClick={() => {
-              // TODO: Gọi API để xóa người dùng
-              // await apiService.deleteUser(selectedUser.id);
-              setUsers(users.filter(u => u.id !== selectedUser?.id));
-              setShowDeleteDialog(false);
-              toast.success("Xóa người dùng thành công!");
-            }}>
-              Xóa người dùng
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Đang xóa...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa người dùng
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

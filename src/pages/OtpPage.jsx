@@ -18,6 +18,7 @@ const OtpPage = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [isPasswordReset, setIsPasswordReset] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const inputRefs = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +40,16 @@ const OtpPage = () => {
       return;
     }
   }, [navigate]);
+
+  // Add countdown timer effect
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [countdown]);
 
   const handleChange = (index, value) => {
     if (isNaN(value)) return;
@@ -131,6 +142,11 @@ const OtpPage = () => {
   };
 
   const handleResendOtp = async () => {
+    if (countdown > 0) {
+      toast.error(`Vui lòng đợi ${countdown} giây trước khi gửi lại mã OTP`);
+      return;
+    }
+
     setLoading(true);
     try {
       console.log("Resending OTP to:", email);
@@ -139,6 +155,7 @@ const OtpPage = () => {
       console.log("Resend OTP result:", result);
       
       if (result.success) {
+        setCountdown(30); // Start 30s countdown
         toast.success("Mã OTP đã được gửi lại!", {
           position: "top-right",
           duration: 5000,
@@ -283,11 +300,11 @@ const OtpPage = () => {
             <div className="flex gap-4">
               <Button
                 onClick={handleResendOtp}
-                disabled={loading}
+                disabled={loading || countdown > 0}
                 variant="outline"
                 className="flex-1 border-teal-500/50 text-teal-400 hover:bg-teal-500/10 font-semibold py-3 rounded-xl transition-all duration-300"
               >
-                Gửi lại mã OTP
+                {countdown > 0 ? `Gửi lại (${countdown}s)` : "Gửi lại mã OTP"}
               </Button>
               
               <Button
