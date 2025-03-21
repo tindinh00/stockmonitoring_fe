@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; // Thêm Router
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'; // Thêm Router và useLocation
 import './App.css';
 import { Button } from "@/components/ui/button";
 import Header from './layouts/header';
@@ -34,6 +34,8 @@ import StaffChatPage from './pages/staff/StaffChatPage';
 import StaffReportPage from './pages/staff/StaffReportPage';
 import ManagerReportPage from './pages/manager/ManagerReportPage';
 import ScraperManagementPage from "./pages/manager/ScraperManagementPage";
+import OAuthCallback from './Authentication/OAuthCallback';
+import WatchlistPage from './pages/WatchlistPage';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -43,6 +45,21 @@ const getSidebarStateFromCookie = () => {
     return sidebarCookie.split('=')[1] === 'true';
   }
   return false;
+};
+
+// Custom component for the root route that can handle OAuth callback
+const RootRoute = () => {
+  const location = useLocation();
+  
+  return (
+    <>
+      {/* Check for OAuth callback parameters in URL */}
+      {location.search && location.search.includes('code=') ? 
+        <OAuthCallback /> : 
+        <Home />
+      }
+    </>
+  );
 };
 
 function App() {
@@ -152,6 +169,28 @@ function App() {
               </SidebarProvider>
             } 
           />
+
+          <Route 
+            path="/watchlist" 
+            element={
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <WatchlistPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            } 
+          />
           
           {/* Regular routes with Header and Footer */}
           <Route path="*" element={
@@ -159,7 +198,7 @@ function App() {
               <Header />
               <main className="flex-grow mt-16">
                 <Routes>
-                  <Route path="/" element={<Home />} />
+                  <Route path="/" element={<RootRoute />} />
                   <Route path="/education" element={<Education/>} />
                   <Route path="/login" element={<Login/>} />
                   <Route path="/register" element={<Register/>} />
@@ -170,6 +209,7 @@ function App() {
                   <Route path="/profile" element={<ProfilePage/>} />
                   <Route path="/upgrade-package" element={<UpgradePackage />} />
                   <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/oauth/callback" element={<OAuthCallback />} />
                   <Route path="*" element={<NotFound/>} />
                 </Routes>
                 <Toaster position="top-right" richColors />
