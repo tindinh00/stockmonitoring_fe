@@ -37,6 +37,8 @@ import ScraperManagementPage from "./pages/manager/ScraperManagementPage";
 import OAuthCallback from './Authentication/OAuthCallback';
 import WatchlistPage from './pages/WatchlistPage';
 import NewsPage from './pages/NewsPage';
+import HeatmapPage from './pages/HeatmapPage';
+import ChatPage from './pages/ChatPage';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -206,6 +208,50 @@ function App() {
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
                         <NewsPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            } 
+          />
+
+          <Route 
+            path="/heatmap" 
+            element={
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <HeatmapPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            } 
+          />
+
+          <Route 
+            path="/chat" 
+            element={
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <ChatPage />
                         <Toaster position="top-right" richColors />
                       </div>
                     </main>

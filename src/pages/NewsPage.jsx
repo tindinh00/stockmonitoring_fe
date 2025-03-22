@@ -305,7 +305,7 @@ const NewsPage = () => {
 
                   {/* Featured Content */}
                   <div className="p-4">
-                    <h2 className="text-xl font-semibold mb-3 group-hover:text-[#09D1C7] transition-colors duration-300">
+                    <h2 className="text-xl text-left font-semibold mb-3 group-hover:text-[#09D1C7] transition-colors duration-300">
                       {currentItems[0]?.title}
                     </h2>
                     <div className="flex items-center justify-between">
@@ -368,7 +368,7 @@ const NewsPage = () => {
 
                     {/* News Content */}
                     <div className="flex-1 flex flex-col justify-between">
-                      <h3 className="text-sm font-medium group-hover:text-[#09D1C7] transition-colors duration-300 line-clamp-2">
+                      <h3 className="text-sm text-left font-medium group-hover:text-[#09D1C7] transition-colors duration-300 line-clamp-2">
                         {item.title}
                       </h3>
                       <div className="flex items-center justify-between mt-2">
@@ -418,7 +418,7 @@ const NewsPage = () => {
                     className="group p-3 hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg"
                     onClick={() => openArticleDetail(item)}
                   >
-                    <h3 className="text-sm font-medium group-hover:text-[#09D1C7] transition-colors duration-300 line-clamp-2 mb-2">
+                    <h3 className="text-sm text-left font-medium group-hover:text-[#09D1C7] transition-colors duration-300 line-clamp-2 mb-2">
                       {item.title}
                     </h3>
                     <div className="flex items-center justify-between">
