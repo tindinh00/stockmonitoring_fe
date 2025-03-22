@@ -140,7 +140,7 @@ const Register = () => {
         <CardHeader className="flex flex-col items-center mb-4">
           <div className="flex items-center -ml-5">
             <img src={logo} alt="StockSmart" className="h-16 w-auto" style={{ transform: 'translateY(3px)' }} />
-            <CardTitle className="text-3xl font-bold text-teal-400 -ml-3">StockSmart</CardTitle>
+            <CardTitle className="text-3xl font-bold text-teal-400 -ml-3">StockFlow</CardTitle>
           </div>
           <CardDescription className="text-teal-400/80 mt-2 text-lg font-bold text-left">
             Đăng ký
