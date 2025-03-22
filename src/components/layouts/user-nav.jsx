@@ -7,7 +7,10 @@ import {
   CreditCard, 
   LogOut, 
   Settings, 
-  User 
+  User,
+  Wallet,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 
 import {

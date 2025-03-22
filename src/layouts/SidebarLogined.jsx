@@ -1,6 +1,6 @@
 'use client';
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   ChevronRight, 
   ChevronsUpDown, 
@@ -13,7 +13,9 @@ import {
   User,
   Settings,
   LineChart,
-  Bookmark
+  Bookmark,
+  Newspaper,
+  Star
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,14 +58,17 @@ export const navItems = [
   {
     title: "Bảng giá",
     url: "/stock",
-    icon: "lineChart",
-    isActive: true
+    icon: "lineChart"
   },
   {
     title: "Danh sách theo dõi",
     url: "/watchlist",
-    icon: "bookmark",
-    isActive: true
+    icon: "bookmark"
+  },
+  {
+    title: "Tin tức",
+    url: "/news",
+    icon: "newspaper"
   },
   {
     title: "Cài đặt",
@@ -82,9 +87,10 @@ export const company = {
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
-  lineChart: () => <LineChart className="size-4" />,
-  bookmark: () => <Bookmark className="size-4" />,
-  settings: () => <Settings className="size-4" />
+  lineChart: LineChart,
+  bookmark: Bookmark,
+  newspaper: Newspaper,
+  settings: Settings
 };
 
 // Custom sidebar trigger component
@@ -97,7 +103,8 @@ export function CustomSidebarTrigger() {
 
 export default function SidebarLogined() {
   const { state, isMobile } = useSidebar();
-  const pathname = "/stock"; // Mock pathname
+  const location = useLocation();
+  const pathname = location.pathname;
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -127,22 +134,23 @@ export default function SidebarLogined() {
   return (
     <Sidebar collapsible='icon'>
       <SidebarHeader>
-        <div className='flex gap-2 py-2 text-sidebar-accent-foreground'>
-          <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground'>
-            <company.logo className='size-4' />
+        <div className='flex gap-2 py-2 text-white'>
+          <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88]'>
+            <company.logo className='size-4 text-white' />
           </div>
           <div className='grid flex-1 text-left text-sm leading-tight'>
-            <span className='truncate font-semibold'>{company.name}</span>
-            <span className='truncate text-xs'>{user?.tier || company.plan}</span>
+            <span className='truncate font-semibold text-primary'>{company.name}</span>
+            <span className='truncate text-xs text-[#09D1C7]'>{user?.tier || company.plan}</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent className='overflow-x-hidden'>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[#666]">Platform</SidebarGroupLabel>
           <SidebarMenu>
             {navItems.map((item) => {
               const Icon = item.icon ? Icons[item.icon] : Icons.logo;
+              const isActive = pathname === item.url;
               return item?.items && item?.items?.length > 0 ? (
                 <Collapsible
                   key={item.title}
@@ -154,27 +162,40 @@ export default function SidebarLogined() {
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
                         tooltip={item.title}
-                        isActive={pathname === item.url}
+                        isActive={isActive}
+                        className={
+                          isActive 
+                            ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                            : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                        }
                       >
-                        {item.icon && <Icon />}
+                        {item.icon && <Icon className={isActive ? 'text-[#09D1C7]' : ''} />}
                         <span>{item.title}</span>
                         <ChevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={pathname === subItem.url}
-                            >
-                              <a href={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </a>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                        {item.items?.map((subItem) => {
+                          const isSubActive = pathname === subItem.url;
+                          return (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={isSubActive}
+                                className={
+                                  isSubActive 
+                                    ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                                    : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                                }
+                              >
+                                <a href={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </a>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          );
+                        })}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
@@ -184,10 +205,15 @@ export default function SidebarLogined() {
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
-                    isActive={pathname === item.url}
+                    isActive={isActive}
+                    className={
+                      isActive 
+                        ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                        : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                    }
                   >
                     <a href={item.url}>
-                      <Icon />
+                      <Icon className={isActive ? 'text-[#09D1C7]' : ''} />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
@@ -204,79 +230,104 @@ export default function SidebarLogined() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size='lg'
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                  className='hover:bg-gray-800 transition-colors duration-300'
                 >
-                  <Avatar className='h-8 w-8 rounded-lg'>
+                  <Avatar className='h-8 w-8 rounded-lg ring-2 ring-[#09D1C7]/20'>
                     {user?.avatar ? (
                       <AvatarImage src={user.avatar} alt={user.name || "User"} className="rounded-lg" />
                     ) : null}
-                    <AvatarFallback className='rounded-lg'>
+                    <AvatarFallback className='rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88] text-white'>
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <div className='grid flex-1 text-left text-sm leading-tight'>
-                    <span className='truncate font-semibold'>
+                    <span className='truncate font-medium text-primary'>
                       {user?.name || "Người dùng"}
                     </span>
-                    <span className='truncate text-xs'>
+                    <span className='truncate text-xs text-gray-400'>
                       {user?.email || "email@example.com"}
                     </span>
                   </div>
-                  <ChevronsUpDown className='ml-auto size-4' />
+                  <ChevronsUpDown className='ml-auto size-4 text-gray-400' />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg'
+                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-[#1a1a1a] border-[#333] text-white'
                 side='bottom'
                 align='end'
                 sideOffset={4}
               >
                 <DropdownMenuLabel className='p-0 font-normal'>
-                  <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
-                    <Avatar className='h-8 w-8 rounded-lg'>
+                  <div className='flex items-center gap-3 p-3'>
+                    <Avatar className='h-10 w-10 rounded-lg ring-2 ring-[#09D1C7]/20'>
                       {user?.avatar ? (
                         <AvatarImage src={user.avatar} alt={user.name || "User"} className="rounded-lg" />
                       ) : null}
-                      <AvatarFallback className='rounded-lg'>
+                      <AvatarFallback className='rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88] text-white'>
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className='grid flex-1 text-left text-sm leading-tight'>
-                      <span className='truncate font-semibold'>
+                      <span className='font-medium text-white'>
                         {user?.name || "Người dùng"}
                       </span>
-                      <span className='truncate text-xs'>
+                      <span className='text-xs text-gray-400'>
                         {user?.email || "email@example.com"}
                       </span>
                       {user?.role && (
-                        <span className='truncate text-xs text-teal-400'>
-                          {user.role === "admin" ? "Quản trị viên" : user.role}
-                        </span>
+                        <div className='inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#09D1C7]/10 border border-[#09D1C7]/20 w-fit'>
+                          <Star className='w-3 h-3 text-[#09D1C7]' />
+                          <span className='text-xs text-[#09D1C7]'>
+                            {user.role === "admin" ? "Quản trị viên" : user.role}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User className="mr-2 h-4 w-4" />
-                    Hồ sơ
+                <DropdownMenuSeparator className='bg-[#333]' />
+                <div className='p-2'>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/profile')}
+                      className='flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg text-gray-300 hover:text-[#09D1C7] hover:bg-[#252525] transition-colors'
+                    >
+                      <User className='w-4 h-4' />
+                      <span>Hồ sơ cá nhân</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/profile?tab=subscriptions')}
+                      className='flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg text-gray-300 hover:text-[#09D1C7] hover:bg-[#252525] transition-colors'
+                    >
+                      <CreditCard className='w-4 h-4' />
+                      <div className='flex-1 flex items-center justify-between'>
+                        <span>Gói dịch vụ</span>
+                        {user?.tier && (
+                          <span className='text-xs px-2 py-0.5 rounded-full bg-[#09D1C7]/10 text-[#09D1C7] border border-[#09D1C7]/20'>
+                            {user.tier}
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/profile?tab=settings')}
+                      className='flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg text-gray-300 hover:text-[#09D1C7] hover:bg-[#252525] transition-colors'
+                    >
+                      <Settings className='w-4 h-4' />
+                      <span>Cài đặt</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </div>
+                <DropdownMenuSeparator className='bg-[#333]' />
+                <div className='p-2'>
+                  <DropdownMenuItem 
+                    onClick={handleLogout}
+                    className='flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors'
+                  >
+                    <LogOut className='w-4 h-4' />
+                    <span>Đăng xuất</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=subscriptions')}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Gói dịch vụ {user?.tier && `(${user.tier})`}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Cài đặt
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:text-red-300">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Đăng xuất
-                </DropdownMenuItem>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
