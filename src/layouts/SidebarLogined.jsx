@@ -15,7 +15,9 @@ import {
   LineChart,
   Bookmark,
   Newspaper,
-  Star
+  Star,
+  Thermometer,
+  MessageSquare
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -66,9 +68,19 @@ export const navItems = [
     icon: "bookmark"
   },
   {
+    title: "Bản đồ nhiệt",
+    url: "/heatmap",
+    icon: "thermometer"
+  },
+  {
     title: "Tin tức",
     url: "/news",
     icon: "newspaper"
+  },
+  {
+    title: "Chat với hỗ trợ",
+    url: "/chat",
+    icon: "messageSquare"
   },
   {
     title: "Cài đặt",
@@ -90,7 +102,9 @@ export const Icons = {
   lineChart: LineChart,
   bookmark: Bookmark,
   newspaper: Newspaper,
-  settings: Settings
+  settings: Settings,
+  thermometer: Thermometer,
+  messageSquare: MessageSquare
 };
 
 // Custom sidebar trigger component
