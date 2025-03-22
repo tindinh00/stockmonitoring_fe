@@ -426,10 +426,10 @@ const StockDerivatives = () => {
       <div className="border-b border-[#333]">
         <div className="flex items-center gap-4 px-4">
           <button
-            className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out ${
+            className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out rounded-t-lg ${
               activeTab === 'price' 
-                ? 'text-white' 
-                : 'text-[#888] hover:text-white'
+                ? 'text-white bg-[#1a1a1a]' 
+                : 'text-[#888] hover:text-white hover:bg-[#1a1a1a]/50'
             }`}
             onClick={() => setActiveTab('price')}
           >
@@ -439,10 +439,10 @@ const StockDerivatives = () => {
             )}
           </button>
           <button
-            className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out ${
+            className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out rounded-t-lg ${
               activeTab === 'market' 
-                ? 'text-white' 
-                : 'text-[#888] hover:text-white'
+                ? 'text-white bg-[#1a1a1a]' 
+                : 'text-[#888] hover:text-white hover:bg-[#1a1a1a]/50'
             }`}
             onClick={() => setActiveTab('market')}
           >
@@ -649,160 +649,182 @@ const StockDerivatives = () => {
 
             {/* Price Table */}
 <div className="h-[calc(82vh-132px)] overflow-auto">
-  <table className="w-full border-collapse">
-    <colgroup>
-      <col className="w-[60px]" /> {/* Mã CK */}
-      <col className="w-[60px]" /> {/* Trần */}
-      <col className="w-[60px]" /> {/* Sàn */}
-      <col className="w-[60px]" /> {/* TC */}
-      <col className="w-[60px]" /> {/* Giá 3 */}
-      <col className="w-[80px]" /> {/* KL 3 */}
-      <col className="w-[60px]" /> {/* Giá 2 */}
-      <col className="w-[80px]" /> {/* KL 2 */}
-      <col className="w-[60px]" /> {/* Giá 1 */}
-      <col className="w-[80px]" /> {/* KL 1 */}
-      <col className="w-[60px]" /> {/* Giá */}
-      <col className="w-[80px]" /> {/* KL */}
-      <col className="w-[70px]" /> {/* +/- */}
-      <col className="w-[60px]" /> {/* Giá 1 */}
-      <col className="w-[80px]" /> {/* KL 1 */}
-      <col className="w-[60px]" /> {/* Giá 2 */}
-      <col className="w-[80px]" /> {/* KL 2 */}
-      <col className="w-[60px]" /> {/* Giá 3 */}
-      <col className="w-[80px]" /> {/* KL 3 */}
-      <col className="w-[60px]" /> {/* Cao */}
-      <col className="w-[60px]" /> {/* Thấp */}
-      <col className="w-[60px]" /> {/* TB */}
-      <col className="w-[100px]" /> {/* Tổng KL */}
-      <col className="w-[80px]" /> {/* Mua */}
-      <col className="w-[80px]" /> {/* Bán */}
-      <col className="w-[100px]" /> {/* Thao tác */}
-    </colgroup>
-    <thead className="sticky top-0 bg-[#1a1a1a] z-50">
-      <tr>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Cao</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Thấp</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TB</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
-        <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
-      </tr>
-      <tr>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-        <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
-      </tr>
-    </thead>
-    <tbody>
-      {realTimeStockData
-                    .filter(stock => stock.code.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .map((stock) => (
-          <tr 
-                        key={stock.code} 
-                        className="hover:bg-[#1a1a1a]"
-                      >
-            <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
-                          }`}
-                          onClick={() => handleStockClick(stock)}
-                        >
-                          {stock.code}
-            </td>
-            <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-            <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
-            <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
-            <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
-            }`}>
-                          {stock.matchPrice}
-            </td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
-            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                          {stock.matchChange}
-            </td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
-            <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
-            <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
-            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
-            <td className="text-center py-2">
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddToWatchlist(stock);
-                  }}
-                  className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
-                  title="Thêm vào danh sách theo dõi"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSetPriceAlert(stock);
-                  }}
-                  className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
-                  title="Cài đặt thông báo giá"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                </button>
-              </div>
-            </td>
+  <div className="min-h-full flex flex-col">
+    <div className="flex-grow">
+      <table className="w-full border-collapse">
+        <colgroup>
+          <col className="w-[60px]" /> {/* Mã CK */}
+          <col className="w-[60px]" /> {/* Trần */}
+          <col className="w-[60px]" /> {/* Sàn */}
+          <col className="w-[60px]" /> {/* TC */}
+          <col className="w-[60px]" /> {/* Giá 3 */}
+          <col className="w-[80px]" /> {/* KL 3 */}
+          <col className="w-[60px]" /> {/* Giá 2 */}
+          <col className="w-[80px]" /> {/* KL 2 */}
+          <col className="w-[60px]" /> {/* Giá 1 */}
+          <col className="w-[80px]" /> {/* KL 1 */}
+          <col className="w-[60px]" /> {/* Giá */}
+          <col className="w-[80px]" /> {/* KL */}
+          <col className="w-[70px]" /> {/* +/- */}
+          <col className="w-[60px]" /> {/* Giá 1 */}
+          <col className="w-[80px]" /> {/* KL 1 */}
+          <col className="w-[60px]" /> {/* Giá 2 */}
+          <col className="w-[80px]" /> {/* KL 2 */}
+          <col className="w-[60px]" /> {/* Giá 3 */}
+          <col className="w-[80px]" /> {/* KL 3 */}
+          <col className="w-[60px]" /> {/* Cao */}
+          <col className="w-[60px]" /> {/* Thấp */}
+          <col className="w-[60px]" /> {/* TB */}
+          <col className="w-[100px]" /> {/* Tổng KL */}
+          <col className="w-[80px]" /> {/* Mua */}
+          <col className="w-[80px]" /> {/* Bán */}
+          <col className="w-[100px]" /> {/* Thao tác */}
+        </colgroup>
+        <thead className="sticky top-0 bg-[#1a1a1a] z-50">
+          <tr>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Cao</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Thấp</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TB</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
+            <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
           </tr>
-        ))}
-    </tbody>
-  </table>
-  {isLoading && (
-    <div className="flex justify-center items-center py-4">
-      <div className="flex flex-col items-center gap-2">
-        <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+          <tr>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+            <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+            <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
+          </tr>
+        </thead>
+        <tbody>
+          {realTimeStockData
+                        .filter(stock => stock.code.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((stock) => (
+            <tr 
+                          key={stock.code} 
+                          className="hover:bg-[#1a1a1a]"
+                        >
+              <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
+                              priceChangeColors[stock.code] || 'text-white'
+                            }`}
+                                onClick={() => handleStockClick(stock)}
+                              >
+                                {stock.code}
+              </td>
+              <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
+              <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
+              <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
+              <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
+                              priceChangeColors[stock.code] || 'text-white'
+              }`}>
+                                {stock.matchPrice}
+              </td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
+              <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                                {stock.matchChange}
+              </td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
+              <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
+              <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
+              <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+              <td className="text-center py-2">
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToWatchlist(stock);
+                    }}
+                    className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
+                    title="Thêm vào danh sách theo dõi"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetPriceAlert(stock);
+                    }}
+                    className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
+                    title="Cài đặt thông báo giá"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {isLoading && (
+        <div className="flex justify-center items-center py-4">
+          <div className="flex flex-col items-center gap-2">
+            <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Footer with exchange information - Now sticky */}
+    <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4 mt-4">
+      <div className="text-xs text-[#999] text-right px-4">
+        {selectedExchange === 'HOSE' && (
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-[#00C087] font-medium">HOSE:</span>
+            <span>Đơn vị giá: 1.000 VND, Khối lượng: 100 CP</span>
+          </div>
+        )}
+        {selectedExchange === 'HNX' && (
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-[#00B4D8] font-medium">HNX:</span>
+            <span>Đơn vị giá: 1.000 VNĐ, Đơn vị khối lượng: 1.000 CP</span>
+          </div>
+        )}
       </div>
     </div>
-  )}
-          </div>
+  </div>
+</div>
           </div>
         ) : (
           <div className="p-4 text-white animate-[fadeIn_0.3s_ease-in-out]">
