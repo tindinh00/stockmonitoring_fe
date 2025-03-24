@@ -2,22 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
+import { useAuth } from '@/Authentication/AuthContext';
+import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { db } from '@/components/firebase';
 const ChatPage = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'staff',
-      name: 'Hỗ trợ viên',
-      avatar: '/avatars/support.png',
-      content: 'Xin chào! Tôi có thể giúp gì cho bạn?',
-      timestamp: new Date().toISOString()
-    }
-  ]);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-
+  const [currentRoomId, setCurrentRoomId] = useState(null);
+  const userId = 2; // Your userId
+  const userName = "Customer1"; // Your userName
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -26,42 +22,103 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = (e) => {
+  // Helper function to format Firebase Timestamp to readable time
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    
+    // Check if it's a Firebase Timestamp
+    if (timestamp.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return timestamp;
+  };
+
+  // Get the room for current user
+  useEffect(() => {
+    const userId = 2; // Same as in handleSendMessage
+    
+    const fetchUserRoom = async () => {
+      const roomsRef = collection(db, "room");
+      const q = query(roomsRef, where("userId", "==", userId));
+      const roomSnapshot = await getDocs(q);
+      
+      if (!roomSnapshot.empty) {
+        setCurrentRoomId(roomSnapshot.docs[0].id);
+      }
+    };
+
+    fetchUserRoom();
+  }, []);
+
+  // Add this useEffect to load messages for the current room
+  useEffect(() => {
+    if (!currentRoomId) return;
+
+    const q = query(
+      collection(db, "message"),
+      where("roomId", "==", currentRoomId),
+      orderBy("timestamp", "asc")
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const messageData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMessages(messageData);
+    });
+
+    return () => unsubscribe();
+  }, [currentRoomId]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    // Add user message
-    const userMessage = {
-      id: messages.length + 1,
-      sender: 'user',
-      name: 'Bạn',
-      avatar: '/avatars/user.png',
-      content: newMessage,
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setNewMessage('');
-    setIsTyping(true);
-
-    // Simulate staff response
-    setTimeout(() => {
-      const staffMessage = {
-        id: messages.length + 2,
-        sender: 'staff',
-        name: 'Hỗ trợ viên',
-        avatar: '/avatars/support.png',
-        content: 'Cảm ơn bạn đã liên hệ. Vui lòng đợi trong giây lát, tôi sẽ kiểm tra và phản hồi sớm nhất.',
-        timestamp: new Date().toISOString()
+    try {
+      // Check if room exists for this user
+      const roomsRef = collection(db, "room");
+      const q = query(roomsRef, where("userId", "==", userId));
+      const roomSnapshot = await getDocs(q);
+  
+      let roomId;
+      
+      if (roomSnapshot.empty) {
+        // Create new room if it doesn't exist
+        const roomDoc = await addDoc(collection(db, "room"), {
+          userId: userId,
+          userName: userName,
+          createdAt: serverTimestamp(),
+          lastMessage: newMessage,
+          lastMessageTime: serverTimestamp(),
+        });
+        roomId = roomDoc.id;
+      } else {
+        roomId = roomSnapshot.docs[0].id;
+        // Update existing room's last message
+        const roomRef = doc(db, "room", roomId);
+        await updateDoc(roomRef, {
+          lastMessage: userName +": "+ newMessage,
+          lastMessageTime: serverTimestamp()
+        });
+      }
+  
+      // Create new message
+      const newMsg = {
+        userId: userId,
+        userName: userName,
+        content: newMessage,
+        timestamp: serverTimestamp(),
+        type: "text",
+        roomId: roomId,
       };
-      setMessages(prev => [...prev, staffMessage]);
-      setIsTyping(false);
-    }, 1000);
-  };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  
+      await addDoc(collection(db, `message`), newMsg);
+      setNewMessage(""); // Clear input after sending
+    } catch (error) {
+      console.error("Error sending message: ", error);
+    }
   };
 
   return (
@@ -111,28 +168,28 @@ const ChatPage = () => {
             <div
               key={message.id}
               className={`flex items-start gap-3 ${
-                message.sender === 'user' ? 'flex-row-reverse' : ''
+                message.userName === userName ? 'flex-row-reverse' : ''
               }`}
             >
               <Avatar className="h-8 w-8 shrink-0 text-primary">
                 <AvatarImage src={message.avatar} />
-                <AvatarFallback>{message.name[0]}</AvatarFallback>
+                <AvatarFallback>{message.userName[0]}</AvatarFallback>
               </Avatar>
               
               <div className={`flex flex-col ${
-                message.sender === 'user' ? 'items-end' : ''
+                message.userName === userName ? 'items-end' : ''
               }`}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-white">
-                    {message.name}
+                    {message.userName}
                   </span>
                   <span className="text-xs text-[#808191]">
-                    {formatTime(message.timestamp)}
+                    {formatTimestamp(message.timestamp)}
                   </span>
                 </div>
                 
                 <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                  message.sender === 'user'
+                  message.userName === userName
                     ? 'bg-[#26A65B] text-white'
                     : 'bg-[#1C1C28] text-white'
                 }`}>

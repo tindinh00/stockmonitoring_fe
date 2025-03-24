@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
 
@@ -93,7 +93,7 @@ export default function StaffChatPage() {
     });
     return groups;
   };
-
+  
   //Real time chat rooms
   useEffect(() => {
     const q = query(collection(db, "room"));
@@ -169,12 +169,18 @@ export default function StaffChatPage() {
       content: newMessage,
       timestamp: serverTimestamp(),
       type: "text",
-      roomId: selectedRoom.id,  // Assign ID of customer
+      roomId: selectedRoom.id,  // Assign ID of room  
     };
   
     try {
       // Add message to Firestore collection 'message'
       await addDoc(collection(db, "message"), newMsg);
+      // Update room's lastMessage and lastMessageTime
+      const roomRef = doc(db, "room", selectedRoom.id);
+      await updateDoc(roomRef, {
+        lastMessage: newMessage,
+        lastMessageTime: serverTimestamp()
+      });
       setNewMessage(""); // Clear input after sending
     } catch (error) {
       console.error("Error sending message: ", error);
@@ -184,10 +190,10 @@ export default function StaffChatPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col">
-        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-[calc(100vh-8rem)]">
+        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#ffffff] h-[calc(100vh-8rem)]">
           {/* Chat List */}
-          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col">
-            <div className="p-4 border-b border-[#1C1C28]">
+          <div className="col-span-4 border-r border-[#ffffff] flex flex-col">
+            <div className="p-4 border-b border-[#ffffff]">
               <div className="flex items-center gap-3">
                 <h4 className="text-2xl font-bold text-white">Chat với khách hàng</h4>
                 <MessageSquare className="h-5 w-5 text-white" />
@@ -226,7 +232,7 @@ export default function StaffChatPage() {
                       <div className="flex items-center justify-between">
                         <p className="font-medium truncate">{room.userName}</p>
                         <span className="text-xs text-muted-foreground">
-                          {formatLastMessageTime(room.lastMessageTime)}
+                          {formatLastMessageTime(room.lastMessageTime) || '12:00'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-1">
@@ -318,7 +324,7 @@ export default function StaffChatPage() {
                   </div>
 
                   {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#1C1C28] mt-auto">
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#ffffff] mt-auto">
                     <div className="flex items-center gap-2">
                       <Input
                         placeholder="Nhập tin nhắn..."
