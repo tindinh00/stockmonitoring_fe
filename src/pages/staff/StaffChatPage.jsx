@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Search, Send, Phone, Video, MoreVertical, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp } from "firebase/firestore";
-import { useEffect } from 'react'; 
-import { db } from '@/components/firebase';
 import { useAuth } from '@/Authentication/AuthContext';
+import { db } from '@/components/firebase';
+
 export default function StaffChatPage() {
   const [rooms, setRooms] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null); 
@@ -16,6 +16,16 @@ export default function StaffChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const { user } = useAuth();
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Add effect to scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Helper function to format Firebase Timestamp to readable time
   const formatTimestamp = (timestamp) => {
@@ -119,34 +129,33 @@ export default function StaffChatPage() {
   
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col space-y-8">
-        <div className="grid -mt-5 grid-cols-12 gap-6 bg-card rounded-lg border h-[calc(108vh-12rem)]">
+      <div className="flex flex-col">
+        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-[calc(100vh-8rem)]">
           {/* Chat List */}
-          <div className="col-span-4 border-r">
-            <div className="p-4">
-            <div className="flex items-center gap-3">
-          <h4 className="text-3xl font-bold text-black mb-4">Chat với khách hàng</h4>
-          <MessageSquare className="h-5 w-5 text-black mb-2" />
-        </div>
-              <div className="relative">
-                
-                <Search className=" absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col">
+            <div className="p-4 border-b border-[#1C1C28]">
+              <div className="flex items-center gap-3">
+                <h4 className="text-2xl font-bold text-white">Chat với khách hàng</h4>
+                <MessageSquare className="h-5 w-5 text-white" />
+              </div>
+              <div className="relative mt-4">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Tìm kiếm cuộc trò chuyện..."
-                  className="pl-8 text-black"
+                  className="pl-8 bg-[#1C1C28] border-0 text-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
             
-            <ScrollArea className="h-[calc(100vh-16rem)]">
-              <div className="space-y-2 p-4 pt-0">
+            <ScrollArea className="flex-1">
+              <div className="space-y-2 p-4">
                 {rooms && rooms.map((room) => (
                   <div
                     key={room.roomId}
-                    className={`flex items-center text-black gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent ${
-                      rooms?.id === room.roomId ? 'bg-accent' : ''
+                    className={`flex items-center text-white gap-3 p-3 rounded-lg cursor-pointer hover:bg-[#1C1C28] ${
+                      selectedRoom?.id === room.id ? 'bg-[#1C1C28]' : ''
                     }`}
                     onClick={() => setSelectedRoom(room)}
                   >
@@ -156,7 +165,7 @@ export default function StaffChatPage() {
                         <AvatarFallback>{room.userName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       {room.online && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-background" />
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#0a0a14]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -164,7 +173,6 @@ export default function StaffChatPage() {
                         <p className="font-medium truncate">{room.userName}</p>
                         <span className="text-xs text-muted-foreground">{room.timestamp}</span>
                       </div>
-                      {/* <p className="text-sm text-muted-foreground truncate text-left">{chat.lastMessage}</p> */}
                     </div>
                     {room.unread > 0 && (
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
@@ -178,18 +186,18 @@ export default function StaffChatPage() {
           </div>
 
           {/* Chat Box */}
-          <div className="col-span-8">
+          <div className="col-span-8 flex flex-col h-full bg-[#0a0a14]">
             {selectedRoom ? (
-              <div className="h-full flex flex-col">
+              <>
                 {/* Chat Header */}
-                <div className="p-4 border-b flex items-center justify-between">
+                <div className="p-4 border-b border-[#1C1C28] flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={selectedRoom.avatar} />
-                      <AvatarFallback className='text-black'>{selectedRoom.userName.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className='text-white'>{selectedRoom.userName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-black text-left">{selectedRoom.userName}</h3>
+                      <h3 className="font-medium text-white text-left">{selectedRoom.userName}</h3>
                       <div className="flex items-center gap-1.5">
                         {selectedRoom.online && (
                           <span className="h-2 w-2 rounded-full bg-green-500" />
@@ -200,61 +208,66 @@ export default function StaffChatPage() {
                       </div>
                     </div>
                   </div>
-                  
                 </div>
 
-                {/* Messages */}
-                <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-4">
-                    {messages.map((message) => (
-                      <div
-                        key={message.messageId}
-                        className={`flex items-start gap-2 text-black ${
-                          message.userName === 'staff' ? 'flex-row-reverse' : ''
-                        }`}
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            {message.userName === 'staff' ? 'S' : selectedRoom.userName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div
-                          className={`rounded-lg p-3 max-w-[70%] ${
-                            message.userName === 'staff'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
-                          }`}
-                        >
-                          <p>{message.content}</p>
-                          <span className="text-xs opacity-70 mt-1 block">
-                            {formatTimestamp(message.timestamp)}
-                          </span>
-                        </div>
+                <div className="flex flex-col flex-1 bg-[#0a0a14]">
+                  {/* Messages Container with White Background */}
+                  <div className="flex-1 mx-4 my-4 bg-white rounded-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
+                    {/* Messages Scroll Area */}
+                    <ScrollArea className="flex-1 h-full overflow-y-auto pr-4" style={{ maxHeight: 'inherit' }}>
+                      <div className="space-y-4 p-4">
+                        {messages.map((message) => (
+                          <div
+                            key={message.messageId}
+                            className={`flex items-start gap-2 ${
+                              message.userName === 'staff' ? 'flex-row-reverse' : ''
+                            }`}
+                          >
+                            <Avatar className="h-8 w-8 flex-shrink-0">
+                              <AvatarFallback className="bg-[#1C1C28] text-white">
+                                {message.userName === 'staff' ? 'S' : selectedRoom.userName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div
+                              className={`rounded-lg p-3 max-w-[70%] ${
+                                message.userName === 'staff'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-[#f0f0f0] text-black'
+                              }`}
+                            >
+                              <p className="break-words">{message.content}</p>
+                              <span className="text-xs opacity-70 mt-1 block">
+                                {formatTimestamp(message.timestamp)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
                       </div>
-                    ))}
+                    </ScrollArea>
                   </div>
-                </ScrollArea>
 
-                {/* Message Input */}
-                <form onSubmit={handleSendMessage} className="p-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Nhập tin nhắn..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      className="flex-1 text-black"
-                    />
-                    <Button type="submit" size="icon">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </form>
-              </div>
+                  {/* Message Input */}
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#1C1C28] mt-auto">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Nhập tin nhắn..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        className="flex-1 bg-[#1C1C28] border-0 text-white placeholder:text-muted-foreground"
+                      />
+                      <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90">
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </>
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-medium">Chưa có cuộc trò chuyện nào được chọn</h3>
+                  <h3 className="mt-4 text-lg font-medium text-white">Chưa có cuộc trò chuyện nào được chọn</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu
                   </p>
