@@ -5,71 +5,118 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-
-// Mock data for chat list
-const mockChats = [
-  {
-    id: 1,
-    name: "Nguyễn Văn A",
-    avatar: null,
-    lastMessage: "Tôi cần tư vấn về gói Basic",
-    timestamp: "12:30",
-    unread: 2,
-    online: true
-  },
-  {
-    id: 2,
-    name: "Trần Thị B",
-    avatar: null,
-    lastMessage: "Cảm ơn bạn đã hỗ trợ",
-    timestamp: "11:45",
-    unread: 0,
-    online: false
-  },
-  // Add more mock chats as needed
-];
-
-// Mock messages for chat
-const mockMessages = [
-  {
-    id: 1,
-    senderId: 1,
-    content: "Xin chào, tôi cần tư vấn về gói Basic",
-    timestamp: "12:30",
-    type: "text"
-  },
-  {
-    id: 2,
-    senderId: "staff",
-    content: "Chào anh/chị, tôi có thể giúp gì cho anh/chị ạ?",
-    timestamp: "12:31",
-    type: "text"
-  },
-  // Add more mock messages as needed
-];
-
+import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp } from "firebase/firestore";
+import { useEffect } from 'react'; 
+import { db } from '@/components/firebase';
+import { useAuth } from '@/Authentication/AuthContext';
 export default function StaffChatPage() {
-  const [selectedChat, setSelectedChat] = useState(null);
+  const [rooms, setRooms] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null); 
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState([]);
+  const { user } = useAuth();
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    const newMsg = {
-      id: messages.length + 1,
-      senderId: "staff",
-      content: newMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: "text"
-    };
-
-    setMessages([...messages, newMsg]);
-    setNewMessage("");
+  // Helper function to format Firebase Timestamp to readable time
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    
+    // Check if it's a Firebase Timestamp
+    if (timestamp.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    // If it's already a string, return as is
+    return timestamp;
   };
 
+  //Real time chat rooms
+  useEffect(() => {
+    const q = query(collection(db, "room"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      // Map room data and update state
+      const roomData = querySnapshot.docs.map((doc) => ({
+        id: doc.id, // Store Firestore 
+        ...doc.data(), // Spread all room data
+      }));
+      setRooms(roomData);
+    });
+    return () => unsubscribe();// Cleanup 
+  }, []);
+  
+  //Load message for selected room
+  useEffect(() => {
+    if (!selectedRoom) return;
+    // Query messages for specific room, ordered by timestamp
+    const q = query(
+      collection(db, "message"), 
+      where("roomId", "==", selectedRoom.id),
+      orderBy("timestamp", "asc")
+    );
+    //Update messages state when new messages are added
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const messageData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMessages(messageData);
+    });
+    return () => unsubscribe();
+  }, [selectedRoom]);
+  
+
+  //Get Rooms from firebase 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get list of rooms
+        const roomSnapshot = await getDocs(collection(db, "room"));
+        const roomData = roomSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setRooms([...roomData]);
+
+        // Get messages after get rooms
+        const messageSnapshot = await getDocs(collection(db, "message"));
+        const messageData = messageSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messageData);
+        console.log("Messages:", messageData);
+      } catch (error) {
+        console.error("Lỗi khi fetch dữ liệu:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+  
+  //Send message
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !rooms) return;
+  
+    //Create Message to add to Firestore
+    const newMsg = {
+      userId: 2,
+      userName: "staff",
+      content: newMessage,
+      timestamp: serverTimestamp(),
+      type: "text",
+      roomId: selectedRoom.id,  // Assign ID of customer
+    };
+  
+    try {
+      // Add message to Firestore collection 'message'
+      await addDoc(collection(db, "message"), newMsg);
+      setNewMessage(""); // Clear input after sending
+    } catch (error) {
+      console.error("Error sending message: ", error);
+    }
+  };
+  
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col space-y-8">
@@ -95,33 +142,33 @@ export default function StaffChatPage() {
             
             <ScrollArea className="h-[calc(100vh-16rem)]">
               <div className="space-y-2 p-4 pt-0">
-                {mockChats.map((chat) => (
+                {rooms && rooms.map((room) => (
                   <div
-                    key={chat.id}
+                    key={room.roomId}
                     className={`flex items-center text-black gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent ${
-                      selectedChat?.id === chat.id ? 'bg-accent' : ''
+                      rooms?.id === room.roomId ? 'bg-accent' : ''
                     }`}
-                    onClick={() => setSelectedChat(chat)}
+                    onClick={() => setSelectedRoom(room)}
                   >
                     <div className="relative">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={chat.avatar} />
-                        <AvatarFallback>{chat.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={room.avatar} />
+                        <AvatarFallback>{room.userName.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      {chat.online && (
+                      {room.online && (
                         <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-background" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium truncate">{chat.name}</p>
-                        <span className="text-xs text-muted-foreground">{chat.timestamp}</span>
+                        <p className="font-medium truncate">{room.userName}</p>
+                        <span className="text-xs text-muted-foreground">{room.timestamp}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate text-left">{chat.lastMessage}</p>
+                      {/* <p className="text-sm text-muted-foreground truncate text-left">{chat.lastMessage}</p> */}
                     </div>
-                    {chat.unread > 0 && (
+                    {room.unread > 0 && (
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                        {chat.unread}
+                        {room.unread}
                       </span>
                     )}
                   </div>
@@ -132,23 +179,23 @@ export default function StaffChatPage() {
 
           {/* Chat Box */}
           <div className="col-span-8">
-            {selectedChat ? (
+            {selectedRoom ? (
               <div className="h-full flex flex-col">
                 {/* Chat Header */}
                 <div className="p-4 border-b flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedChat.avatar} />
-                      <AvatarFallback className='text-black'>{selectedChat.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={selectedRoom.avatar} />
+                      <AvatarFallback className='text-black'>{selectedRoom.userName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-black text-left">{selectedChat.name}</h3>
+                      <h3 className="font-medium text-black text-left">{selectedRoom.userName}</h3>
                       <div className="flex items-center gap-1.5">
-                        {selectedChat.online && (
+                        {selectedRoom.online && (
                           <span className="h-2 w-2 rounded-full bg-green-500" />
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {selectedChat.online ? 'Đang hoạt động' : 'Không hoạt động'}
+                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'}
                         </p>
                       </div>
                     </div>
@@ -161,26 +208,26 @@ export default function StaffChatPage() {
                   <div className="space-y-4">
                     {messages.map((message) => (
                       <div
-                        key={message.id}
+                        key={message.messageId}
                         className={`flex items-start gap-2 text-black ${
-                          message.senderId === 'staff' ? 'flex-row-reverse' : ''
+                          message.userName === 'staff' ? 'flex-row-reverse' : ''
                         }`}
                       >
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>
-                            {message.senderId === 'staff' ? 'S' : selectedChat.name.charAt(0)}
+                            {message.userName === 'staff' ? 'S' : selectedRoom.userName.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
                         <div
                           className={`rounded-lg p-3 max-w-[70%] ${
-                            message.senderId === 'staff'
+                            message.userName === 'staff'
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted'
                           }`}
                         >
                           <p>{message.content}</p>
                           <span className="text-xs opacity-70 mt-1 block">
-                            {message.timestamp}
+                            {formatTimestamp(message.timestamp)}
                           </span>
                         </div>
                       </div>
