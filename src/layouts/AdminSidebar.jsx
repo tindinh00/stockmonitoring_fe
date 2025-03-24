@@ -154,13 +154,13 @@ export default function AdminSidebar() {
   return (
     <Sidebar collapsible='icon'>
       <SidebarHeader>
-        <div className='flex gap-2 py-2 text-sidebar-accent-foreground'>
-          <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground'>
-            <company.logo className='size-4' />
+        <div className='flex gap-2 py-2 text-white'>
+          <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88]'>
+            <company.logo className='size-4 text-white' />
           </div>
           <div className='grid flex-1 text-left text-sm leading-tight'>
-            <span className='truncate font-semibold'>{company.name}</span>
-            <span className='truncate text-xs'>{user?.tier || company.plan}</span>
+            <span className='truncate font-semibold text-primary'>{company.name}</span>
+            <span className='truncate text-xs text-[#09D1C7]'>{user?.tier || company.plan}</span>
           </div>
         </div>
       </SidebarHeader>
@@ -182,6 +182,11 @@ export default function AdminSidebar() {
                       <SidebarMenuButton
                         tooltip={item.title}
                         isActive={pathname === item.url}
+                        className={
+                          pathname === item.url 
+                            ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                            : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                        }
                       >
                         {item.icon && <Icon />}
                         <span>{item.title}</span>
@@ -195,6 +200,11 @@ export default function AdminSidebar() {
                             <SidebarMenuSubButton
                               asChild
                               isActive={pathname === subItem.url}
+                              className={
+                                pathname === subItem.url 
+                                  ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                                  : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                              }
                             >
                               <a href={subItem.url}>
                                 <span>{subItem.title}</span>
@@ -212,6 +222,11 @@ export default function AdminSidebar() {
                     asChild
                     tooltip={item.title}
                     isActive={pathname === item.url}
+                    className={
+                      pathname === item.url 
+                        ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
+                        : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
+                    }
                   >
                     <a href={item.url}>
                       <Icon />
@@ -253,14 +268,14 @@ export default function AdminSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg'
+                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-[#1a1a1a] border-[#333] text-white'
                 side='bottom'
                 align='end'
                 sideOffset={4}
               >
                 <DropdownMenuLabel className='p-0 font-normal'>
                   <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
-                    <Avatar className='h-8 w-8 rounded-lg'>
+                    <Avatar className='h-8 w-8 rounded-lg text-primary'>
                       {user?.avatar ? (
                         <AvatarImage src={user.avatar} alt={user.name || "User"} className="rounded-lg" />
                       ) : null}
@@ -276,7 +291,7 @@ export default function AdminSidebar() {
                         {user?.email || "email@example.com"}
                       </span>
                       {user?.role && (
-                        <span className='truncate text-xs text-teal-400'>
+                        <span className='truncate text-xs text-[#09D1C7]'>
                           {user.role === "admin" ? "Quản trị viên" : user.role}
                         </span>
                       )}

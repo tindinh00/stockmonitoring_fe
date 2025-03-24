@@ -36,10 +36,63 @@ export default function StaffChatPage() {
       const date = new Date(timestamp.seconds * 1000);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    // If it's already a string, return as is
     return timestamp;
   };
 
+  // Helper function to format date
+  const formatDate = (timestamp) => {
+    if (!timestamp?.seconds) return '';
+    
+    const date = new Date(timestamp.seconds * 1000);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hôm nay';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Hôm qua';
+    }
+    return date.toLocaleDateString('vi-VN', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  // Helper function to format timestamp for chat list
+  const formatLastMessageTime = (timestamp) => {
+    if (!timestamp?.seconds) return '';
+    
+    const messageDate = new Date(timestamp.seconds * 1000);
+    const now = new Date();
+    const diffInHours = (now - messageDate) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      // If less than 24 hours, show time
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 48) {
+      // If yesterday
+      return 'Hôm qua';
+    } else {
+      // If older, show date
+      return messageDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    }
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = (messages) => {
+    const groups = {};
+    messages.forEach(message => {
+      if (!message.timestamp) return;
+      const date = new Date(message.timestamp.seconds * 1000).toDateString();
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+    return groups;
+  };
   //Real time chat rooms
   useEffect(() => {
     const q = query(collection(db, "room"));
@@ -115,7 +168,7 @@ export default function StaffChatPage() {
       content: newMessage,
       timestamp: serverTimestamp(),
       type: "text",
-      roomId: selectedRoom.id,  // Assign ID of customer
+      roomId: selectedRoom.id,  // Assign ID of room  
     };
   
     try {
@@ -130,10 +183,10 @@ export default function StaffChatPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col">
-        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-[calc(100vh-8rem)]">
+        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#ffffff] h-[calc(100vh-8rem)]">
           {/* Chat List */}
-          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col">
-            <div className="p-4 border-b border-[#1C1C28]">
+          <div className="col-span-4 border-r border-[#ffffff] flex flex-col">
+            <div className="p-4 border-b border-[#ffffff]">
               <div className="flex items-center gap-3">
                 <h4 className="text-2xl font-bold text-white">Chat với khách hàng</h4>
                 <MessageSquare className="h-5 w-5 text-white" />
@@ -171,14 +224,21 @@ export default function StaffChatPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="font-medium truncate">{room.userName}</p>
-                        <span className="text-xs text-muted-foreground">{room.timestamp}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatLastMessageTime(room.lastMessageTime) || '12:00'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-sm text-muted-foreground truncate">
+                          {room.lastMessage || 'Chưa có tin nhắn'}
+                        </p>
+                        {room.unread > 0 && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground ml-2">
+                            {room.unread}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    {room.unread > 0 && (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                        {room.unread}
-                      </span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -216,30 +276,39 @@ export default function StaffChatPage() {
                     {/* Messages Scroll Area */}
                     <ScrollArea className="flex-1 h-full overflow-y-auto pr-4" style={{ maxHeight: 'inherit' }}>
                       <div className="space-y-4 p-4">
-                        {messages.map((message) => (
-                          <div
-                            key={message.messageId}
-                            className={`flex items-start gap-2 ${
-                              message.userName === 'staff' ? 'flex-row-reverse' : ''
-                            }`}
-                          >
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarFallback className="bg-[#1C1C28] text-white">
-                                {message.userName === 'staff' ? 'S' : selectedRoom.userName.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div
-                              className={`rounded-lg p-3 max-w-[70%] ${
-                                message.userName === 'staff'
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-[#f0f0f0] text-black'
-                              }`}
-                            >
-                              <p className="break-words">{message.content}</p>
-                              <span className="text-xs opacity-70 mt-1 block">
-                                {formatTimestamp(message.timestamp)}
-                              </span>
+                        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                          <div key={date} className="space-y-4">
+                            <div className="flex items-center justify-center">
+                              <div className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
+                                {formatDate(dateMessages[0].timestamp)}
+                              </div>
                             </div>
+                            {dateMessages.map((message) => (
+                              <div
+                                key={message.messageId}
+                                className={`flex items-start gap-2 ${
+                                  message.userName === 'staff' ? 'flex-row-reverse' : ''
+                                }`}
+                              >
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarFallback className="bg-[#1C1C28] text-white">
+                                    {message.userName === 'staff' ? 'S' : selectedRoom?.userName.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div
+                                  className={`rounded-lg p-3 max-w-[70%] ${
+                                    message.userName === 'staff'
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'bg-[#f0f0f0] text-black'
+                                  }`}
+                                >
+                                  <p className="break-words">{message.content}</p>
+                                  <span className="text-xs opacity-70 mt-1 block">
+                                    {formatTimestamp(message.timestamp)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         ))}
                         <div ref={messagesEndRef} />
@@ -248,7 +317,7 @@ export default function StaffChatPage() {
                   </div>
 
                   {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#1C1C28] mt-auto">
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#ffffff] mt-auto">
                     <div className="flex items-center gap-2">
                       <Input
                         placeholder="Nhập tin nhắn..."
