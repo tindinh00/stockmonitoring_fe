@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
 
@@ -93,6 +93,7 @@ export default function StaffChatPage() {
     });
     return groups;
   };
+  
   //Real time chat rooms
   useEffect(() => {
     const q = query(collection(db, "room"));
@@ -174,6 +175,12 @@ export default function StaffChatPage() {
     try {
       // Add message to Firestore collection 'message'
       await addDoc(collection(db, "message"), newMsg);
+      // Update room's lastMessage and lastMessageTime
+      const roomRef = doc(db, "room", selectedRoom.id);
+      await updateDoc(roomRef, {
+        lastMessage: newMessage,
+        lastMessageTime: serverTimestamp()
+      });
       setNewMessage(""); // Clear input after sending
     } catch (error) {
       console.error("Error sending message: ", error);
