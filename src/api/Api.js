@@ -1,5 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie"; // Import js-cookie
+import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
 
 // Base URL cho API
 const BASE_URL = "https://stockmonitoring.onrender.com";
@@ -20,6 +21,71 @@ const api = axios.create({
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,PATCH,OPTIONS",
   },
 });
+
+// Kiểm tra khả năng lưu trữ cookie
+export const checkCookieCompatibility = () => {
+  try {
+    // Thử set một cookie test
+    const testValue = 'test_' + Date.now();
+    Cookies.set('cookie_test', testValue, { path: '/' });
+    
+    // Kiểm tra xem cookie có được set thành công không
+    const retrievedValue = Cookies.get('cookie_test');
+    
+    // Xóa cookie test
+    Cookies.remove('cookie_test', { path: '/' });
+    
+    const compatible = retrievedValue === testValue;
+    console.log("Cookie compatibility check:", compatible ? "Compatible" : "Not compatible");
+    return compatible;
+  } catch (error) {
+    console.error("Cookie compatibility check error:", error);
+    return false;
+  }
+};
+
+// Hàm để lưu user ID vào cả cookie và localStorage
+export const saveUserId = (userId) => {
+  try {
+    // Luôn cố gắng lưu vào cookie
+    Cookies.set("user_id", userId, { path: '/' });
+    
+    // Lưu vào localStorage như một phương án dự phòng
+    localStorage.setItem('user_id_backup', userId);
+    
+    console.log("User ID saved to both cookie and localStorage:", userId);
+    return true;
+  } catch (error) {
+    console.error("Error saving user ID:", error);
+    return false;
+  }
+};
+
+// Hàm để lấy user ID từ cookie hoặc localStorage
+export const getUserId = () => {
+  try {
+    // Cố gắng lấy từ cookie trước
+    const userIdFromCookie = Cookies.get("user_id");
+    
+    if (userIdFromCookie) {
+      return userIdFromCookie;
+    }
+    
+    // Nếu không có trong cookie, thử lấy từ localStorage
+    const userIdFromStorage = localStorage.getItem('user_id_backup');
+    
+    if (userIdFromStorage) {
+      console.log("Using user ID from localStorage fallback");
+      // Thử set lại cookie
+      Cookies.set("user_id", userIdFromStorage, { path: '/' });
+    }
+    
+    return userIdFromStorage;
+  } catch (error) {
+    console.error("Error getting user ID:", error);
+    return null;
+  }
+};
 
 // Thêm biến để theo dõi trạng thái refresh token
 let isRefreshing = false;
@@ -257,9 +323,46 @@ export const apiService = {
       if (response.data && response.data.value) {
         const userData = response.data.value.data;
         if (userData.token) {
+          console.log("Setting cookies with user ID:", userData.id, "and token:", userData.token.substring(0, 15) + "...");
+          
+          // Kiểm tra khả năng tương thích của cookie
+          const cookieCompatible = checkCookieCompatibility();
+          console.log("Cookie compatibility:", cookieCompatible ? "Good" : "Limited");
+          
+          // Sử dụng cookie options mà không có domain restriction
+          const cookieOptions = { 
+            expires: 7, 
+            path: '/'
+          };
+          
           // Lưu cả access token và refresh token
-          Cookies.set("auth_token", userData.token, { expires: 7 });
-          Cookies.set("refresh_token", userData.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
+          Cookies.set("auth_token", userData.token, cookieOptions);
+          console.log("auth_token set:", Cookies.get("auth_token") ? "success" : "failed");
+          
+          Cookies.set("refresh_token", userData.refreshToken, { ...cookieOptions, expires: 30 }); // Refresh token có thời hạn dài hơn
+          console.log("refresh_token set:", Cookies.get("refresh_token") ? "success" : "failed");
+          
+          // Lưu id thành user_id trong cả cookie và localStorage
+          saveUserId(userData.id);
+          console.log("user_id saved with combined method");
+          
+          // Kiểm tra xem cookie đã được set chưa
+          console.log("Immediate check - user_id:", getUserId());
+          console.log("All cookies:", document.cookie);
+          
+          // Thêm kiểm tra sau một thời gian ngắn
+          setTimeout(() => {
+            const userId = getUserId();
+            console.log("Delayed verification - user_id:", userId);
+            console.log("Delayed - All cookies:", document.cookie);
+            
+            // Nếu vẫn không có userId, thử set lại
+            if (!userId) {
+              console.log("Retry saving user ID");
+              saveUserId(userData.id);
+            }
+          }, 500);
+          
           api.defaults.headers.common["Authorization"] = `Bearer ${userData.token}`;
           
           // Lưu thông tin user vào localStorage với cấu trúc rõ ràng
@@ -267,14 +370,17 @@ export const apiService = {
             id: userData.id,
             email: userData.email,
             name: userData.name,
-            role: userData.role
+            role: userData.role || userData.roleName
           };
           localStorage.setItem('user_info', JSON.stringify(userInfo));
           
           console.log("Tokens saved to cookies and user info saved to localStorage:", userInfo);
+        } else {
+          console.error("No token found in user data", userData);
         }
         return response.data.value;
       }
+      console.error("Invalid response format", response.data);
       throw new Error("Invalid response format");
     } catch (error) {
       console.error("Login error:", error);
@@ -296,11 +402,25 @@ export const apiService = {
 
   logout: async () => {
     try {
+      console.log("Removing cookies and user info");
+      // Tùy chọn cookie để đảm bảo nó được xóa đúng
+      const cookieOptions = { 
+        path: '/',
+      };
+      
       // Xóa cả access token, refresh token và user info
-      Cookies.remove("auth_token");
-      Cookies.remove("refresh_token");
+      Cookies.remove("auth_token", cookieOptions);
+      Cookies.remove("refresh_token", cookieOptions);
+      Cookies.remove("user_id", cookieOptions);
+      
+      // Xóa cả dữ liệu backup trong localStorage
       localStorage.removeItem('user_info');
+      localStorage.removeItem('user_id_backup');
+      
       delete api.defaults.headers.common["Authorization"];
+      
+      console.log("After logout - All cookies:", document.cookie);
+      console.log("After logout - LocalStorage user_id_backup:", localStorage.getItem('user_id_backup'));
       console.log("Tokens and user info removed");
       return true;
     } catch (error) {
@@ -1022,6 +1142,91 @@ export const apiService = {
       throw new Error("Invalid refresh token response");
     } catch (error) {
       console.error("Refresh token error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm lấy tin tức
+  getNews: async (source = 'cafef') => {
+    try {
+      const response = await api.get(`/api/News/get-news?src=${source}`);
+      console.log("Get news response:", response.data);
+      
+      // Placeholder image nội bộ
+      const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
+      
+      // Kiểm tra các cấu trúc dữ liệu khác nhau mà API có thể trả về
+      
+      // Trường hợp 1: Dữ liệu nằm trong response.data.data (cấu trúc mới)
+      if (response.data && Array.isArray(response.data.data)) {
+        console.log("Cấu trúc API mới: dữ liệu nằm trong response.data.data");
+        return response.data.data.map(item => ({
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: item.source || source,
+          timeAgo: item.time || 'Gần đây',
+          imageUrl: item.image || defaultImage,
+          content: item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>'
+        }));
+      }
+      
+      // Trường hợp 2: Dữ liệu nằm trong response.data.value.data
+      if (response.data?.value?.data && Array.isArray(response.data.value.data)) {
+        console.log("Dữ liệu nằm trong response.data.value.data");
+        return response.data.value.data.map(item => ({
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: item.source || source,
+          timeAgo: item.publishedTime ? `${new Date(item.publishedTime).toLocaleDateString('vi-VN')}` : (item.time || 'Gần đây'),
+          imageUrl: item.imageUrl || item.image || defaultImage,
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+        }));
+      }
+      
+      // Trường hợp 3: Dữ liệu nằm trong một mảng response.data.value
+      if (response.data?.value && Array.isArray(response.data.value)) {
+        console.log("Dữ liệu nằm trong mảng response.data.value");
+        return response.data.value.map(item => ({
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: item.source || source,
+          timeAgo: item.publishedTime ? `${new Date(item.publishedTime).toLocaleDateString('vi-VN')}` : (item.time || 'Gần đây'),
+          imageUrl: item.imageUrl || item.image || defaultImage,
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+        }));
+      }
+      
+      // Trường hợp 4: response.data.value là một đối tượng đơn lẻ (không phải mảng)
+      if (response.data?.value && typeof response.data.value === 'object' && !Array.isArray(response.data.value)) {
+        console.log("response.data.value là một đối tượng đơn lẻ");
+        const item = response.data.value;
+        return [{
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: item.source || source,
+          timeAgo: item.publishedTime ? `${new Date(item.publishedTime).toLocaleDateString('vi-VN')}` : (item.time || 'Gần đây'),
+          imageUrl: item.imageUrl || item.image || defaultImage,
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+        }];
+      }
+      
+      // Trường hợp 5: response.data là một mảng trực tiếp
+      if (response.data && Array.isArray(response.data)) {
+        console.log("response.data là một mảng trực tiếp");
+        return response.data.map(item => ({
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: item.source || source,
+          timeAgo: item.publishedTime ? `${new Date(item.publishedTime).toLocaleDateString('vi-VN')}` : (item.time || 'Gần đây'),
+          imageUrl: item.imageUrl || item.image || defaultImage,
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+        }));
+      }
+      
+      console.log("Không tìm thấy cấu trúc dữ liệu hợp lệ trong response:", response.data);
+      return [];
+    } catch (error) {
+      console.error("Get news error:", error);
       throw error.response?.data || error.message;
     }
   },

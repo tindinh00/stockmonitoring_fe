@@ -193,7 +193,7 @@ const ChatPage = () => {
                     ? 'bg-[#26A65B] text-white'
                     : 'bg-[#1C1C28] text-white'
                 }`}>
-                  <p className="text-sm">{message.content}</p>
+                  <p className="text-sm text-left">{message.content}</p>
                 </div>
               </div>
             </div>
