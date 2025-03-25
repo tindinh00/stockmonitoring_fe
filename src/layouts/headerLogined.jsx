@@ -66,7 +66,7 @@ export default function HeaderLogined() {
         {/* Market Indices */}
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
           <div className='flex items-center gap-2 border border-gray-200 rounded-md px-3 py-1.5 w-full max-w-[500px] overflow-hidden relative'>
-            <style jsx>{`
+            <style>{`
               @keyframes scroll {
                 0% { transform: translateX(0); }
                 100% { transform: translateX(-50%); }

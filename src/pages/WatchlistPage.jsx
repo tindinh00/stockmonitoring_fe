@@ -6,9 +6,12 @@ import { Plus, X, Eye, ChevronRight } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import axios from 'axios';
+import Cookies from 'js-cookie';
+import { getUserId } from '@/api/Api'; // Import hàm getUserId
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
+  const [watchlistCodes, setWatchlistCodes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStock, setSelectedStock] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -113,6 +116,8 @@ const WatchlistPage = () => {
     { id: 15, name: 'Dược phẩm', code: 'DP' }
   ]);
   const [selectedIndustryIds, setSelectedIndustryIds] = useState([]);
+  const [stocks, setStocks] = useState([]);
+  const [activeTab, setActiveTab] = useState('price');
 
   // Lấy watchlist từ localStorage khi component mount
   useEffect(() => {
@@ -134,90 +139,111 @@ const WatchlistPage = () => {
     return 'text-white'; // Giữ nguyên - màu trắng
   };
 
-  // Fetch real-time stock data
-  const fetchStockData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await axios.get(`https://stockmonitoring-be-stock-service.onrender.com/api/stock/get-stock-in-session`, {
-        params: {
-          exchange: 'hsx',
-          timestamp: '20250316122322'
-        }
-      });
-      
-      if (response.data.value && response.data.value.data) {
-        const allStocks = response.data.value.data;
-        // Lọc chỉ các mã trong watchlist
-        const watchedStocks = allStocks.filter(stock => 
-          watchlist.some(watchedStock => watchedStock.code === stock.stockCode)
-        ).map(stock => ({
-          code: stock.stockCode,
-          ceiling: stock.ceilPrice?.toFixed(2) || '--',
-          floor: stock.floorPrice?.toFixed(2) || '--',
-          ref: stock.priorClosePrice?.toFixed(2) || '--',
-          buyPrice3: stock.price3Buy?.toFixed(2) || '--',
-          buyVolume3: stock.volume3Buy?.toLocaleString() || '--',
-          buyPrice2: stock.price2Buy?.toFixed(2) || '--',
-          buyVolume2: stock.volume2Buy?.toLocaleString() || '--',
-          buyPrice1: stock.price1Buy?.toFixed(2) || '--',
-          buyVolume1: stock.volume1Buy?.toLocaleString() || '--',
-          matchPrice: stock.matchPrice?.toFixed(2) || '--',
-          matchVolume: stock.matchedOrderVolume?.toLocaleString() || '--',
-          matchChange: stock.plusMinus ? `${stock.plusMinus > 0 ? '+' : ''}${stock.plusMinus.toFixed(2)}%` : '--',
-          sellPrice1: stock.price1Sell || '--',
-          sellVolume1: stock.volume1Sell?.toLocaleString() || '--',
-          sellPrice2: stock.price2Sell || '--',
-          sellVolume2: stock.volume2Sell?.toLocaleString() || '--',
-          sellPrice3: stock.price3Sell || '--',
-          sellVolume3: stock.volume3Sell?.toLocaleString() || '--',
-          totalVolume: stock.volumeAccumulation?.toLocaleString() || '--',
-          high: stock.highPrice?.toFixed(2) || '--',
-          low: stock.lowPrice?.toFixed(2) || '--',
-          foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
-          foreignSell: stock.foreignSellVolume?.toLocaleString() || '--'
-        }));
-        setWatchlist(watchedStocks);
-      }
-    } catch (error) {
-      console.error('Error fetching stock data:', error);
-      toast.error('Không thể tải dữ liệu. Vui lòng thử lại sau.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch data initially and set up polling
+  // Fetch stock data on component mount
   useEffect(() => {
+    const fetchStockData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Lấy userId từ getUserId
+        const userId = getUserId();
+        
+        if (!userId) {
+          console.log("No user ID found, skipping watchlist fetch");
+          setIsLoading(false);
+          return;
+        }
+        
+        // Gọi API để lấy danh sách mã chứng khoán trong watchlist
+        const watchlistResponse = await axios.get(`https://stockmonitoring-be-stock-service.onrender.com/api/WatchListStock/get-by-user/${userId}`);
+        console.log("Watchlist response:", watchlistResponse.data);
+        
+        if (watchlistResponse.data && watchlistResponse.data.value) {
+          // Lưu lại danh sách mã CK trong watchlist
+          const watchlistCodes = watchlistResponse.data.value;
+          setWatchlistCodes(watchlistCodes);
+          
+          if (watchlistCodes.length === 0) {
+            setStocks([]);
+            setIsLoading(false);
+            return;
+          }
+          
+          // Gọi API để lấy dữ liệu chi tiết của các mã CK
+          const stockResponse = await axios.get(`https://stockmonitoring-be-stock-service.onrender.com/api/stock/get-stock-in-session`, {
+            params: {
+              exchange: 'hsx',
+              timestamp: "20250316122322" // Timestamp cố định theo yêu cầu
+            }
+          });
+          
+          if (stockResponse.data && stockResponse.data.value && stockResponse.data.value.data) {
+            // Lọc ra chỉ các mã CK có trong watchlist
+            const watchlistStocks = stockResponse.data.value.data.filter(
+              stock => watchlistCodes.includes(stock.stockCode)
+            ).map(stock => ({
+              code: stock.stockCode,
+              name: stock.stockName || `Cổ phiếu ${stock.stockCode}`,
+              currentPrice: stock.matchPrice?.toFixed(2) || '--',
+              change: stock.plusMinus ? `${stock.plusMinus > 0 ? '+' : ''}${stock.plusMinus.toFixed(2)}%` : '--',
+              volume: stock.volumeAccumulation?.toLocaleString() || '--',
+              ceiling: stock.ceilPrice?.toFixed(2) || '--',
+              floor: stock.floorPrice?.toFixed(2) || '--',
+              reference: stock.priorClosePrice?.toFixed(2) || '--',
+              high: stock.highPrice?.toFixed(2) || '--',
+              low: stock.lowPrice?.toFixed(2) || '--',
+              openPrice: stock.openPrice?.toFixed(2) || '--',
+              foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
+              foreignSell: stock.foreignSellVolume?.toLocaleString() || '--'
+            }));
+            
+            setStocks(watchlistStocks);
+          } else {
+            console.log("No stock data available");
+            setStocks([]);
+          }
+        } else {
+          console.log("No watchlist data available");
+          setStocks([]);
+        }
+      } catch (error) {
+        console.error("Error fetching watchlist data:", error);
+        setStocks([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
     fetchStockData();
-    const interval = setInterval(fetchStockData, 5000); // Poll every 5 seconds
-
+    
+    // Cập nhật dữ liệu mỗi 30 giây
+    const interval = setInterval(fetchStockData, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Update price colors based on real-time data
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newPriceHistory = { ...priceHistory };
-      const newPriceChangeColors = { ...priceChangeColors };
-
-      watchlist.forEach(stock => {
-        const currentPrice = parseFloat(stock.matchPrice);
-        const previousPrice = newPriceHistory[stock.code] || currentPrice;
-
-        newPriceHistory[stock.code] = currentPrice;
-        newPriceChangeColors[stock.code] = updatePriceColors(
-          stock.code,
-          currentPrice,
-          previousPrice
-        );
-      });
-
-      setPriceHistory(newPriceHistory);
-      setPriceChangeColors(newPriceChangeColors);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [watchlist]);
+  const removeFromWatchlist = async (code) => {
+    try {
+      // Lấy userId từ getUserId
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        return;
+      }
+      
+      // Gọi API để xóa khỏi watchlist (Giả định API chưa hỗ trợ DELETE thì chỉ cập nhật UI)
+      // await axios.delete(`https://stockmonitoring-be-stock-service.onrender.com/api/WatchListStock/remove/${userId}/${code}`);
+      
+      // Cập nhật state
+      setStocks(stocks.filter(stock => stock.code !== code));
+      setWatchlistCodes(watchlistCodes.filter(stockCode => stockCode !== code));
+      
+      toast.success(`Đã xóa ${code} khỏi danh sách theo dõi`);
+    } catch (error) {
+      console.error("Error removing from watchlist:", error);
+      toast.error("Không thể xóa khỏi danh sách theo dõi. Vui lòng thử lại sau.");
+    }
+  };
 
   const handleStockClick = (stock) => {
     setSelectedStock(stock);
@@ -240,13 +266,6 @@ const WatchlistPage = () => {
       };
     });
     setChartData(data);
-  };
-
-  const removeFromWatchlist = (stock) => {
-    const updatedWatchlist = watchlist.filter(item => item.code !== stock.code);
-    setWatchlist(updatedWatchlist);
-    localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
-    toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
   };
 
   const handleIndustryClick = (industry) => {
@@ -308,32 +327,32 @@ const WatchlistPage = () => {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <colgroup>
-                    <col className="w-[60px]" /> {/* Mã CK */}
-                    <col className="w-[60px]" /> {/* Trần */}
-                    <col className="w-[60px]" /> {/* Sàn */}
-                    <col className="w-[60px]" /> {/* TC */}
-                    <col className="w-[60px]" /> {/* Giá 3 */}
-                    <col className="w-[80px]" /> {/* KL 3 */}
-                    <col className="w-[60px]" /> {/* Giá 2 */}
-                    <col className="w-[80px]" /> {/* KL 2 */}
-                    <col className="w-[60px]" /> {/* Giá 1 */}
-                    <col className="w-[80px]" /> {/* KL 1 */}
-                    <col className="w-[60px]" /> {/* Giá */}
-                    <col className="w-[80px]" /> {/* KL */}
-                    <col className="w-[70px]" /> {/* +/- */}
-                    <col className="w-[60px]" /> {/* Giá 1 */}
-                    <col className="w-[80px]" /> {/* KL 1 */}
-                    <col className="w-[60px]" /> {/* Giá 2 */}
-                    <col className="w-[80px]" /> {/* KL 2 */}
-                    <col className="w-[60px]" /> {/* Giá 3 */}
-                    <col className="w-[80px]" /> {/* KL 3 */}
-                    <col className="w-[60px]" /> {/* Cao */}
-                    <col className="w-[60px]" /> {/* Thấp */}
-                    <col className="w-[60px]" /> {/* TB */}
-                    <col className="w-[100px]" /> {/* Tổng KL */}
-                    <col className="w-[80px]" /> {/* Mua */}
-                    <col className="w-[80px]" /> {/* Bán */}
-                    <col className="w-[80px]" /> {/* Thao tác */}
+                    <col className="w-[60px]" />{/* Mã CK */}
+                    <col className="w-[60px]" />{/* Trần */}
+                    <col className="w-[60px]" />{/* Sàn */}
+                    <col className="w-[60px]" />{/* TC */}
+                    <col className="w-[60px]" />{/* Giá 3 */}
+                    <col className="w-[80px]" />{/* KL 3 */}
+                    <col className="w-[60px]" />{/* Giá 2 */}
+                    <col className="w-[80px]" />{/* KL 2 */}
+                    <col className="w-[60px]" />{/* Giá 1 */}
+                    <col className="w-[80px]" />{/* KL 1 */}
+                    <col className="w-[60px]" />{/* Giá */}
+                    <col className="w-[80px]" />{/* KL */}
+                    <col className="w-[70px]" />{/* +/- */}
+                    <col className="w-[60px]" />{/* Giá 1 */}
+                    <col className="w-[80px]" />{/* KL 1 */}
+                    <col className="w-[60px]" />{/* Giá 2 */}
+                    <col className="w-[80px]" />{/* KL 2 */}
+                    <col className="w-[60px]" />{/* Giá 3 */}
+                    <col className="w-[80px]" />{/* KL 3 */}
+                    <col className="w-[60px]" />{/* Cao */}
+                    <col className="w-[60px]" />{/* Thấp */}
+                    <col className="w-[60px]" />{/* TB */}
+                    <col className="w-[100px]" />{/* Tổng KL */}
+                    <col className="w-[80px]" />{/* Mua */}
+                    <col className="w-[80px]" />{/* Bán */}
+                    <col className="w-[80px]" />{/* Thao tác */}
                   </colgroup>
                   <thead className="sticky top-0 bg-[#1a1a1a] z-50">
                     <tr>
@@ -411,7 +430,7 @@ const WatchlistPage = () => {
                         <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
                         <td className="text-center py-2">
                           <button
-                            onClick={() => removeFromWatchlist(stock)}
+                            onClick={() => removeFromWatchlist(stock.code)}
                             className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
                             title="Xóa khỏi danh sách theo dõi"
                           >

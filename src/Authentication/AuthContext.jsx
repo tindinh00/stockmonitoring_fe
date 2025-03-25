@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
 
 const API_URL = "https://stockmonitoring.onrender.com";
 const TOKEN_KEY = "auth_token";
@@ -21,14 +22,26 @@ export const AuthProvider = ({ children }) => {
         const savedUser = localStorage.getItem(USER_KEY);
         
         if (token && savedUser) {
+          const userInfo = JSON.parse(savedUser);
           setIsAuthenticated(true);
-          setUser(JSON.parse(savedUser));
+          setUser(userInfo);
+          
+          // Đảm bảo rằng user_id cookie cũng được set bằng cách dùng saveUserId
+          if (userInfo.id) {
+            const currentUserId = getUserId();
+            if (!currentUserId || currentUserId !== userInfo.id) {
+              console.log("Fixing user_id inconsistency, setting to:", userInfo.id);
+              saveUserId(userInfo.id);
+            }
+          }
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
         // Xóa dữ liệu không hợp lệ
         Cookies.remove(TOKEN_KEY);
+        Cookies.remove('user_id');
         localStorage.removeItem(USER_KEY);
+        localStorage.removeItem('user_id_backup');
       } finally {
         setLoading(false);
       }
@@ -457,6 +470,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Luôn xóa dữ liệu cục bộ
       Cookies.remove(TOKEN_KEY);
+      Cookies.remove('user_id');
       localStorage.removeItem(USER_KEY);
       setUser(null);
       setIsAuthenticated(false);

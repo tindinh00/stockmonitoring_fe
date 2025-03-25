@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, TrendingUp, Newspaper, Share2, Bookmark, Eye } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import signalRService from '@/api/signalRService';
+import { apiService } from '@/api/Api';
+
+// Placeholder image nội bộ để tránh gọi liên tục đến placeholder.com
+const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
 
 const NewsPage = () => {
   const [news, setNews] = useState([]);
@@ -14,6 +19,8 @@ const NewsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
+  // Thêm state để theo dõi các ảnh bị lỗi
+  const [failedImages, setFailedImages] = useState({});
   const itemsPerPage = 9;
 
   // Categories
@@ -149,13 +156,187 @@ const NewsPage = () => {
     },
   ];
 
-  useEffect(() => {
+  // Helper function to convert timeAgo string to minutes
+  const timeAgoToMinutes = (timeAgo) => {
+    if (!timeAgo || typeof timeAgo !== 'string') return Number.MAX_SAFE_INTEGER;
+    
+    const match = timeAgo.match(/(\d+)\s*(giờ|phút|giây|ngày|tháng|năm)\s*trước/i);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+    
+    const amount = parseInt(match[1]);
+    const unit = match[2].toLowerCase();
+    
+    switch (unit) {
+      case 'giây': return amount / 60;
+      case 'phút': return amount;
+      case 'giờ': return amount * 60;
+      case 'ngày': return amount * 60 * 24;
+      case 'tháng': return amount * 60 * 24 * 30;
+      case 'năm': return amount * 60 * 24 * 365;
+      default: return Number.MAX_SAFE_INTEGER;
+    }
+  };
+
+  // Define fetchNewsData as a useCallback function so we can reference it in the SignalR event handler
+  const fetchNewsData = useCallback(async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setNews(mockNews);
+    try {
+      const newsData = await apiService.getNews('cafef');
+      console.log('Received news data:', newsData);
+      
+      if (newsData && newsData.length > 0) {
+        // Xử lý các item từ API mới
+        const processedNews = newsData.map(item => ({
+          id: item.id || Math.random().toString(36).substr(2, 9),
+          title: item.title || 'No title',
+          source: 'CafeF',
+          timeAgo: item.time || item.timeAgo || 'Gần đây',
+          imageUrl: (item.image || item.imageUrl) && !(item.image || item.imageUrl).includes('placeholder.com') 
+            ? (item.image || item.imageUrl) 
+            : DEFAULT_IMAGE,
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+        }));
+        
+        // Sắp xếp tin tức theo thời gian mới nhất
+        const sortedNews = processedNews.sort((a, b) => {
+          return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
+        });
+        
+        setNews(sortedNews);
+        console.log(`Successfully loaded ${newsData.length} news items`);
+      } else {
+        // Fallback to mock data if API returns empty array
+        const processedMockNews = mockNews.map(item => ({
+          ...item,
+          // Đảm bảo ảnh mặc định cho mock data
+          imageUrl: item.imageUrl && !item.imageUrl.includes('placeholder.com')
+            ? item.imageUrl
+            : DEFAULT_IMAGE
+        }));
+        
+        // Sắp xếp mock data theo thời gian mới nhất
+        const sortedMockNews = processedMockNews.sort((a, b) => {
+          return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
+        });
+        
+        console.log('Using mock data due to empty API response');
+        setNews(sortedMockNews);
+      }
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      
+      // Fallback to mock data on error
+      const processedMockNews = mockNews.map(item => ({
+        ...item,
+        // Đảm bảo ảnh mặc định cho mock data
+        imageUrl: item.imageUrl && !item.imageUrl.includes('placeholder.com')
+          ? item.imageUrl
+          : DEFAULT_IMAGE
+      }));
+      
+      // Sắp xếp mock data theo thời gian mới nhất
+      const sortedMockNews = processedMockNews.sort((a, b) => {
+        return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
+      });
+      
+      console.log('Using mock data due to API error');
+      setNews(sortedMockNews);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   }, []);
+
+  // Define the callback for news updates here, before it's used
+  const handleNewsUpdate = useCallback((message) => {
+    console.log('News update received:', message);
+    try {
+      toast.info(`${message.message || 'Có tin tức mới!'}`, {
+        position: "top-right",
+        duration: 3000,
+      });
+      // Refresh news data when update is received
+      fetchNewsData();
+    } catch (err) {
+      console.error('Error handling news update:', err);
+    }
+  }, [fetchNewsData]);
+
+  useEffect(() => {
+    // Fetch initial news data
+    fetchNewsData();
+    
+    // Start SignalR connection and subscribe to events
+    const setupSignalR = async () => {
+      let usePolling = false;
+      let cleanupFunction = () => {}; // Khởi tạo hàm cleanup mặc định
+      
+      try {
+        // Verificar status atual da conexão SignalR
+        const connectionStatus = signalRService.isConnected();
+        
+        // Verificar se a conexão SignalR falhou ou não está disponível
+        if (connectionStatus.connectionFailed || !connectionStatus.appHub) {
+          console.log('SignalR connection unavailable, using polling fallback for news');
+          usePolling = true;
+        } else {
+          // Tentar configurar o listener
+          try {
+            signalRService.on('ReceiveCafefNewsUpdate', handleNewsUpdate);
+            console.log('Successfully set up SignalR event listener for news');
+            
+            // Lưu hàm cleanup cho kết nối SignalR
+            cleanupFunction = () => {
+              try {
+                signalRService.off('ReceiveCafefNewsUpdate', handleNewsUpdate);
+                console.log('Cleaned up SignalR event listener for news');
+              } catch (err) {
+                console.error('Error cleaning up SignalR:', err);
+              }
+            };
+          } catch (error) {
+            console.error('Error setting up SignalR listener:', error);
+            usePolling = true;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking SignalR status:', error);
+        usePolling = true;
+      }
+      
+      // Configurar polling como fallback
+      if (usePolling) {
+        console.log('Setting up polling fallback for news');
+        const pollingInterval = setInterval(fetchNewsData, 60000); // Polling a cada 60 segundos
+        
+        // Cập nhật hàm cleanup cho polling
+        cleanupFunction = () => {
+          console.log('Cleaning up polling interval');
+          clearInterval(pollingInterval);
+        };
+      }
+      
+      // Luôn trả về một hàm cleanup hợp lệ
+      return cleanupFunction;
+    };
+    
+    // Executar setup e guardar função de limpeza
+    let cleanup;
+    setupSignalR().then(cleanupFn => {
+      cleanup = cleanupFn;
+    }).catch(error => {
+      console.error('Error in setupSignalR:', error);
+      cleanup = () => {};
+    });
+    
+    // Clean up event subscription on component unmount
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      } else {
+        console.warn('Cleanup is not available or not a function');
+      }
+    };
+  }, [fetchNewsData, handleNewsUpdate]);
 
   const openArticleDetail = (article) => {
     setSelectedArticle(article);
@@ -180,11 +361,12 @@ const NewsPage = () => {
   };
 
   // Tính toán số trang
-  const totalPages = Math.ceil(mockNews.length / itemsPerPage);
+  const totalPages = Math.ceil((news.length || mockNews.length) / itemsPerPage);
   
   const getCurrentPageItems = () => {
+    const dataSource = news.length ? news : mockNews;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return mockNews.slice(startIndex, startIndex + itemsPerPage);
+    return dataSource.slice(startIndex, startIndex + itemsPerPage);
   };
 
   const handlePageChange = (page) => {
@@ -227,6 +409,17 @@ const NewsPage = () => {
       </div>
     </div>
   );
+
+  // Handler for image errors
+  const handleImageError = (id) => {
+    // Nếu ảnh này chưa được đánh dấu là lỗi
+    if (!failedImages[id]) {
+      setFailedImages(prev => ({
+        ...prev,
+        [id]: true
+      }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white">
@@ -293,12 +486,10 @@ const NewsPage = () => {
                   {/* Featured Image with Overlay */}
                   <div className="aspect-[16/9] overflow-hidden rounded-lg">
                     <img
-                      src={currentItems[0]?.imageUrl}
+                      src={failedImages[currentItems[0]?.id] ? DEFAULT_IMAGE : currentItems[0]?.imageUrl}
                       alt={currentItems[0]?.title}
                       className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/800x450?text=No+Image';
-                      }}
+                      onError={() => handleImageError(currentItems[0]?.id)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -357,12 +548,10 @@ const NewsPage = () => {
                     {/* News Image */}
                     <div className="flex-shrink-0 w-32 h-24 overflow-hidden rounded-lg">
                       <img
-                        src={item.imageUrl}
+                        src={failedImages[item.id] ? DEFAULT_IMAGE : item.imageUrl}
                         alt={item.title}
                         className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/160x112?text=No+Image';
-                        }}
+                        onError={() => handleImageError(item.id)}
                       />
                     </div>
 
@@ -543,9 +732,10 @@ const NewsPage = () => {
 
                 <div className="aspect-video overflow-hidden rounded-lg">
                   <img
-                    src={selectedArticle.imageUrl}
+                    src={failedImages[selectedArticle.id] ? DEFAULT_IMAGE : selectedArticle.imageUrl}
                     alt={selectedArticle.title}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(selectedArticle.id)}
                   />
                 </div>
 

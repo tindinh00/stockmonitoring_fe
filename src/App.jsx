@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'; // Thêm Router và useLocation
+import { useState, useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom'; // Xóa BrowserRouter alias Router
 import './App.css';
 import { Button } from "@/components/ui/button";
 import Header from './layouts/header';
@@ -39,6 +39,7 @@ import WatchlistPage from './pages/WatchlistPage';
 import NewsPage from './pages/NewsPage';
 import HeatmapPage from './pages/HeatmapPage';
 import ChatPage from './pages/ChatPage';
+import signalRService from './api/signalRService';  // Import signalRService
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -66,228 +67,235 @@ const RootRoute = () => {
 };
 
 function App() {
+  // Dọn dẹp kết nối khi ứng dụng đóng
+  useEffect(() => {
+    // Dọn dẹp kết nối khi component unmount
+    return () => {
+      signalRService.stop();
+    };
+  }, []);
+
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Staff routes with Manager Header and Sidebar */}
-          <Route
-            path="/staff/*"
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <StaffSidebar />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderManager />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <Routes>
-                          <Route path="chat" element={<StaffChatPage />} />
-                          <Route path="reports" element={<StaffReportPage />} />
-                        </Routes>
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+      <Toaster position="top-right" richColors />
+      <Routes>
+        {/* Staff routes with Manager Header and Sidebar */}
+        <Route
+          path="/staff/*"
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <StaffSidebar />
                 </div>
-              </SidebarProvider>
-            }
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderManager />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <Routes>
+                        <Route path="chat" element={<StaffChatPage />} />
+                        <Route path="reports" element={<StaffReportPage />} />
+                      </Routes>
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          }
+        />
 
-          {/* Admin routes with Manager Header and Sidebar */}
-          <Route
-            path="/admin/*"
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <AdminSidebar />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderManager />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <Routes>
-                          <Route index element={<DashboardPage />} />
-                          <Route path="dashboard" element={<DashboardPage />} />
-                          <Route path="packages" element={<PackageManagementPage />} />
-                          <Route path="users" element={<UserManagementPage />} />
-                        </Routes>
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        {/* Admin routes with Manager Header and Sidebar */}
+        <Route
+          path="/admin/*"
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <AdminSidebar />
                 </div>
-              </SidebarProvider>
-            }
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderManager />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <Routes>
+                        <Route index element={<DashboardPage />} />
+                        <Route path="dashboard" element={<DashboardPage />} />
+                        <Route path="packages" element={<PackageManagementPage />} />
+                        <Route path="users" element={<UserManagementPage />} />
+                      </Routes>
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          }
+        />
 
-          {/* Manager routes with Manager Header and Sidebar */}
-          <Route 
-            path="/manager/*" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <AppSidebar />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderManager />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <Routes>
-                          <Route path="knowledge" element={<ManagerKnowledge />} />
-                          <Route path="reports" element={<ManagerReportPage />} />
-                          <Route path="scraper" element={<ScraperManagementPage />} />
-                        </Routes>
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        {/* Manager routes with Manager Header and Sidebar */}
+        <Route 
+          path="/manager/*" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <AppSidebar />
                 </div>
-              </SidebarProvider>
-            } 
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderManager />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <Routes>
+                        <Route path="knowledge" element={<ManagerKnowledge />} />
+                        <Route path="reports" element={<ManagerReportPage />} />
+                        <Route path="scraper" element={<ScraperManagementPage />} />
+                      </Routes>
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
 
-          <Route 
-            path="/stock" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <StockDerivatives />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        <Route 
+          path="/stock" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <SidebarLogined />
                 </div>
-              </SidebarProvider>
-            } 
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderLogined />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <StockDerivatives />
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
 
-          <Route 
-            path="/watchlist" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <WatchlistPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        <Route 
+          path="/watchlist" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <SidebarLogined />
                 </div>
-              </SidebarProvider>
-            } 
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderLogined />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <WatchlistPage />
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
 
-          <Route 
-            path="/news" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <NewsPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        <Route 
+          path="/news" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <SidebarLogined />
                 </div>
-              </SidebarProvider>
-            } 
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderLogined />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <NewsPage />
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
 
-          <Route 
-            path="/heatmap" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <HeatmapPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        <Route 
+          path="/heatmap" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <SidebarLogined />
                 </div>
-              </SidebarProvider>
-            } 
-          />
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderLogined />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <HeatmapPage />
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
 
-          <Route 
-            path="/chat" 
-            element={
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <ChatPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
+        <Route 
+          path="/chat" 
+          element={
+            <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+              <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex-shrink-0">
+                  <SidebarLogined />
                 </div>
-              </SidebarProvider>
-            } 
-          />
-          
-          {/* Regular routes with Header and Footer */}
-          <Route path="*" element={
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-grow mt-16">
-                <Routes>
-                  <Route path="/" element={<RootRoute />} />
-                  <Route path="/education" element={<Education/>} />
-                  <Route path="/login" element={<Login/>} />
-                  <Route path="/register" element={<Register/>} />
-                  <Route path="/otp" element={<OtpPage/>} />
-                  <Route path="/forgot-password" element={<ForgotPassword/>} />
-                  <Route path="/reset-password" element={<ResetPassword/>} />
-                  <Route path="/knowledge" element={<Knowledge/>} />
-                  <Route path="/profile" element={<ProfilePage/>} />
-                  <Route path="/upgrade-package" element={<UpgradePackage />} />
-                  <Route path="/checkout" element={<CheckoutPage />} />
-                  <Route path="/oauth/callback" element={<OAuthCallback />} />
-                  <Route path="*" element={<NotFound/>} />
-                </Routes>
-                <Toaster position="top-right" richColors />
-              </main>
-              <Footer />
-            </div>
-          } />
-        </Routes>
-      </Router>
+                <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <HeaderLogined />
+                  <main className="p-4 md:p-8 w-full overflow-auto">
+                    <div className="max-w-full">
+                      <ChatPage />
+                      <Toaster position="top-right" richColors />
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } 
+        />
+        
+        {/* Regular routes with Header and Footer */}
+        <Route path="*" element={
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-grow mt-16">
+              <Routes>
+                <Route path="/" element={<RootRoute />} />
+                <Route path="/education" element={<Education/>} />
+                <Route path="/login" element={<Login/>} />
+                <Route path="/register" element={<Register/>} />
+                <Route path="/otp" element={<OtpPage/>} />
+                <Route path="/forgot-password" element={<ForgotPassword/>} />
+                <Route path="/reset-password" element={<ResetPassword/>} />
+                <Route path="/knowledge" element={<Knowledge/>} />
+                <Route path="/profile" element={<ProfilePage/>} />
+                <Route path="/upgrade-package" element={<UpgradePackage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/oauth/callback" element={<OAuthCallback />} />
+                <Route path="*" element={<NotFound/>} />
+              </Routes>
+              <Toaster position="top-right" richColors />
+            </main>
+            <Footer />
+          </div>
+        } />
+      </Routes>
     </AuthProvider>
   );
 }
