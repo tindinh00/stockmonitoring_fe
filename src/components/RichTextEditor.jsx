@@ -46,7 +46,7 @@ const MenuBar = ({ editor }) => {
   };
 
   return (
-    <div className="flex flex-wrap gap-1 p-2 mb-2 border rounded-md bg-gray-50" onClick={(e) => e.stopPropagation()}>
+    <div className="flex flex-wrap gap-1 p-2 mb-2 border rounded-md bg-muted" onClick={(e) => e.stopPropagation()}>
       <Button
         variant="ghost"
         size="sm"

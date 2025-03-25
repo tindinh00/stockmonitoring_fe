@@ -1,20 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Search, Send, Phone, Video, MoreVertical, User } from 'lucide-react';
+import { MessageSquare, Search, Send, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
+import { toast } from "sonner";
 
 export default function StaffChatPage() {
   const [rooms, setRooms] = useState(null);
+  const [filteredRooms, setFilteredRooms] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null); 
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [isSending, setIsSending] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
 
@@ -157,119 +163,214 @@ export default function StaffChatPage() {
     fetchData();
   }, []);
   
+  const uploadImage = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('https://stockmonitoring.onrender.com/api/Images/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      if (data.value) {
+        return data.value;
+      }
+      throw new Error('Invalid response format');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('Kích thước ảnh không được vượt quá 5MB');
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   //Send message
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !rooms) return;
-  
-    //Create Message to add to Firestore
-    const newMsg = {
-      userId: 2,
-      userName: "staff",
-      content: newMessage,
-      timestamp: serverTimestamp(),
-      type: "text",
-      roomId: selectedRoom.id,  // Assign ID of room  
-    };
-  
+    if ((!newMessage.trim() && !selectedImage) || !selectedRoom || isSending) return;
+
     try {
+      setIsSending(true);
+
+      let imageUrl = null;
+      if (selectedImage) {
+        try {
+          imageUrl = await uploadImage(selectedImage);
+          if (!imageUrl) {
+            toast.error('Không thể tải ảnh lên. Vui lòng thử lại');
+            return;
+          }
+        } catch (error) {
+          toast.error('Lỗi khi tải ảnh lên. Vui lòng thử lại');
+          return;
+        }
+      }
+
+      //Create Message to add to Firestore
+      const newMsg = {
+        userId: 2,
+        userName: "staff",
+        content: newMessage,
+        timestamp: serverTimestamp(),
+        type: selectedImage ? "image" : "text",
+        roomId: selectedRoom.id,
+        imageUrl: imageUrl
+      };
+  
       // Add message to Firestore collection 'message'
       await addDoc(collection(db, "message"), newMsg);
+      
       // Update room's lastMessage and lastMessageTime
       const roomRef = doc(db, "room", selectedRoom.id);
       await updateDoc(roomRef, {
-        lastMessage: newMessage,
+        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : newMessage,
         lastMessageTime: serverTimestamp()
       });
+
       setNewMessage(""); // Clear input after sending
+      setSelectedImage(null); // Clear selected image
+      setImagePreview(null); // Clear image preview
     } catch (error) {
-      console.error("Error sending message: ", error);
+      console.error("Error sending message:", error);
+      toast.error('Không thể gửi tin nhắn. Vui lòng thử lại');
+    } finally {
+      setIsSending(false);
     }
   };
-  
+
+  // Add useEffect to handle search filtering
+  useEffect(() => {
+    if (!rooms) return;
+    
+    if (!searchTerm.trim()) {
+      setFilteredRooms(rooms);
+      return;
+    }
+
+    const searchTermLower = searchTerm.toLowerCase().trim();
+    const filtered = rooms.filter(room => 
+      room.userName.toLowerCase().includes(searchTermLower)
+    );
+    setFilteredRooms(filtered);
+  }, [searchTerm, rooms]);
+
+  // Add debounced search handler
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+  };
+
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col">
-        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#ffffff] h-[calc(100vh-8rem)]">
+      <div className="flex flex-col h-[calc(90vh-4rem)]">
+        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-full">
           {/* Chat List */}
-          <div className="col-span-4 border-r border-[#ffffff] flex flex-col">
-            <div className="p-4 border-b border-[#ffffff]">
+          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col h-full overflow-hidden">
+            <div className="p-4 border-b border-[#1C1C28] shrink-0">
               <div className="flex items-center gap-3">
-                <h4 className="text-2xl font-bold text-white">Chat với khách hàng</h4>
-                <MessageSquare className="h-5 w-5 text-white" />
+                <h4 className="text-xl font-semibold text-white">Chat với khách hàng</h4>
+                <MessageSquare className="h-5 w-5 text-[#808191]" />
               </div>
               <div className="relative mt-4">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#808191]" />
                 <Input
-                  placeholder="Tìm kiếm cuộc trò chuyện..."
-                  className="pl-8 bg-[#1C1C28] border-0 text-white"
+                  placeholder="Tìm kiếm theo tên..."
+                  className="pl-8 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={handleSearch}
                 />
               </div>
             </div>
             
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto">
               <div className="space-y-2 p-4">
-                {rooms && rooms.map((room) => (
-                  <div
-                    key={room.roomId}
-                    className={`flex items-center text-white gap-3 p-3 rounded-lg cursor-pointer hover:bg-[#1C1C28] ${
-                      selectedRoom?.id === room.id ? 'bg-[#1C1C28]' : ''
-                    }`}
-                    onClick={() => setSelectedRoom(room)}
-                  >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={room.avatar} />
-                        <AvatarFallback>{room.userName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {room.online && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#0a0a14]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium truncate">{room.userName}</p>
-                        <span className="text-xs text-muted-foreground">
-                          {formatLastMessageTime(room.lastMessageTime) || '12:00'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-sm text-muted-foreground truncate">
-                          {room.lastMessage || 'Chưa có tin nhắn'}
-                        </p>
-                        {room.unread > 0 && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground ml-2">
-                            {room.unread}
-                          </span>
+                {filteredRooms && filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
+                    <div
+                      key={room.roomId}
+                      className={`flex items-center text-white gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedRoom?.id === room.id ? 'bg-[#26A65B] hover:bg-[#219150]' : 'hover:bg-[#1C1C28]'
+                      }`}
+                      onClick={() => setSelectedRoom(room)}
+                    >
+                      <div className="relative">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={room.avatar} />
+                          <AvatarFallback className="bg-[#1C1C28]">{room.userName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        {room.online && (
+                          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#0a0a14]" />
                         )}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium truncate">{room.userName}</p>
+                          <span className="text-xs text-[#808191]">
+                            {formatLastMessageTime(room.lastMessageTime) || '12:00'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-sm text-[#808191] truncate">
+                            {room.lastMessage || 'Chưa có tin nhắn'}
+                          </p>
+                          {room.unread > 0 && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#26A65B] text-xs text-white">
+                              {room.unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-[#808191]">
+                      {searchTerm ? 'Không tìm thấy người dùng nào' : 'Không có cuộc trò chuyện nào'}
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
 
           {/* Chat Box */}
-          <div className="col-span-8 flex flex-col h-full bg-[#0a0a14]">
+          <div className="col-span-8 flex flex-col h-full overflow-hidden">
             {selectedRoom ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-[#1C1C28] flex items-center justify-between">
+                <div className="p-4 border-b border-[#1C1C28] flex items-center justify-between bg-[#0a0a14] shrink-0">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={selectedRoom.avatar} />
-                      <AvatarFallback className='text-white'>{selectedRoom.userName.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="bg-[#1C1C28] text-white">{selectedRoom.userName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-white text-left">{selectedRoom.userName}</h3>
+                      <h3 className="font-medium text-left text-white">{selectedRoom.userName}</h3>
                       <div className="flex items-center gap-1.5">
                         {selectedRoom.online && (
                           <span className="h-2 w-2 rounded-full bg-green-500" />
                         )}
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-[#808191]">
                           {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'}
                         </p>
                       </div>
@@ -277,74 +378,162 @@ export default function StaffChatPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col flex-1 bg-[#0a0a14]">
-                  {/* Messages Container with White Background */}
-                  <div className="flex-1 mx-4 my-4 bg-white rounded-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
-                    {/* Messages Scroll Area */}
-                    <ScrollArea className="flex-1 h-full overflow-y-auto pr-4" style={{ maxHeight: 'inherit' }}>
-                      <div className="space-y-4 p-4">
-                        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-                          <div key={date} className="space-y-4">
-                            <div className="flex items-center justify-center">
-                              <div className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
-                                {formatDate(dateMessages[0].timestamp)}
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-4">
+                    {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                      <div key={date} className="space-y-4">
+                        <div className="flex items-center justify-center">
+                          <div className="bg-[#1C1C28] text-[#808191] px-3 py-1 rounded-full text-sm">
+                            {formatDate(dateMessages[0].timestamp)}
+                          </div>
+                        </div>
+                        {dateMessages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`flex items-start gap-3 ${
+                              message.userName === 'staff' ? 'flex-row-reverse' : ''
+                            }`}
+                          >
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarImage src={message.avatar} />
+                              <AvatarFallback className="bg-[#1C1C28] text-white">{message.userName[0]}</AvatarFallback>
+                            </Avatar>
+                            
+                            <div className={`flex flex-col ${
+                              message.userName === 'staff' ? 'items-end' : ''
+                            }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-[#808191]">
+                                  {message.userName}
+                                </span>
+                                <span className="text-xs text-[#808191]">
+                                  {formatTimestamp(message.timestamp)}
+                                </span>
+                              </div>
+                              
+                              <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                                message.userName === 'staff'
+                                  ? 'bg-[#26A65B] text-white'
+                                  : 'bg-[#1C1C28] text-white'
+                              }`}>
+                                {message.type === 'image' ? (
+                                  <div className="relative group">
+                                    <img 
+                                      src={message.imageUrl} 
+                                      alt="Shared" 
+                                      className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(message.imageUrl, '_blank')}
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg flex items-center justify-center">
+                                      <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm">
+                                        Click để xem
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-left">{message.content}</p>
+                                )}
                               </div>
                             </div>
-                            {dateMessages.map((message) => (
-                              <div
-                                key={message.messageId}
-                                className={`flex items-start gap-2 ${
-                                  message.userName === 'staff' ? 'flex-row-reverse' : ''
-                                }`}
-                              >
-                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                  <AvatarFallback className="bg-[#1C1C28] text-white">
-                                    {message.userName === 'staff' ? 'S' : selectedRoom?.userName.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div
-                                  className={`rounded-lg p-3 max-w-[70%] ${
-                                    message.userName === 'staff'
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'bg-[#f0f0f0] text-black'
-                                  }`}
-                                >
-                                  <p className="break-words">{message.content}</p>
-                                  <span className="text-xs opacity-70 mt-1 block">
-                                    {formatTimestamp(message.timestamp)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
                           </div>
                         ))}
-                        <div ref={messagesEndRef} />
                       </div>
-                    </ScrollArea>
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
+                </div>
 
-                  {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#ffffff] mt-auto">
-                    <div className="flex items-center gap-2">
+                {/* Input Area */}
+                <div className="p-4 border-t border-[#1C1C28] bg-[#0a0a14] shrink-0">
+                  <form 
+                    onSubmit={handleSendMessage}
+                    className="flex items-center gap-4"
+                  >
+                    <div className="flex-1 flex items-center gap-2">
                       <Input
+                        type="text"
                         placeholder="Nhập tin nhắn..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        className="flex-1 bg-[#1C1C28] border-0 text-white placeholder:text-muted-foreground"
+                        className="flex-1 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
+                        disabled={isSending}
                       />
-                      <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90">
-                        <Send className="h-4 w-4" />
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageSelect}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-[#808191] hover:text-white hover:bg-[#1C1C28]"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isSending}
+                      >
+                        <ImageIcon className="h-5 w-5" />
                       </Button>
                     </div>
+                    
+                    <Button 
+                      type="submit"
+                      className="bg-[#26A65B] hover:bg-[#219150] text-white px-6 min-w-[100px]"
+                      disabled={isSending || (!newMessage.trim() && !selectedImage)}
+                    >
+                      {isSending ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Đang gửi...</span>
+                        </div>
+                      ) : (
+                        'Gửi'
+                      )}
+                    </Button>
                   </form>
                 </div>
+
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div className="fixed bottom-32 right-40 transform -translate-x-1/2 bg-[#1C1C28] p-4 rounded-lg shadow-lg border border-[#333] w-[90%] max-w-[500px] z-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-20 h-20">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-white text-sm">Ảnh đã chọn</span>
+                          <span className="text-[#808191] text-xs">Click vào nút gửi để chia sẻ ảnh</span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C]"
+                        onClick={() => {
+                          setSelectedImage(null);
+                          setImagePreview(null);
+                        }}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-[#0a0a14]">
                 <div className="text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <MessageSquare className="h-12 w-12 mx-auto text-[#808191]" />
                   <h3 className="mt-4 text-lg font-medium text-white">Chưa có cuộc trò chuyện nào được chọn</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-[#808191]">
                     Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu
                   </p>
                 </div>
