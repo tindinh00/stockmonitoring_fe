@@ -781,28 +781,23 @@ export const apiService = {
   uploadImage: async (file) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append('file', file);
 
       const response = await api.post("/api/Images/upload-image", formData, {
         headers: {
-          "Content-Type": "multipart/form-data",
+          'Content-Type': 'multipart/form-data',
         },
       });
 
-      console.log("Upload image response:", response.data);
-      
       if (response.data?.value) {
         return response.data.value;
       }
-
-      return response.data;
+      throw new Error("Không thể tải lên hình ảnh");
     } catch (error) {
       console.error("Upload image error:", error);
       throw error.response?.data || error.message;
@@ -940,7 +935,9 @@ export const apiService = {
 
       console.log("Get report details response:", response.data);
       
-      if (response.data?.value) {
+      if (response.data?.value?.data) {
+        return response.data.value.data;
+      } else if (response.data?.value) {
         return response.data.value;
       }
 
@@ -956,48 +953,15 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm lấy danh sách bài viết knowledge
-  getKnowledge: async (pageIndex = 1, pageSize = 10) => {
+  // Thêm hàm lấy danh sách bài viết kiến thức
+  getKnowledge: async () => {
     try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.get(`/api/Knowledge?pageIndex=${pageIndex}&pageSize=${pageSize}`);
-
+      const response = await api.get("/api/Knowledge");
       console.log("Get knowledge response:", response.data);
-      
-      if (response.data?.value) {
-        return {
-          articles: response.data.value.map(article => ({
-            id: article.id,
-            title: article.title,
-            content: article.content,
-            image: article.imageUrl,
-            date: article.createdTime,
-            readTime: "5" // Temporary hardcoded value since it's not in the response
-          })),
-          totalPages: Math.ceil(response.data.value.length / pageSize),
-          totalItems: response.data.value.length
-        };
-      }
-
-      return {
-        articles: [],
-        totalPages: 1,
-        totalItems: 0
-      };
+      return response.data;
     } catch (error) {
-      console.error("Get knowledge error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
+      console.error("Error getting knowledge:", error);
+      throw new Error(error.response?.data?.message || "Không thể tải danh sách bài viết");
     }
   },
 
@@ -1005,33 +969,19 @@ export const apiService = {
   createKnowledge: async (data) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      // Create knowledge article
       const response = await api.post("/api/Knowledge", {
         title: data.title,
         content: data.content,
-        imageUrl: data.imageUrl // Chỉ sử dụng URL ảnh được truyền vào
+        imageUrl: data.imageUrl
       });
-
-      console.log("Create knowledge response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
 
       return response.data;
     } catch (error) {
       console.error("Create knowledge error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
       throw error.response?.data || error.message;
     }
   },
@@ -1062,6 +1012,7 @@ export const apiService = {
       }
 
       const response = await api.put(`/api/Knowledge/${id}`, {
+        id: id,
         title: data.title,
         content: data.content,
         imageUrl: data.imageUrl
@@ -1070,9 +1021,6 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error("Update knowledge error:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
       throw error.response?.data || error.message;
     }
   },
@@ -1088,9 +1036,6 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error("Delete knowledge error:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
       throw error.response?.data || error.message;
     }
   },
@@ -1227,6 +1172,40 @@ export const apiService = {
       return [];
     } catch (error) {
       console.error("Get news error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+   // Thêm hàm cập nhật trạng thái báo cáo
+   updateReportStatus: async (id, status) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.put(`/api/StaffReport/change-status/${id}`, JSON.stringify(status), {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log("Update report status response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Update report status error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
       throw error.response?.data || error.message;
     }
   },
