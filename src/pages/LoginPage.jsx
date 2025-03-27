@@ -197,7 +197,7 @@ const Login = () => {
           <div className="flex items-center -ml-5">
             <img src={logo} alt="StockSmart" className="h-16 w-auto" style={{ transform: 'translateY(4px)' }} />
             <CardTitle className="text-3xl font-bold text-teal-400 -ml-3">
-              StockSmart
+              StockFlow
             </CardTitle>
           </div>
           <CardDescription className="text-teal-400/80 mt-5 text-lg font-bold text-left">
