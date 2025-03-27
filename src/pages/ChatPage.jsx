@@ -3,25 +3,33 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from '@/Authentication/AuthContext';
-import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { db } from '@/components/firebase';
-import { Loader2, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Image as ImageIcon, X, XCircle } from 'lucide-react';
 import { toast } from "sonner";
 
+// Interval to update user activity status (in milliseconds)
+const ACTIVITY_UPDATE_INTERVAL = 60 * 1000; // 1 minute
+
 const ChatPage = () => {
-  const { user } = useAuth();
+  const { 
+    user, 
+    getUserIdFromCookie, 
+    getUserNameFromCookie 
+  } = useAuth();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [currentRoomId, setCurrentRoomId] = useState(null);
-  const userId = 2; // Your userId
-  const userName = "Customer1"; // Your userName
+  const [viewImage, setViewImage] = useState(null);
+  // Get the userId from cookie or from user object or default to 2
+  const userId = getUserIdFromCookie() || user?.id || 2;
+  const userName = getUserNameFromCookie() || user?.name;
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -42,22 +50,38 @@ const ChatPage = () => {
     return timestamp;
   };
 
-  // Get the room for current user
+  // Get the room for current user and update user info if needed
   useEffect(() => {
-    const userId = 2; // Same as in handleSendMessage
-    
+    // Use the userId from the authenticated user
     const fetchUserRoom = async () => {
       const roomsRef = collection(db, "room");
       const q = query(roomsRef, where("userId", "==", userId));
       const roomSnapshot = await getDocs(q);
       
       if (!roomSnapshot.empty) {
-        setCurrentRoomId(roomSnapshot.docs[0].id);
+        const roomId = roomSnapshot.docs[0].id;
+        const roomData = roomSnapshot.docs[0].data();
+        setCurrentRoomId(roomId);
+        
+        // Update room with current user name if it's different
+        if (roomData.userName !== userName && userName) {
+          console.log(`Updating room user name from ${roomData.userName} to ${userName}`);
+          const roomRef = doc(db, "room", roomId);
+          await updateDoc(roomRef, { 
+            userName: userName 
+          });
+        }
+        
+        // Update lastActivity timestamp to show user is online
+        const roomRef = doc(db, "room", roomId);
+        await updateDoc(roomRef, {
+          lastActivity: serverTimestamp()
+        });
       }
     };
 
     fetchUserRoom();
-  }, []);
+  }, [userId, userName]);
 
   // Add this useEffect to load messages for the current room
   useEffect(() => {
@@ -80,30 +104,116 @@ const ChatPage = () => {
     return () => unsubscribe();
   }, [currentRoomId]);
 
-  const uploadImage = async (file) => {
+  // Periodically update user's activity status
+  useEffect(() => {
+    if (!currentRoomId) return;
+    
+    // Update once immediately when component mounts
+    const updateActivity = async () => {
+      try {
+        const roomRef = doc(db, "room", currentRoomId);
+        await updateDoc(roomRef, {
+          lastActivity: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Error updating activity status:", error);
+      }
+    };
+    
+    // Call immediately
+    updateActivity();
+    
+    // Set up interval to update periodically
+    const intervalId = setInterval(updateActivity, ACTIVITY_UPDATE_INTERVAL);
+    
+    // Clean up on unmount
+    return () => clearInterval(intervalId);
+  }, [currentRoomId]);
+  
+  // Update activity on user interaction
+  const updateUserActivity = async () => {
+    if (!currentRoomId) return;
+    
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('https://stockmonitoring.onrender.com/api/Images/upload-image', {
-        method: 'POST',
-        body: formData,
+      const roomRef = doc(db, "room", currentRoomId);
+      await updateDoc(roomRef, {
+        lastActivity: serverTimestamp()
       });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      if (data.value) {
-        return data.value;
-      }
-      throw new Error('Invalid response format');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
+      console.error("Error updating activity status:", error);
     }
   };
+  
+  // Track user activity on various events
+  useEffect(() => {
+    // Events to track
+    const activityEvents = ["mousemove", "keydown", "click", "touchstart", "scroll"];
+    
+    // Debounce function to avoid too many updates
+    let timeout = null;
+    
+    const handleActivity = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      
+      timeout = setTimeout(() => {
+        updateUserActivity();
+        timeout = null;
+      }, 1000); // 1 second debounce
+    };
+    
+    // Add event listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+    
+    // Clean up
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [currentRoomId]);
+
+  // Update activity on page unload
+  useEffect(() => {
+    // Function to update lastActivity to null when user leaves
+    const handleBeforeUnload = async () => {
+      try {
+        if (currentRoomId) {
+          // Make a synchronous request to update lastActivity
+          navigator.sendBeacon(
+            `/api/update-activity?roomId=${currentRoomId}&status=offline`,
+            JSON.stringify({ userId, status: 'offline' })
+          );
+          console.log("Set user offline status on page unload");
+        }
+      } catch (error) {
+        console.error("Failed to update offline status:", error);
+      }
+    };
+
+    // Add event listener for page unload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Clean up
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Also try to update status when component unmounts
+      if (currentRoomId) {
+        const roomRef = doc(db, "room", currentRoomId);
+        updateDoc(roomRef, { 
+          lastActivity: null 
+        }).catch(err => console.error("Error setting offline status:", err));
+      }
+    };
+  }, [currentRoomId, userId]);
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -121,27 +231,33 @@ const ChatPage = () => {
     }
   };
 
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    fileInputRef.current.value = '';
+  };
+
+  const handleViewImage = (imageUrl) => {
+    if (imageUrl) {
+      setViewImage(imageUrl);
+      document.body.style.overflow = 'hidden'; // Prevent scrolling when dialog is open
+    }
+  };
+
+  const closeImageView = (e) => {
+    if (e) e.stopPropagation();
+    setViewImage(null);
+    document.body.style.overflow = 'auto'; // Restore scrolling when dialog is closed
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!newMessage.trim() && !selectedImage) || isSending) return;
 
     try {
       setIsSending(true);
+      console.log("Sending message as:", { userId, userName });
 
-      let imageUrl = null;
-      if (selectedImage) {
-        try {
-          imageUrl = await uploadImage(selectedImage);
-          if (!imageUrl) {
-            toast.error('Không thể tải ảnh lên. Vui lòng thử lại');
-            return;
-          }
-        } catch (error) {
-          toast.error('Lỗi khi tải ảnh lên. Vui lòng thử lại');
-          return;
-        }
-      }
-      
       // Check if room exists for this user
       const roomsRef = collection(db, "room");
       const q = query(roomsRef, where("userId", "==", userId));
@@ -157,15 +273,18 @@ const ChatPage = () => {
           createdAt: serverTimestamp(),
           lastMessage: selectedImage ? "Đã gửi một hình ảnh" : newMessage,
           lastMessageTime: serverTimestamp(),
+          lastActivity: serverTimestamp() // Set initial activity
         });
         roomId = roomDoc.id;
+        setCurrentRoomId(roomId);
       } else {
         roomId = roomSnapshot.docs[0].id;
         // Update existing room's last message
         const roomRef = doc(db, "room", roomId);
         await updateDoc(roomRef, {
-          lastMessage: selectedImage ? "Đã gửi một hình ảnh" : userName +": "+ newMessage,
-          lastMessageTime: serverTimestamp()
+          lastMessage: selectedImage ? "Đã gửi một hình ảnh" : userName + ": " + newMessage,
+          lastMessageTime: serverTimestamp(),
+          lastActivity: serverTimestamp() // Update activity when sending message
         });
       }
   
@@ -177,14 +296,21 @@ const ChatPage = () => {
         timestamp: serverTimestamp(),
         type: selectedImage ? "image" : "text",
         roomId: roomId,
-        imageUrl: imageUrl // Use the uploaded image URL
+        imageUrl: imagePreview // Use the image preview directly
       };
   
       await addDoc(collection(db, `message`), newMsg);
       setNewMessage(""); // Clear input after sending
       setSelectedImage(null); // Clear selected image
       setImagePreview(null); // Clear image preview
-      setUploadedImageUrl(null); // Clear uploaded image URL
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Scroll to the bottom after sending a message
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error('Không thể gửi tin nhắn. Vui lòng thử lại');
@@ -194,7 +320,7 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-132px)] bg-[#0a0a14]">
+    <div className="flex h-[calc(100vh-132px)] bg-[#0a0a14] relative">
       {/* Sidebar */}
       <div className="w-80 border-r border-[#1C1C28] bg-[#0E0E15] p-4">
         <div className="mb-4">
@@ -229,7 +355,11 @@ const ChatPage = () => {
             </Avatar>
             <div>
               <h3 className="text-sm text-left font-medium text-white">Hỗ trợ viên</h3>
-              <p className="text-xs text-[#26A65B]">Đang hoạt động</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-[#26A65B]">Đang hoạt động</p>
+                <span className="text-xs text-[#808191]">·</span>
+                <p className="text-xs text-[#808191]">ID của bạn: {userId}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -240,16 +370,16 @@ const ChatPage = () => {
             <div
               key={message.id}
               className={`flex items-start gap-3 ${
-                message.userName === userName ? 'flex-row-reverse' : ''
+                message.userId === userId ? 'flex-row-reverse' : ''
               }`}
             >
               <Avatar className="h-8 w-8 shrink-0 text-primary">
                 <AvatarImage src={message.avatar} />
-                <AvatarFallback>{message.userName[0]}</AvatarFallback>
+                <AvatarFallback>{message.userName?.[0] || "U"}</AvatarFallback>
               </Avatar>
               
               <div className={`flex flex-col ${
-                message.userName === userName ? 'items-end' : ''
+                message.userId === userId ? 'items-end' : ''
               }`}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-white">
@@ -261,21 +391,23 @@ const ChatPage = () => {
                 </div>
                 
                 <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                  message.userName === userName
+                  message.userId === userId
                     ? 'bg-[#26A65B] text-white'
                     : 'bg-[#1C1C28] text-white'
                 }`}>
                   {message.type === 'image' ? (
-                    <div className="relative group">
+                    <div 
+                      className="relative group cursor-pointer"
+                      onClick={() => handleViewImage(message.imageUrl)}
+                    >
                       <img 
                         src={message.imageUrl} 
                         alt="Shared" 
-                        className="max-w-full rounded-lg cursor-pointer"
-                        onClick={() => window.open(message.imageUrl, '_blank')}
+                        className="max-w-full max-h-[300px] rounded-lg object-contain"
                       />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg flex items-center justify-center">
-                        <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm">
-                          Click để xem
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                        <span className="text-white opacity-0 group-hover:opacity-100 transition-all duration-200 text-sm font-medium">
+                          Xem ảnh đầy đủ
                         </span>
                       </div>
                     </div>
@@ -298,6 +430,33 @@ const ChatPage = () => {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Selected Image Preview */}
+        {imagePreview && (
+          <div className="px-4 pt-2">
+            <div className="bg-[#1C1C28] rounded-lg p-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative w-14 h-14 overflow-hidden rounded-md">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="text-sm text-white">Ảnh đã chọn</span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C] rounded-full p-1"
+                onClick={removeSelectedImage}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Input Area */}
         <form 
           onSubmit={handleSendMessage}
@@ -308,7 +467,13 @@ const ChatPage = () => {
               type="text"
               placeholder="Nhập tin nhắn..."
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                // Update activity when user is typing
+                if (e.target.value.trim() !== newMessage.trim()) {
+                  updateUserActivity();
+                }
+              }}
               className="flex-1 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
               disabled={isSending}
             />
@@ -331,38 +496,6 @@ const ChatPage = () => {
             </Button>
           </div>
           
-          {imagePreview && (
-            <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-[#1C1C28] p-4 rounded-lg shadow-lg border border-[#333] w-[90%] max-w-[500px]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative w-20 h-20">
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-white text-sm">Ảnh đã chọn</span>
-                    <span className="text-[#808191] text-xs">Click vào nút gửi để chia sẻ ảnh</span>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C]"
-                  onClick={() => {
-                    setSelectedImage(null);
-                    setImagePreview(null);
-                  }}
-                >
-                  Xóa
-                </Button>
-              </div>
-            </div>
-          )}
-          
           <Button 
             type="submit"
             className="bg-[#26A65B] hover:bg-[#219150] text-white px-6 min-w-[100px]"
@@ -379,6 +512,35 @@ const ChatPage = () => {
           </Button>
         </form>
       </div>
+
+      {/* Image View Dialog */}
+      {viewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
+          onClick={closeImageView} // Close when clicking outside the image
+          onKeyDown={(e) => e.key === 'Escape' && closeImageView(e)}
+          tabIndex={0}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the image
+          >
+            <img 
+              src={viewImage} 
+              alt="Full view" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <button
+              type="button"
+              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white hover:bg-opacity-70 rounded-full p-2 transition-all"
+              onClick={closeImageView}
+              aria-label="Close image view"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

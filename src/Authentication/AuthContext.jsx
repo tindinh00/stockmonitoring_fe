@@ -6,6 +6,10 @@ import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
 const API_URL = "https://stockmonitoring.onrender.com";
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "user_data";
+const USER_ID_KEY = "user_id";
+const USER_ROLE_KEY = "user_role";
+const USER_NAME_KEY = "user_name";
+const USER_TIER_KEY = "user_tier";
 
 const AuthContext = createContext();
 
@@ -33,13 +37,27 @@ export const AuthProvider = ({ children }) => {
               console.log("Fixing user_id inconsistency, setting to:", userInfo.id);
               saveUserId(userInfo.id);
             }
+            
+            // Kiểm tra và cập nhật cookie cho role, name và tier nếu cần
+            if (!Cookies.get(USER_ROLE_KEY) && userInfo.role) {
+              Cookies.set(USER_ROLE_KEY, userInfo.role);
+            }
+            if (!Cookies.get(USER_NAME_KEY) && userInfo.name) {
+              Cookies.set(USER_NAME_KEY, userInfo.name);
+            }
+            if (!Cookies.get(USER_TIER_KEY) && userInfo.tier) {
+              Cookies.set(USER_TIER_KEY, userInfo.tier);
+            }
           }
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
         // Xóa dữ liệu không hợp lệ
         Cookies.remove(TOKEN_KEY);
-        Cookies.remove('user_id');
+        Cookies.remove(USER_ID_KEY);
+        Cookies.remove(USER_ROLE_KEY);
+        Cookies.remove(USER_NAME_KEY);
+        Cookies.remove(USER_TIER_KEY);
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem('user_id_backup');
       } finally {
@@ -123,6 +141,14 @@ export const AuthProvider = ({ children }) => {
       
       // Lưu thông tin người dùng
       localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+      
+      // Lưu thông tin bổ sung vào cookies
+      Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+      Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+      Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+      Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+      
+      // Cập nhật state
       setUser(userInfo);
       setIsAuthenticated(true);
       
@@ -251,6 +277,13 @@ export const AuthProvider = ({ children }) => {
         
         // Lưu thông tin người dùng
         localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+        
+        // Lưu thông tin bổ sung vào cookies
+        Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+        Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+        Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+        Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+        
         setUser(userInfo);
         setIsAuthenticated(true);
         
@@ -403,6 +436,13 @@ export const AuthProvider = ({ children }) => {
         
         // Lưu thông tin người dùng
         localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+        
+        // Lưu thông tin bổ sung vào cookies
+        Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+        Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+        Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+        Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+        
         setUser(userInfo);
         setIsAuthenticated(true);
         
@@ -470,7 +510,10 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Luôn xóa dữ liệu cục bộ
       Cookies.remove(TOKEN_KEY);
-      Cookies.remove('user_id');
+      Cookies.remove(USER_ID_KEY);
+      Cookies.remove(USER_ROLE_KEY);
+      Cookies.remove(USER_NAME_KEY);
+      Cookies.remove(USER_TIER_KEY);
       localStorage.removeItem(USER_KEY);
       setUser(null);
       setIsAuthenticated(false);
@@ -577,6 +620,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Utility functions for accessing user data from cookies
+  const getUserIdFromCookie = () => Cookies.get(USER_ID_KEY);
+  const getUserRoleFromCookie = () => Cookies.get(USER_ROLE_KEY);
+  const getUserNameFromCookie = () => Cookies.get(USER_NAME_KEY);
+  const getUserTierFromCookie = () => Cookies.get(USER_TIER_KEY);
+
   return (
     <AuthContext.Provider
       value={{
@@ -588,7 +637,11 @@ export const AuthProvider = ({ children }) => {
         logout,
         register,
         registerWithGoogle,
-        changePassword
+        changePassword,
+        getUserIdFromCookie,
+        getUserRoleFromCookie,
+        getUserNameFromCookie,
+        getUserTierFromCookie
       }}
     >
       {children}

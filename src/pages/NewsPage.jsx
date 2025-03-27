@@ -32,149 +32,43 @@ const NewsPage = () => {
     { id: 'crypto', name: 'Tiền số', icon: TrendingUp },
   ];
 
-  // Mock data cho tin tức
-  const mockNews = [
-    {
-      id: 1,
-      title: 'Putin tái đắc cử tổng thống Nga với tỷ lệ phiếu bầu kỷ lục',
-      source: 'Tuổi Trẻ',
-      timeAgo: '2 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1541726260-e6b6a6a08b27?w=800&auto=format&fit=crop',
-      content: `<p>Ông Vladimir Putin đã giành chiến thắng trong cuộc bầu cử tổng thống Nga với tỷ lệ phiếu bầu cao kỷ lục.</p>`
-    },
-    {
-      id: 2, 
-      title: 'Lãi suất ngân hàng tiếp tục giảm, có nơi còn 2%/năm',
-      source: 'VnExpress',
-      timeAgo: '3 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1601597111158-2fceff292cdc?w=800&auto=format&fit=crop',
-      content: `<p>Nhiều ngân hàng đã điều chỉnh giảm lãi suất huy động xuống mức thấp kỷ lục.</p>`
-    },
-    {
-      id: 3,
-      title: 'Chứng khoán tăng điểm mạnh, VN-Index vượt 1.280 điểm',
-      source: 'Báo Đầu Tư',
-      timeAgo: '4 giờ trước', 
-      imageUrl: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&auto=format&fit=crop',
-      content: `<p>Thị trường chứng khoán Việt Nam ghi nhận phiên tăng điểm ấn tượng.</p>`
-    },
-    {
-      id: 4,
-      title: 'Giá vàng SJC vẫn trên 80 triệu đồng/lượng',
-      source: 'Người Lao Động',
-      timeAgo: '5 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?w=800&auto=format&fit=crop',
-      content: `<p>Giá vàng SJC vẫn duy trì ở mức cao trên 80 triệu đồng/lượng.</p>`
-    },
-    {
-      id: 5,
-      title: 'Bất động sản công nghiệp tiếp tục thu hút vốn FDI',
-      source: 'CafeF',
-      timeAgo: '6 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop',
-      content: `<p>Các khu công nghiệp tiếp tục là điểm sáng thu hút vốn đầu tư nước ngoài.</p>`
-    },
-    {
-      id: 6,
-      title: 'Fed dự kiến giữ nguyên lãi suất trong cuộc họp tháng 3',
-      source: 'Bloomberg',
-      timeAgo: '7 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop',
-      content: `<p>Cục Dự trữ Liên bang Mỹ (Fed) có thể giữ nguyên lãi suất trong cuộc họp sắp tới.</p>`
-    },
-    {
-      id: 7,
-      title: 'Dệt may xuất khẩu khởi sắc trong quý đầu năm',
-      source: 'Báo Công Thương',
-      timeAgo: '8 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=800&auto=format&fit=crop',
-      content: `<p>Ngành dệt may ghi nhận tín hiệu tích cực về xuất khẩu trong quý I/2024.</p>`
-    },
-    {
-      id: 8,
-      title: 'Thị trường ô tô tiếp tục giảm giá mạnh',
-      source: 'Zing News',
-      timeAgo: '9 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop',
-      content: `<p>Nhiều hãng xe tiếp tục công bố chương trình giảm giá lớn trong tháng 3.</p>`
-    },
-    {
-      id: 9,
-      title: 'Nikkei 225 lập đỉnh mới sau 34 năm',
-      source: 'Nikkei Asia',
-      timeAgo: '10 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop',
-      content: `<p>Chỉ số Nikkei 225 của Nhật Bản đạt mức cao nhất trong 34 năm.</p>`
-    },
-    {
-      id: 10,
-      title: 'Xuất khẩu nông sản sang Trung Quốc đạt kỷ lục',
-      source: 'VTV News',
-      timeAgo: '11 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=800&auto=format&fit=crop',
-      content: `<p>Kim ngạch xuất khẩu nông sản sang thị trường Trung Quốc đạt mức cao kỷ lục.</p>`
-    },
-    {
-      id: 11,
-      title: 'Giá dầu thế giới tăng mạnh do căng thẳng địa chính trị',
-      source: 'Reuters',
-      timeAgo: '12 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1582486225644-6e86ded677e8?w=800&auto=format&fit=crop',
-      content: `<p>Giá dầu thô tăng do lo ngại về tình hình căng thẳng tại Trung Đông.</p>`
-    },
-    {
-      id: 12,
-      title: 'Bitcoin vượt mốc 70.000 USD, lập kỷ lục mới',
-      source: 'CoinDesk',
-      timeAgo: '13 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&auto=format&fit=crop',
-      content: `<p>Giá Bitcoin tiếp tục tăng mạnh và thiết lập mức cao kỷ lục mới.</p>`
-    },
-    {
-      id: 13,
-      title: 'Thị trường việc làm công nghệ thông tin sôi động',
-      source: 'Tech News',
-      timeAgo: '14 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1504384764586-bb4cdc1707b0?w=800&auto=format&fit=crop',
-      content: `<p>Nhu cầu tuyển dụng nhân sự IT tăng mạnh trong quý I/2024.</p>`
-    },
-    {
-      id: 14,
-      title: 'Xuất khẩu điện thoại và linh kiện tăng trưởng ấn tượng',
-      source: 'ICTNews',
-      timeAgo: '15 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=800&auto=format&fit=crop',
-      content: `<p>Kim ngạch xuất khẩu điện thoại và linh kiện đạt mức tăng trưởng cao.</p>`
-    },
-    {
-      id: 15,
-      title: 'Ngành logistics Việt Nam thu hút đầu tư nước ngoài',
-      source: 'Logistics Times',
-      timeAgo: '16 giờ trước',
-      imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop',
-      content: `<p>Các nhà đầu tư nước ngoài đang quan tâm đến thị trường logistics Việt Nam.</p>`
-    },
-  ];
-
-  // Helper function to convert timeAgo string to minutes
+  // Helper function to convert timeAgo string to minutes for proper sorting
   const timeAgoToMinutes = (timeAgo) => {
     if (!timeAgo || typeof timeAgo !== 'string') return Number.MAX_SAFE_INTEGER;
     
-    const match = timeAgo.match(/(\d+)\s*(giờ|phút|giây|ngày|tháng|năm)\s*trước/i);
-    if (!match) return Number.MAX_SAFE_INTEGER;
-    
-    const amount = parseInt(match[1]);
-    const unit = match[2].toLowerCase();
-    
-    switch (unit) {
-      case 'giây': return amount / 60;
-      case 'phút': return amount;
-      case 'giờ': return amount * 60;
-      case 'ngày': return amount * 60 * 24;
-      case 'tháng': return amount * 60 * 24 * 30;
-      case 'năm': return amount * 60 * 24 * 365;
-      default: return Number.MAX_SAFE_INTEGER;
+    // Trường hợp 1: Format "X phút/giờ/ngày trước"
+    const matchTimeAgo = timeAgo.match(/(\d+)\s*(giờ|phút|giây|ngày|tháng|năm)\s*trước/i);
+    if (matchTimeAgo) {
+      const amount = parseInt(matchTimeAgo[1]);
+      const unit = matchTimeAgo[2].toLowerCase();
+      
+      switch (unit) {
+        case 'giây': return amount / 60;
+        case 'phút': return amount;
+        case 'giờ': return amount * 60;
+        case 'ngày': return amount * 60 * 24;
+        case 'tháng': return amount * 60 * 24 * 30;
+        case 'năm': return amount * 60 * 24 * 365;
+        default: return Number.MAX_SAFE_INTEGER;
+      }
     }
+    
+    // Trường hợp 2: Format ngày tháng cụ thể (VD: 25/05/2024)
+    const matchDate = timeAgo.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (matchDate) {
+      const day = parseInt(matchDate[1]);
+      const month = parseInt(matchDate[2]) - 1; // Tháng trong JS bắt đầu từ 0
+      const year = parseInt(matchDate[3]);
+      
+      const date = new Date(year, month, day);
+      const now = new Date();
+      
+      // Tính số phút giữa ngày hiện tại và ngày trong bài viết
+      const diffMinutes = Math.floor((now - date) / (1000 * 60));
+      return diffMinutes;
+    }
+    
+    return Number.MAX_SAFE_INTEGER;
   };
 
   // Define fetchNewsData as a useCallback function so we can reference it in the SignalR event handler
@@ -182,7 +76,6 @@ const NewsPage = () => {
     setIsLoading(true);
     try {
       const newsData = await apiService.getNews('cafef');
-      console.log('Received news data:', newsData);
       
       if (newsData && newsData.length > 0) {
         // Xử lý các item từ API mới
@@ -197,50 +90,24 @@ const NewsPage = () => {
           content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
         }));
         
-        // Sắp xếp tin tức theo thời gian mới nhất
+        // Sắp xếp tin tức theo thời gian cũ nhất đến mới nhất
         const sortedNews = processedNews.sort((a, b) => {
+          // Sắp xếp thứ tự tăng dần theo thời gian - tin cũ nhất (nhiều phút trước) sẽ lên đầu
           return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
         });
         
         setNews(sortedNews);
-        console.log(`Successfully loaded ${newsData.length} news items`);
       } else {
-        // Fallback to mock data if API returns empty array
-        const processedMockNews = mockNews.map(item => ({
-          ...item,
-          // Đảm bảo ảnh mặc định cho mock data
-          imageUrl: item.imageUrl && !item.imageUrl.includes('placeholder.com')
-            ? item.imageUrl
-            : DEFAULT_IMAGE
-        }));
-        
-        // Sắp xếp mock data theo thời gian mới nhất
-        const sortedMockNews = processedMockNews.sort((a, b) => {
-          return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
-        });
-        
-        console.log('Using mock data due to empty API response');
-        setNews(sortedMockNews);
+        // Không có dữ liệu từ API, trả về mảng rỗng
+        console.log('No news data available from API');
+        setNews([]);
       }
     } catch (error) {
       console.error('Error fetching news:', error);
       
-      // Fallback to mock data on error
-      const processedMockNews = mockNews.map(item => ({
-        ...item,
-        // Đảm bảo ảnh mặc định cho mock data
-        imageUrl: item.imageUrl && !item.imageUrl.includes('placeholder.com')
-          ? item.imageUrl
-          : DEFAULT_IMAGE
-      }));
-      
-      // Sắp xếp mock data theo thời gian mới nhất
-      const sortedMockNews = processedMockNews.sort((a, b) => {
-        return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
-      });
-      
-      console.log('Using mock data due to API error');
-      setNews(sortedMockNews);
+      // Khi có lỗi, trả về mảng rỗng
+      console.log('Error occurred while fetching news data');
+      setNews([]);
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +143,6 @@ const NewsPage = () => {
         
         // Verificar se a conexão SignalR falhou ou não está disponível
         if (connectionStatus.connectionFailed || !connectionStatus.appHub) {
-          console.log('SignalR connection unavailable, using polling fallback for news');
           usePolling = true;
         } else {
           // Tentar configurar o listener
@@ -305,7 +171,6 @@ const NewsPage = () => {
       
       // Configurar polling como fallback
       if (usePolling) {
-        console.log('Setting up polling fallback for news');
         const pollingInterval = setInterval(fetchNewsData, 60000); // Polling a cada 60 segundos
         
         // Cập nhật hàm cleanup cho polling
@@ -361,12 +226,11 @@ const NewsPage = () => {
   };
 
   // Tính toán số trang
-  const totalPages = Math.ceil((news.length || mockNews.length) / itemsPerPage);
+  const totalPages = Math.ceil(news.length / itemsPerPage);
   
   const getCurrentPageItems = () => {
-    const dataSource = news.length ? news : mockNews;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return dataSource.slice(startIndex, startIndex + itemsPerPage);
+    return news.slice(startIndex, startIndex + itemsPerPage);
   };
 
   const handlePageChange = (page) => {

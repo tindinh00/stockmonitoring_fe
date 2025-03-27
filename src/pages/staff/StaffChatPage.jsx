@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Search, Send, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { MessageSquare, Search, Send, Image as ImageIcon, Loader2, XCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc, Timestamp } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
 import { toast } from "sonner";
+
+// Constants for activity tracking
+const ACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes in milliseconds (giảm từ 5 phút)
 
 export default function StaffChatPage() {
   const [rooms, setRooms] = useState(null);
@@ -20,9 +23,20 @@ export default function StaffChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [viewImage, setViewImage] = useState(null);
   const fileInputRef = useRef(null);
-  const { user } = useAuth();
+  const { 
+    user,
+    getUserIdFromCookie, 
+    getUserNameFromCookie,
+    getUserRoleFromCookie
+  } = useAuth();
   const messagesEndRef = useRef(null);
+  
+  // Get authenticated user information from cookies
+  const staffId = getUserIdFromCookie() || user?.id;
+  const staffName = "Staff"; // Always use "Staff" as the name
+  const staffRole = getUserRoleFromCookie() || user?.role || "staff";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -109,7 +123,40 @@ export default function StaffChatPage() {
         id: doc.id, // Store Firestore 
         ...doc.data(), // Spread all room data
       }));
-      setRooms(roomData);
+      
+      // Check for user activity status
+      const enhancedRoomData = roomData.map(room => {
+        // Check if room has lastActivity data
+        let lastActivity = null;
+        try {
+          lastActivity = room.lastActivity?.toDate ? new Date(room.lastActivity.toDate()) : null;
+        } catch (error) {
+          console.error(`Error converting lastActivity for room ${room.id}:`, error);
+        }
+        
+        const now = new Date();
+        
+        // Format last activity time for better debugging
+        const formattedLastActivity = lastActivity 
+          ? `${lastActivity.toLocaleDateString()} ${lastActivity.toLocaleTimeString()}`
+          : 'không có';
+        
+        // Calculate time difference in milliseconds
+        const timeDiff = lastActivity ? (now.getTime() - lastActivity.getTime()) : Infinity;
+        
+        // Consider user online if they were active in the last timeout period
+        const isOnline = !!lastActivity && (timeDiff < ACTIVITY_TIMEOUT);
+        
+        // Log for debugging
+        console.log(`Room ${room.id} - User ${room.userId || 'không xác định'} - Hoạt động gần nhất: ${formattedLastActivity} - Thời gian: ${Math.floor(timeDiff / 1000)}s - Trạng thái: ${isOnline ? 'online' : 'offline'}`);
+        
+        return {
+          ...room,
+          online: isOnline
+        };
+      });
+      
+      setRooms(enhancedRoomData);
     });
     return () => unsubscribe();// Cleanup 
   }, []);
@@ -228,8 +275,8 @@ export default function StaffChatPage() {
 
       //Create Message to add to Firestore
       const newMsg = {
-        userId: 2,
-        userName: "staff",
+        userId: staffId,
+        userName: staffName,
         content: newMessage,
         timestamp: serverTimestamp(),
         type: selectedImage ? "image" : "text",
@@ -243,7 +290,7 @@ export default function StaffChatPage() {
       // Update room's lastMessage and lastMessageTime
       const roomRef = doc(db, "room", selectedRoom.id);
       await updateDoc(roomRef, {
-        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : newMessage,
+        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : "Staff: " + newMessage,
         lastMessageTime: serverTimestamp()
       });
 
@@ -268,9 +315,17 @@ export default function StaffChatPage() {
     }
 
     const searchTermLower = searchTerm.toLowerCase().trim();
-    const filtered = rooms.filter(room => 
-      room.userName.toLowerCase().includes(searchTermLower)
-    );
+    const filtered = rooms.filter(room => {
+      // Filter by userId (convert to string first to handle numeric userId)
+      if (room.userId && room.userId.toString().includes(searchTermLower)) {
+        return true;
+      }
+      // Also allow filtering by userName as fallback
+      if (room.userName && room.userName.toLowerCase().includes(searchTermLower)) {
+        return true;
+      }
+      return false;
+    });
     setFilteredRooms(filtered);
   }, [searchTerm, rooms]);
 
@@ -278,6 +333,19 @@ export default function StaffChatPage() {
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
+  };
+
+  const handleViewImage = (imageUrl) => {
+    if (imageUrl) {
+      setViewImage(imageUrl);
+      document.body.style.overflow = 'hidden'; // Prevent scrolling when dialog is open
+    }
+  };
+
+  const closeImageView = (e) => {
+    if (e) e.stopPropagation();
+    setViewImage(null);
+    document.body.style.overflow = 'auto'; // Restore scrolling when dialog is closed
   };
 
   return (
@@ -294,7 +362,7 @@ export default function StaffChatPage() {
               <div className="relative mt-4">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#808191]" />
                 <Input
-                  placeholder="Tìm kiếm theo tên..."
+                  placeholder="Tìm kiếm theo ID hoặc tên..."
                   className="pl-8 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
                   value={searchTerm}
                   onChange={handleSearch}
@@ -330,9 +398,12 @@ export default function StaffChatPage() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-sm text-[#808191] truncate">
-                            {room.lastMessage || 'Chưa có tin nhắn'}
-                          </p>
+                          <div className="flex items-center gap-1">
+                            
+                            <p className="text-sm text-[#808191] truncate">
+                              {room.lastMessage || 'Chưa có tin nhắn'}
+                            </p>
+                          </div>
                           {room.unread > 0 && (
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#26A65B] text-xs text-white">
                               {room.unread}
@@ -371,7 +442,7 @@ export default function StaffChatPage() {
                           <span className="h-2 w-2 rounded-full bg-green-500" />
                         )}
                         <p className="text-xs text-[#808191]">
-                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'}
+                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'} · ID: {selectedRoom.userId}
                         </p>
                       </div>
                     </div>
@@ -392,20 +463,20 @@ export default function StaffChatPage() {
                           <div
                             key={message.id}
                             className={`flex items-start gap-3 ${
-                              message.userName === 'staff' ? 'flex-row-reverse' : ''
+                              message.userId === staffId ? 'flex-row-reverse' : ''
                             }`}
                           >
                             <Avatar className="h-8 w-8 shrink-0">
                               <AvatarImage src={message.avatar} />
-                              <AvatarFallback className="bg-[#1C1C28] text-white">{message.userName[0]}</AvatarFallback>
+                              <AvatarFallback className="bg-[#1C1C28] text-white">{message.userName?.[0] || "U"}</AvatarFallback>
                             </Avatar>
                             
                             <div className={`flex flex-col ${
-                              message.userName === 'staff' ? 'items-end' : ''
+                              message.userId === staffId ? 'items-end' : ''
                             }`}>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-[#808191]">
-                                  {message.userName}
+                                  {message.userId === staffId ? "Staff" : message.userName}
                                 </span>
                                 <span className="text-xs text-[#808191]">
                                   {formatTimestamp(message.timestamp)}
@@ -413,21 +484,23 @@ export default function StaffChatPage() {
                               </div>
                               
                               <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                                message.userName === 'staff'
+                                message.userId === staffId
                                   ? 'bg-[#26A65B] text-white'
                                   : 'bg-[#1C1C28] text-white'
                               }`}>
                                 {message.type === 'image' ? (
-                                  <div className="relative group">
+                                  <div 
+                                    className="relative group cursor-pointer"
+                                    onClick={() => handleViewImage(message.imageUrl)}
+                                  >
                                     <img 
                                       src={message.imageUrl} 
                                       alt="Shared" 
-                                      className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                      onClick={() => window.open(message.imageUrl, '_blank')}
+                                      className="max-w-full max-h-[300px] rounded-lg object-contain"
                                     />
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg flex items-center justify-center">
-                                      <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm">
-                                        Click để xem
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                      <span className="text-white opacity-0 group-hover:opacity-100 transition-all duration-200 text-sm font-medium">
+                                        Xem ảnh đầy đủ
                                       </span>
                                     </div>
                                   </div>
@@ -542,6 +615,35 @@ export default function StaffChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Image View Dialog */}
+      {viewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
+          onClick={closeImageView} // Close when clicking outside the image
+          onKeyDown={(e) => e.key === 'Escape' && closeImageView(e)}
+          tabIndex={0}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the image
+          >
+            <img 
+              src={viewImage} 
+              alt="Full view" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <button
+              type="button"
+              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white hover:bg-opacity-70 rounded-full p-2 transition-all"
+              onClick={closeImageView}
+              aria-label="Close image view"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

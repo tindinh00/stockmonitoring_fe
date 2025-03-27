@@ -3,7 +3,7 @@ import Cookies from "js-cookie"; // Import js-cookie
 import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
 
 // Base URL cho API
-const BASE_URL = "https://stockmonitoring.onrender.com";
+const BASE_URL = "https://stockmonitoring-api-app-service.onrender.com";
 
 // Tạo Basic Auth token cho Swagger
 const username = "admin";
@@ -956,7 +956,18 @@ export const apiService = {
   // Thêm hàm lấy danh sách bài viết kiến thức
   getKnowledge: async () => {
     try {
-      const response = await api.get("/api/Knowledge");
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.get("/api/Knowledge", {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        }
+      });
       console.log("Get knowledge response:", response.data);
       return response.data;
     } catch (error) {
@@ -977,6 +988,12 @@ export const apiService = {
         title: data.title,
         content: data.content,
         imageUrl: data.imageUrl
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        }
       });
 
       return response.data;
@@ -993,7 +1010,13 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.get(`/api/Knowledge/${id}`);
+      const response = await api.get(`/api/Knowledge/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        }
+      });
       return response.data;
     } catch (error) {
       console.error("Get knowledge detail error:", error);
@@ -1016,6 +1039,12 @@ export const apiService = {
         title: data.title,
         content: data.content,
         imageUrl: data.imageUrl
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        }
       });
 
       return response.data;
@@ -1032,7 +1061,13 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.delete(`/api/Knowledge/${id}`);
+      const response = await api.delete(`/api/Knowledge/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        }
+      });
       return response.data;
     } catch (error) {
       console.error("Delete knowledge error:", error);
@@ -1068,20 +1103,36 @@ export const apiService = {
 
   refreshToken: async (refreshToken) => {
     try {
-      const response = await api.post("/api/users/refresh-token", {
-        token: refreshToken
-      });
+      // Lấy token hiện tại từ cookie để gửi trong header
+      const currentToken = Cookies.get("auth_token");
+      
+      const response = await api.post("/api/users/refresh-token", 
+        { token: refreshToken },
+        {
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json',
+            'accept': '*/*'
+          }
+        }
+      );
 
       console.log("Refresh token response:", response.data);
       
+      // Kiểm tra và xử lý response
       if (response.data?.value) {
         const { token, refreshToken: newRefreshToken } = response.data.value;
         
         // Lưu tokens mới vào cookies
         Cookies.set("auth_token", token);
-        Cookies.set("refresh_token", newRefreshToken);
+        if (newRefreshToken) {
+          Cookies.set("refresh_token", newRefreshToken);
+        }
         
-        return response.data.value;
+        return {
+          token,
+          refreshToken: newRefreshToken
+        };
       }
 
       throw new Error("Invalid refresh token response");
@@ -1095,7 +1146,6 @@ export const apiService = {
   getNews: async (source = 'cafef') => {
     try {
       const response = await api.get(`/api/News/get-news?src=${source}`);
-      console.log("Get news response:", response.data);
       
       // Placeholder image nội bộ
       const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
@@ -1117,7 +1167,6 @@ export const apiService = {
       
       // Trường hợp 2: Dữ liệu nằm trong response.data.value.data
       if (response.data?.value?.data && Array.isArray(response.data.value.data)) {
-        console.log("Dữ liệu nằm trong response.data.value.data");
         return response.data.value.data.map(item => ({
           id: item.id || Math.random().toString(36).substr(2, 9),
           title: item.title || 'No title',
