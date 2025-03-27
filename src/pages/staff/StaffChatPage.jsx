@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Search, Send, Image as ImageIcon, Loader2, XCircle } from 'lucide-react';
+import { MessageSquare, Search, Send, Image as ImageIcon, Loader2, XCircle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -209,31 +209,6 @@ export default function StaffChatPage() {
 
     fetchData();
   }, []);
-  
-  const uploadImage = async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('https://stockmonitoring.onrender.com/api/Images/upload-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      if (data.value) {
-        return data.value;
-      }
-      throw new Error('Invalid response format');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
-    }
-  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -250,6 +225,12 @@ export default function StaffChatPage() {
       reader.readAsDataURL(file);
     }
   };
+  
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    fileInputRef.current.value = '';
+  };
 
   //Send message
   const handleSendMessage = async (e) => {
@@ -259,21 +240,7 @@ export default function StaffChatPage() {
     try {
       setIsSending(true);
 
-      let imageUrl = null;
-      if (selectedImage) {
-        try {
-          imageUrl = await uploadImage(selectedImage);
-          if (!imageUrl) {
-            toast.error('Không thể tải ảnh lên. Vui lòng thử lại');
-            return;
-          }
-        } catch (error) {
-          toast.error('Lỗi khi tải ảnh lên. Vui lòng thử lại');
-          return;
-        }
-      }
-
-      //Create Message to add to Firestore
+      // Create new message
       const newMsg = {
         userId: staffId,
         userName: staffName,
@@ -281,7 +248,7 @@ export default function StaffChatPage() {
         timestamp: serverTimestamp(),
         type: selectedImage ? "image" : "text",
         roomId: selectedRoom.id,
-        imageUrl: imageUrl
+        imageUrl: imagePreview // Use the image preview directly
       };
   
       // Add message to Firestore collection 'message'
@@ -297,6 +264,14 @@ export default function StaffChatPage() {
       setNewMessage(""); // Clear input after sending
       setSelectedImage(null); // Clear selected image
       setImagePreview(null); // Clear image preview
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Scroll to the bottom after sending a message
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error('Không thể gửi tin nhắn. Vui lòng thử lại');
@@ -517,6 +492,33 @@ export default function StaffChatPage() {
                   </div>
                 </div>
 
+                {/* Selected Image Preview */}
+                {imagePreview && (
+                  <div className="px-4 pt-2">
+                    <div className="bg-[#1C1C28] rounded-lg p-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-14 h-14 overflow-hidden rounded-md">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-sm text-white">Ảnh đã chọn</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C] rounded-full p-1"
+                        onClick={removeSelectedImage}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Input Area */}
                 <div className="p-4 border-t border-[#1C1C28] bg-[#0a0a14] shrink-0">
                   <form 
@@ -567,39 +569,6 @@ export default function StaffChatPage() {
                     </Button>
                   </form>
                 </div>
-
-                {/* Image Preview */}
-                {imagePreview && (
-                  <div className="fixed bottom-32 right-40 transform -translate-x-1/2 bg-[#1C1C28] p-4 rounded-lg shadow-lg border border-[#333] w-[90%] max-w-[500px] z-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-20 h-20">
-                          <img 
-                            src={imagePreview} 
-                            alt="Preview" 
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-white text-sm">Ảnh đã chọn</span>
-                          <span className="text-[#808191] text-xs">Click vào nút gửi để chia sẻ ảnh</span>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C]"
-                        onClick={() => {
-                          setSelectedImage(null);
-                          setImagePreview(null);
-                        }}
-                      >
-                        Xóa
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
               <div className="h-full flex items-center justify-center bg-[#0a0a14]">
