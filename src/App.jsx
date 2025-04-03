@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'; // Thêm Router và useLocation
+import { useState, useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom'; // Xóa BrowserRouter alias Router
 import './App.css';
 import { Button } from "@/components/ui/button";
 import Header from './layouts/header';
@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPasswordPage';
 import Knowledge from './pages/KnowledgePage';
 import ProfilePage from './pages/ProfilePage';
 import { AuthProvider } from "../src/Authentication/AuthContext";
+import ProtectedRoute from "../src/Authentication/ProtectedRoute";
 import ManagerKnowledge from './pages/manager/ManagerKnowledge';
 import PackageManagementPage from './pages/admin/PackageManagementPage';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -25,7 +26,7 @@ import SidebarLogined from './layouts/SidebarLogined';
 import HeaderManager from './layouts/headerManager';
 import HeaderLogined from './layouts/headerLogined';
 import UpgradePackage from './pages/UpgradePackagePage';
-import CheckoutPage from './pages/CheckoutPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import UserManagementPage from "@/pages/admin/UserManagementPage";
 import AdminSidebar from './layouts/AdminSidebar';
 import DashboardPage from './pages/dashboard';
@@ -39,6 +40,8 @@ import WatchlistPage from './pages/WatchlistPage';
 import NewsPage from './pages/NewsPage';
 import HeatmapPage from './pages/HeatmapPage';
 import ChatPage from './pages/ChatPage';
+import PersonalAnalyticsPage from './pages/PersonalAnalyticsPage';
+import signalRService from './api/signalRService';  // Import signalRService
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -66,14 +69,23 @@ const RootRoute = () => {
 };
 
 function App() {
+  // Dọn dẹp kết nối khi ứng dụng đóng
+  useEffect(() => {
+    // Dọn dẹp kết nối khi component unmount
+    return () => {
+      signalRService.stop();
+    };
+  }, []);
+
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Staff routes with Manager Header and Sidebar */}
-          <Route
-            path="/staff/*"
-            element={
+      <Toaster position="top-right" richColors />
+      <Routes>
+        {/* Staff routes with Manager Header and Sidebar */}
+        <Route
+          path="/staff/*"
+          element={
+            <ProtectedRoute allowedRoles={['staff']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -93,13 +105,15 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            }
-          />
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Admin routes with Manager Header and Sidebar */}
-          <Route
-            path="/admin/*"
-            element={
+        {/* Admin routes with Manager Header and Sidebar */}
+        <Route
+          path="/admin/*"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -121,13 +135,15 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            }
-          />
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Manager routes with Manager Header and Sidebar */}
-          <Route 
-            path="/manager/*" 
-            element={
+        {/* Manager routes with Manager Header and Sidebar */}
+        <Route 
+          path="/manager/*" 
+          element={
+            <ProtectedRoute allowedRoles={['manager']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -148,12 +164,14 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
+            </ProtectedRoute>
+          } 
+        />
 
-          <Route 
-            path="/stock" 
-            element={
+        <Route 
+          path="/stock" 
+          element={
+            <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -170,12 +188,14 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
+            </ProtectedRoute>
+          } 
+        />
 
-          <Route 
-            path="/watchlist" 
-            element={
+        <Route 
+          path="/watchlist" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -192,12 +212,14 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
+            </ProtectedRoute>
+          } 
+        />
 
-          <Route 
-            path="/news" 
-            element={
+        <Route 
+          path="/news" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -214,12 +236,14 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
+            </ProtectedRoute>
+          } 
+        />
 
-          <Route 
-            path="/heatmap" 
-            element={
+        <Route 
+          path="/heatmap" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -236,12 +260,14 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
+            </ProtectedRoute>
+          } 
+        />
 
-          <Route 
-            path="/chat" 
-            element={
+        <Route 
+          path="/chat" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
                 <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
@@ -258,36 +284,112 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-            } 
-          />
-          
-          {/* Regular routes with Header and Footer */}
-          <Route path="*" element={
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-grow mt-16">
-                <Routes>
-                  <Route path="/" element={<RootRoute />} />
-                  <Route path="/education" element={<Education/>} />
-                  <Route path="/login" element={<Login/>} />
-                  <Route path="/register" element={<Register/>} />
-                  <Route path="/otp" element={<OtpPage/>} />
-                  <Route path="/forgot-password" element={<ForgotPassword/>} />
-                  <Route path="/reset-password" element={<ResetPassword/>} />
-                  <Route path="/knowledge" element={<Knowledge/>} />
-                  <Route path="/profile" element={<ProfilePage/>} />
-                  <Route path="/upgrade-package" element={<UpgradePackage />} />
-                  <Route path="/checkout" element={<CheckoutPage />} />
-                  <Route path="/oauth/callback" element={<OAuthCallback />} />
-                  <Route path="*" element={<NotFound/>} />
-                </Routes>
-                <Toaster position="top-right" richColors />
-              </main>
-              <Footer />
-            </div>
-          } />
-        </Routes>
-      </Router>
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-grow mt-16">
+                  <ProfilePage />
+                </main>
+                <Footer />
+              </div>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/upgrade-package"
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-grow mt-16">
+                  <UpgradePackage />
+                </main>
+                <Footer />
+              </div>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route 
+          path="/analytics" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <PersonalAnalyticsPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/payment-success" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <PaymentSuccessPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Regular routes with Header and Footer */}
+        <Route path="*" element={
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-grow mt-16">
+              <Routes>
+                <Route path="/" element={<RootRoute />} />
+                <Route path="/education" element={<Education/>} />
+                <Route path="/login" element={<Login/>} />
+                <Route path="/register" element={<Register/>} />
+                <Route path="/otp" element={<OtpPage/>} />
+                <Route path="/forgot-password" element={<ForgotPassword/>} />
+                <Route path="/reset-password" element={<ResetPassword/>} />
+                <Route path="/knowledge" element={<Knowledge/>} />
+                <Route path="/oauth/callback" element={<OAuthCallback />} />
+                <Route path="/payment-successfully" element={<PaymentSuccessPage />} />
+                <Route path="*" element={<NotFound/>} />
+              </Routes>
+              <Toaster position="top-right" richColors />
+            </main>
+            <Footer />
+          </div>
+        } />
+      </Routes>
     </AuthProvider>
   );
 }

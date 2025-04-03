@@ -61,6 +61,8 @@ export default function ManagerReportPage() {
   const [selectedSeverity, setSelectedSeverity] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     fetchReports();
@@ -80,8 +82,8 @@ export default function ManagerReportPage() {
     }
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
+  const getSeverityColor = (level) => {
+    switch (level) {
       case "high":
         return "bg-red-500/10 text-red-500 hover:bg-red-500/20";
       case "medium":
@@ -95,11 +97,11 @@ export default function ManagerReportPage() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "pending":
+      case "Process":
         return "bg-yellow-500/10 text-yellow-500";
-      case "resolved":
+      case "Done":
         return "bg-green-500/10 text-green-500";
-      case "urgent":
+      case "Urgent":
         return "bg-red-500/10 text-red-500";
       default:
         return "";
@@ -108,11 +110,11 @@ export default function ManagerReportPage() {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "pending":
+      case "Process":
         return <Clock className="h-4 w-4" />;
-      case "resolved":
+      case "Done":
         return <CheckCircle className="h-4 w-4" />;
-      case "urgent":
+      case "Urgent":
         return <AlertTriangle className="h-4 w-4" />;
       default:
         return null;
@@ -120,9 +122,11 @@ export default function ManagerReportPage() {
   };
 
   const filteredReports = reports.filter((report) => {
-    const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.staffName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm
+      ? (report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         report.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         report.staffName?.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true;
     const matchesType = selectedType === "all" || !selectedType || report.type === selectedType;
     const matchesStatus = selectedStatus === "all" || !selectedStatus || report.status === selectedStatus;
     const matchesSeverity = selectedSeverity === "all" || !selectedSeverity || report.severity === selectedSeverity;
@@ -131,17 +135,9 @@ export default function ManagerReportPage() {
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      const reportToUpdate = reports.find(r => r.id === reportId);
-      if (!reportToUpdate) return;
-
-      const updatedReport = {
-        ...reportToUpdate,
-        status: newStatus
-      };
-
-      await apiService.updateReport(reportId, updatedReport);
+      await apiService.updateReportStatus(reportId, newStatus);
       
-      const statusText = newStatus === "resolved" ? "đã xử lý" : "khẩn cấp";
+      const statusText = newStatus === "Done" ? "đã xử lý" : "khẩn cấp";
       toast.success(`Đã cập nhật trạng thái báo cáo thành ${statusText}`);
       
       // Refresh the reports list
@@ -159,13 +155,21 @@ export default function ManagerReportPage() {
   const viewReportDetail = async (report) => {
     try {
       const response = await apiService.getReportById(report.id);
-      const detailData = response.value || response;
-      setSelectedReport(detailData);
-      setIsDetailOpen(true);
+      if (response) {
+        setSelectedReport(response);
+        setIsDetailOpen(true);
+      } else {
+        toast.error("Không tìm thấy thông tin báo cáo");
+      }
     } catch (error) {
       console.error("Error fetching report details:", error);
       toast.error(error.message || "Không thể tải chi tiết báo cáo");
     }
+  };
+
+  const handleImagePreview = (imageUrl) => {
+    setPreviewImage(imageUrl);
+    setIsImagePreviewOpen(true);
   };
 
   return (
@@ -210,9 +214,9 @@ export default function ManagerReportPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="pending">Đang xử lý</SelectItem>
-                    <SelectItem value="resolved">Đã xử lý</SelectItem>
-                    <SelectItem value="urgent">Khẩn cấp</SelectItem>
+                    <SelectItem value="Process">Đang xử lý</SelectItem>
+                    <SelectItem value="Done">Đã xử lý</SelectItem>
+                    <SelectItem value="Urgent">Khẩn cấp</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -239,6 +243,7 @@ export default function ManagerReportPage() {
                 <TableRow>
                   <TableHead className="font-medium">Tiêu đề</TableHead>
                   <TableHead className="font-medium">Nhân viên</TableHead>
+                  <TableHead className="font-medium">Hình ảnh</TableHead>
                   <TableHead className="font-medium">Loại</TableHead>
                   <TableHead className="font-medium">Mức độ</TableHead>
                   <TableHead className="font-medium">Trạng thái</TableHead>
@@ -249,7 +254,7 @@ export default function ManagerReportPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24">
+                    <TableCell colSpan={8} className="text-center h-24">
                       <div className="flex items-center justify-center">
                         <svg
                           className="animate-spin h-6 w-6 text-primary"
@@ -276,7 +281,7 @@ export default function ManagerReportPage() {
                   </TableRow>
                 ) : filteredReports.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                       Không có báo cáo nào
                     </TableCell>
                   </TableRow>
@@ -294,12 +299,24 @@ export default function ManagerReportPage() {
                           </span>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {report.image ? (
+                          <img 
+                            src={report.image} 
+                            alt="Report" 
+                            className="w-10 h-10 object-cover rounded-md cursor-pointer hover:opacity-80"
+                            onClick={() => handleImagePreview(report.image)}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Không có ảnh</span>
+                        )}
+                      </TableCell>
                       <TableCell className='text-left'>{report.type}</TableCell>
                       <TableCell className='text-left'>
-                        <Badge variant="outline" className={getSeverityColor(report.severity)}>
-                          {report.severity === "high" && "Cao"}
-                          {report.severity === "medium" && "Trung bình"}
-                          {report.severity === "low" && "Thấp"}
+                        <Badge variant="outline" className={getSeverityColor(report.level)}>
+                          {report.level === "high" && "Cao"}
+                          {report.level === "medium" && "Trung bình"}
+                          {report.level === "low" && "Thấp"}
                         </Badge>
                       </TableCell>
                       <TableCell className='text-left'>
@@ -307,9 +324,9 @@ export default function ManagerReportPage() {
                           <div className="flex items-center gap-1">
                             {getStatusIcon(report.status)}
                             <span>
-                              {report.status === "pending" && "Đang xử lý"}
-                              {report.status === "resolved" && "Đã xử lý"}
-                              {report.status === "urgent" && "Khẩn cấp"}
+                              {report.status === "Process" && "Đang xử lý"}
+                              {report.status === "Done" && "Đã xử lý"}
+                              {report.status === "Urgent" && "Khẩn cấp"}
                             </span>
                           </div>
                         </Badge>
@@ -317,28 +334,56 @@ export default function ManagerReportPage() {
                       <TableCell className='text-left'>
                         {format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                       </TableCell>
-                      <TableCell className='text-center'>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => viewReportDetail(report)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Xem chi tiết
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(report.id, "resolved")}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Đánh dấu đã xử lý
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(report.id, "urgent")}>
-                              <AlertTriangle className="mr-2 h-4 w-4" />
-                              Đánh dấu khẩn cấp
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <TableCell className='text-left'>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => viewReportDetail(report)}
+                            className="h-8 w-8"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Select
+                            value={report.status}
+                            onValueChange={(value) => handleStatusChange(report.id, value)}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue>
+                                <div className="flex items-center gap-2">
+                                  {report.status === "Process" && <Clock className="h-4 w-4 text-yellow-500" />}
+                                  {report.status === "Done" && <CheckCircle className="h-4 w-4 text-green-500" />}
+                                  {report.status === "Urgent" && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                                  <span>
+                                    {report.status === "Process" && "Đang xử lý"}
+                                    {report.status === "Done" && "Đã xử lý"}
+                                    {report.status === "Urgent" && "Khẩn cấp"}
+                                  </span>
+                                </div>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Process">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-yellow-500" />
+                                  <span>Đang xử lý</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Done">
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                  <span>Đã xử lý</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Urgent">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                  <span>Khẩn cấp</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -372,7 +417,7 @@ export default function ManagerReportPage() {
                   <div>
                     <h4 className="text-sm font-medium mb-2">Nhân viên báo cáo</h4>
                     <div className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
-                      <span className="text-base">{selectedReport.staffName}</span>
+                      <span className="text-base">{selectedReport.staffName || 'N/A'}</span>
                       <span className="text-xs text-muted-foreground">({selectedReport.staffId})</span>
                     </div>
                   </div>
@@ -387,15 +432,25 @@ export default function ManagerReportPage() {
                     <p className="text-base bg-muted/50 p-3 rounded-lg">{selectedReport.type}</p>
                   </div>
                   <div>
+                    <h4 className="text-sm font-medium mb-2">Mức độ</h4>
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <Badge variant="outline" className={getSeverityColor(selectedReport.level)}>
+                        {selectedReport.level === "high" && "Cao"}
+                        {selectedReport.level === "medium" && "Trung bình"}
+                        {selectedReport.level === "low" && "Thấp"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
                     <h4 className="text-sm font-medium mb-2">Trạng thái</h4>
                     <div className="bg-muted/50 p-3 rounded-lg">
                       <Badge variant="outline" className={getStatusColor(selectedReport.status)}>
                         <div className="flex items-center gap-1">
                           {getStatusIcon(selectedReport.status)}
                           <span>
-                            {selectedReport.status === "pending" && "Đang xử lý"}
-                            {selectedReport.status === "resolved" && "Đã xử lý"}
-                            {selectedReport.status === "urgent" && "Khẩn cấp"}
+                            {selectedReport.status === "Process" && "Đang xử lý"}
+                            {selectedReport.status === "Done" && "Đã xử lý"}
+                            {selectedReport.status === "Urgent" && "Khẩn cấp"}
                           </span>
                         </div>
                       </Badge>
@@ -406,37 +461,54 @@ export default function ManagerReportPage() {
                 <Separator />
 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Mô tả chi tiết</h4>
+                  <h4 className="text-sm font-medium mb-2">Nội dung chi tiết</h4>
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-base whitespace-pre-wrap">{selectedReport.description}</p>
+                    <p className="text-base whitespace-pre-wrap">{selectedReport.content}</p>
                   </div>
                 </div>
+
+                {selectedReport.image && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Hình ảnh đính kèm</h4>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <img 
+                          src={selectedReport.image} 
+                          alt="Report" 
+                          className="w-full max-h-[300px] object-contain cursor-pointer hover:opacity-80"
+                          onClick={() => handleImagePreview(selectedReport.image)}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <Separator />
 
                 <DialogFooter>
-                  <div className="flex justify-end gap-2 w-full">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStatusChange(selectedReport.id, "resolved")}
-                      className="bg-green-500/10 hover:bg-green-500/20 text-green-500"
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Đánh dấu đã xử lý
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStatusChange(selectedReport.id, "urgent")}
-                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
-                    >
-                      <AlertTriangle className="mr-2 h-4 w-4" />
-                      Đánh dấu khẩn cấp
-                    </Button>
-                  </div>
+                  <DialogClose asChild>
+                    <Button variant="outline">Đóng</Button>
+                  </DialogClose>
                 </DialogFooter>
               </div>
             </ScrollArea>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={isImagePreviewOpen} onOpenChange={setIsImagePreviewOpen}>
+        <DialogContent className="max-w-4xl p-0 gap-0">
+          <div className="relative w-full h-[700px] bg-black/5">
+            {previewImage && (
+              <img
+                src={previewImage}
+                alt="Preview"
+                className="absolute inset-0 w-full h-full object-contain p-4"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

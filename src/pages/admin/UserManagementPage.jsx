@@ -145,16 +145,28 @@ export default function UserManagementPage() {
 
   // Lấy danh sách role có thể chuyển đổi dựa trên role hiện tại
   const getAvailableRoles = (currentRole) => {
-    switch (currentRole) {
-      case 'customer':
-        return ['staff', 'manager'];
-      case 'staff':
-        return ['manager'];
-      case 'manager':
-        return ['staff'];
-      default:
-        return [];
-    }
+    // Mapping từ chữ sang số
+    const roleValues = {
+      'customer': 1,
+      'staff': 2,
+      'manager': 3,
+      'admin': 4
+    };
+    
+    // Mảng tất cả các role theo thứ tự 
+    const allRoles = ['customer', 'staff', 'manager'];
+    
+    // Lọc các role phù hợp (chỉ cho phép thay đổi lên/xuống 1 cấp)
+    const currentRoleValue = roleValues[currentRole.toLowerCase()];
+    
+    if (currentRole === 'admin') return []; // Admin không thể thay đổi
+    
+    return allRoles.filter(role => {
+      const roleValue = roleValues[role.toLowerCase()];
+      // Chỉ cho phép thay đổi role lên trên hoặc xuống dưới một cấp
+      const validChange = Math.abs(roleValue - currentRoleValue) === 1;
+      return validChange && role !== currentRole;
+    });
   };
 
   // Xử lý thay đổi role
@@ -163,12 +175,12 @@ export default function UserManagementPage() {
 
     try {
       setIsUpdatingRole(true);
-      // Gọi API để thay đổi role của người dùng
-      await apiService.updateUserRole(selectedUser.id, selectedRole, selectedUser.email);
+      // Gọi API để thay đổi role của người dùng (API mới đã được cập nhật trong apiService)
+      await apiService.updateUserRole(selectedUser.id, selectedRole);
 
       // Cập nhật state local
-      setUsers(
-        users.map((user) =>
+      setUsers(prevUsers =>
+        prevUsers.map((user) =>
           user.id === selectedUser.id
             ? {
                 ...user,
@@ -177,8 +189,9 @@ export default function UserManagementPage() {
             : user
         )
       );
+      
       setShowRoleDialog(false);
-      toast.success("Cập nhật role thành công!");
+      toast.success(`Đã thay đổi role của người dùng ${selectedUser.email} thành ${selectedRole}!`);
     } catch (error) {
       console.error("Failed to update user role:", error);
       toast.error(error.message || "Không thể cập nhật role. Vui lòng thử lại!");
