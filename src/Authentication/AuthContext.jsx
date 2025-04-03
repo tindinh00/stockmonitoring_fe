@@ -6,6 +6,10 @@ import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
 const API_URL = "https://stockmonitoring.onrender.com";
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "user_data";
+const USER_ID_KEY = "user_id";
+const USER_ROLE_KEY = "user_role";
+const USER_NAME_KEY = "user_name";
+const USER_TIER_KEY = "user_tier";
 
 const AuthContext = createContext();
 
@@ -33,13 +37,27 @@ export const AuthProvider = ({ children }) => {
               console.log("Fixing user_id inconsistency, setting to:", userInfo.id);
               saveUserId(userInfo.id);
             }
+            
+            // Kiểm tra và cập nhật cookie cho role, name và tier nếu cần
+            if (!Cookies.get(USER_ROLE_KEY) && userInfo.role) {
+              Cookies.set(USER_ROLE_KEY, userInfo.role);
+            }
+            if (!Cookies.get(USER_NAME_KEY) && userInfo.name) {
+              Cookies.set(USER_NAME_KEY, userInfo.name);
+            }
+            if (!Cookies.get(USER_TIER_KEY) && userInfo.tier) {
+              Cookies.set(USER_TIER_KEY, userInfo.tier);
+            }
           }
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
         // Xóa dữ liệu không hợp lệ
         Cookies.remove(TOKEN_KEY);
-        Cookies.remove('user_id');
+        Cookies.remove(USER_ID_KEY);
+        Cookies.remove(USER_ROLE_KEY);
+        Cookies.remove(USER_NAME_KEY);
+        Cookies.remove(USER_TIER_KEY);
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem('user_id_backup');
       } finally {
@@ -52,23 +70,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      console.log(`Attempting login with email: ${email}`);
-      
-      const response = await axios.post(`${API_URL}/api/users/login`, {
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
+      }, {
+        timeout: 10000 // Add timeout of 10 seconds
       });
-      
-      console.log("API Response:", response);
       
       // Kiểm tra dữ liệu phản hồi
       if (!response || !response.data) {
-        console.error("Invalid API response:", response);
         return { success: false, message: "Lỗi kết nối đến máy chủ" };
       }
       
       const responseData = response.data;
-      console.log("Login data:", responseData);
       
       // Xử lý cấu trúc dữ liệu lồng nhau
       let data = responseData;
@@ -76,7 +90,6 @@ export const AuthProvider = ({ children }) => {
       // Kiểm tra nếu dữ liệu nằm trong trường value
       if (responseData.value) {
         data = responseData.value;
-        console.log("Extracted data from value:", data);
       }
       
       // Kiểm tra nếu token nằm trong data.data
@@ -86,16 +99,13 @@ export const AuthProvider = ({ children }) => {
       if (data.data && data.data.token) {
         token = data.data.token;
         userData = data.data;
-        console.log("Found token in data.data:", token);
       } else if (data.token) {
         token = data.token;
         userData = data;
-        console.log("Found token directly in data:", token);
       }
       
       // Kiểm tra token
       if (!token) {
-        console.error("No token in response:", responseData);
         return { 
           success: false, 
           message: data.message || "Không nhận được token xác thực" 
@@ -119,24 +129,24 @@ export const AuthProvider = ({ children }) => {
         tier: userData.tier || "Free"
       };
       
-      console.log("Processed user data:", userInfo);
-      
       // Lưu thông tin người dùng
       localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+      
+      // Lưu thông tin bổ sung vào cookies
+      Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+      Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+      Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+      Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+      
+      // Cập nhật state
       setUser(userInfo);
       setIsAuthenticated(true);
       
       return { success: true, user: userInfo };
     } catch (error) {
-      console.error("Login error:", error);
-      
-      // Xử lý lỗi từ API
       let errorMessage = "Đăng nhập thất bại";
       
       if (error.response) {
-        // Lỗi từ server với status code
-        console.log("Error response:", error.response);
-        
         // Xử lý tùy theo mã lỗi HTTP
         if (error.response.status === 400 || error.response.status === 401) {
           errorMessage = "Tài khoản hoặc mật khẩu không chính xác";
@@ -145,8 +155,8 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Lấy thông báo lỗi từ phản hồi API nếu có
           errorMessage = error.response.data?.message || 
-                         error.response.data?.error || 
-                         `Lỗi: ${error.response.statusText}`;
+                       error.response.data?.error || 
+                       `Lỗi: ${error.response.statusText}`;
         }
       } else if (error.request) {
         // Không nhận được phản hồi
@@ -164,7 +174,7 @@ export const AuthProvider = ({ children }) => {
       console.log("State parameter:", state);
       
       // Gọi API với code và state từ Google OAuth
-      const url = `${API_URL}/api/OAuth/google-login?code=${encodeURIComponent(code)}`;
+      const url = `${API_URL}/api/oauth/google/login?code=${encodeURIComponent(code)}`;
       const finalUrl = state ? `${url}&state=${encodeURIComponent(state)}` : url;
       
       const response = await axios.get(finalUrl);
@@ -251,6 +261,13 @@ export const AuthProvider = ({ children }) => {
         
         // Lưu thông tin người dùng
         localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+        
+        // Lưu thông tin bổ sung vào cookies
+        Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+        Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+        Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+        Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+        
         setUser(userInfo);
         setIsAuthenticated(true);
         
@@ -316,7 +333,7 @@ export const AuthProvider = ({ children }) => {
       console.log("State parameter:", state);
       
       // Gọi API với code và state từ Google OAuth
-      const url = `${API_URL}/api/OAuth/google-register?code=${encodeURIComponent(code)}`;
+      const url = `${API_URL}/api/oauth/google/register?code=${encodeURIComponent(code)}`;
       const finalUrl = state ? `${url}&state=${encodeURIComponent(state)}` : url;
       
       const response = await axios.get(finalUrl);
@@ -403,6 +420,13 @@ export const AuthProvider = ({ children }) => {
         
         // Lưu thông tin người dùng
         localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+        
+        // Lưu thông tin bổ sung vào cookies
+        Cookies.set(USER_ID_KEY, userInfo.id, { expires: 7 });
+        Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
+        Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
+        Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+        
         setUser(userInfo);
         setIsAuthenticated(true);
         
@@ -470,7 +494,10 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Luôn xóa dữ liệu cục bộ
       Cookies.remove(TOKEN_KEY);
-      Cookies.remove('user_id');
+      Cookies.remove(USER_ID_KEY);
+      Cookies.remove(USER_ROLE_KEY);
+      Cookies.remove(USER_NAME_KEY);
+      Cookies.remove(USER_TIER_KEY);
       localStorage.removeItem(USER_KEY);
       setUser(null);
       setIsAuthenticated(false);
@@ -479,7 +506,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post(`${API_URL}/api/users/register`, userData);
+      const response = await axios.post(`${API_URL}/api/auth/register`, userData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error("Registration error:", error);
@@ -516,7 +543,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log(`Attempting to change password for user ID: ${userId}`);
       
-      const response = await axios.post(`${API_URL}/api/users/change-password`, {
+      const response = await axios.post(`${API_URL}/api/auth/change-password`, {
         id: userId,
         password: newPassword
       });
@@ -577,6 +604,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Utility functions for accessing user data from cookies
+  const getUserIdFromCookie = () => Cookies.get(USER_ID_KEY);
+  const getUserRoleFromCookie = () => Cookies.get(USER_ROLE_KEY);
+  const getUserNameFromCookie = () => Cookies.get(USER_NAME_KEY);
+  const getUserTierFromCookie = () => Cookies.get(USER_TIER_KEY);
+
+  // Hàm để lấy trang chủ tương ứng với role của người dùng
+  const getHomePageForRole = (role) => {
+    if (!role) return '/';
+    
+    const roleLower = role.toLowerCase();
+    switch (roleLower) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'manager':
+        return '/manager/knowledge';
+      case 'staff':
+        return '/staff/chat';
+      case 'customer':
+        return '/stock';
+      default:
+        return '/';
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -588,7 +640,12 @@ export const AuthProvider = ({ children }) => {
         logout,
         register,
         registerWithGoogle,
-        changePassword
+        changePassword,
+        getUserIdFromCookie,
+        getUserRoleFromCookie,
+        getUserNameFromCookie,
+        getUserTierFromCookie,
+        getHomePageForRole
       }}
     >
       {children}

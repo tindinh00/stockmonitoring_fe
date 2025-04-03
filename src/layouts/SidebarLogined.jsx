@@ -17,7 +17,8 @@ import {
   Newspaper,
   Star,
   Thermometer,
-  MessageSquare
+  MessageSquare,
+  BarChart3
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -68,6 +69,11 @@ export const navItems = [
     icon: "bookmark"
   },
   {
+    title: "Phân tích cá nhân",
+    url: "/analytics",
+    icon: "barChart3"
+  },
+  {
     title: "Bản đồ nhiệt",
     url: "/heatmap",
     icon: "thermometer"
@@ -104,7 +110,8 @@ export const Icons = {
   newspaper: Newspaper,
   settings: Settings,
   thermometer: Thermometer,
-  messageSquare: MessageSquare
+  messageSquare: MessageSquare,
+  barChart3: BarChart3
 };
 
 // Custom sidebar trigger component

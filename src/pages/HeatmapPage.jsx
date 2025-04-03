@@ -370,7 +370,7 @@ const HeatmapPage = () => {
 
           {/* Dịch vụ tiện ích */}
           <div className="col-span-2 grid grid-rows-[auto_1fr] min-h-0">
-            <div className="text-xs text-white mb-[1px]">Dịch vụ tiện ích</div>
+            <div className="text-xs text-white mb-[1px] text-left">Dịch vụ tiện ích</div>
             <div className="grid grid-cols-2 gap-[1px] min-h-0">
               <div className={`${getColorByChange(-2.83)} ${getTileSize(-2.83, true)}`}>
                 <div className="font-medium">POW</div>

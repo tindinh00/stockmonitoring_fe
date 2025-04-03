@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Save, X, Percent, Package, ArrowUpDown, Search, AlertCircle, RefreshCw, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Save, X, Percent, Package, ArrowUpDown, Search, AlertCircle, RefreshCw, AlertTriangle, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import { apiService } from "@/api/Api";
 
 export default function PackageManagementPage() {
   const [packages, setPackages] = useState([]);
+  const [allPackages, setAllPackages] = useState([]); // Tất cả gói dịch vụ cho client-side pagination
   const [editingPackage, setEditingPackage] = useState(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -32,7 +33,7 @@ export default function PackageManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(3);
   const [newPackage, setNewPackage] = useState({
     name: "",
     description: "",
@@ -47,6 +48,9 @@ export default function PackageManagementPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [useServerPagination, setUseServerPagination] = useState(true); // Mặc định dùng phân trang server-side
 
   // Fetch packages from API
   useEffect(() => {
@@ -54,9 +58,51 @@ export default function PackageManagementPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiService.getPackages(currentPage, pageSize);
-        console.log("Fetched packages:", data);
-        setPackages(data || []);
+
+        // Luôn lấy tất cả dữ liệu (API không hỗ trợ phân trang đúng)
+        const response = await apiService.getPackages(1, 100);
+        console.log("API response:", response);
+          
+        // Xác định dữ liệu packages từ response
+        let allData = [];
+        if (response && response.value && response.value.data) {
+          // Cấu trúc { value: { data: [...] } }
+          allData = response.value.data;
+        } else if (response && Array.isArray(response)) {
+          // API trả về mảng trực tiếp
+          allData = response;
+        } else if (response && response.data && Array.isArray(response.data)) {
+          // Cấu trúc { data: [...] }
+          allData = response.data;
+        } else {
+          console.error("Unexpected API response format:", response);
+          setError("Định dạng dữ liệu không hợp lệ");
+          setLoading(false);
+          return;
+        }
+          
+        console.log(`Received ${allData.length} packages in total`);
+        
+        // Lưu tất cả packages để dùng cho phân trang
+        setAllPackages(allData);
+        
+        // Tính toán tổng số trang và tổng số items
+        const calculatedTotalItems = allData.length;
+        const calculatedTotalPages = Math.ceil(calculatedTotalItems / pageSize);
+        console.log(`Total items: ${calculatedTotalItems}, Total pages: ${calculatedTotalPages} with pageSize ${pageSize}`);
+        
+        setTotalItems(calculatedTotalItems);
+        setTotalPages(Math.max(calculatedTotalPages, 1)); // Đảm bảo ít nhất 1 trang
+        
+        // Tính toán các packages để hiển thị cho trang hiện tại
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        console.log(`Current page: ${currentPage}, Showing items from ${startIndex} to ${endIndex-1}`);
+        
+        // Cắt dữ liệu cho trang hiện tại
+        const currentPageData = allData.slice(startIndex, endIndex);
+        setPackages(currentPageData);
+        console.log(`Displaying ${currentPageData.length} items on current page`);
       } catch (err) {
         console.error("Failed to fetch packages:", err);
         setError(err.message || "Không thể tải danh sách gói dịch vụ");
@@ -435,12 +481,41 @@ export default function PackageManagementPage() {
     }
   };
 
+  // Toggle pagination mode
+  const togglePaginationMode = () => {
+    setUseServerPagination(!useServerPagination);
+    setCurrentPage(1); // Reset trang khi chuyển chế độ
+  };
+
+  // Handle page changes
+  const handlePageChange = (page) => {
+    console.log(`Changing to page ${page} (Total pages: ${totalPages})`);
+    
+    // Validate page number
+    if (page < 1 || page > totalPages) {
+      console.log(`Page ${page} is out of bounds (1-${totalPages})`);
+      return;
+    }
+    
+    // Update current page
+    setCurrentPage(page);
+    
+    // Không cần gọi lại API vì chúng ta đã có tất cả dữ liệu
+    // Chỉ cần cắt lại dữ liệu cho trang mới
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const newPageData = allPackages.slice(startIndex, endIndex);
+    
+    console.log(`Setting new page data: ${newPageData.length} items (from index ${startIndex} to ${endIndex-1})`);
+    setPackages(newPageData);
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Quản lý gói dịch vụ</h1>
-        <Button onClick={handleAddNew} className="bg-white text-primary hover:bg-primary/100 hover:text-white">
-          <Plus className="w-4 h-4 mr-2" />
+        <Button onClick={handleAddNew} className="text-black bg-white hover:bg-black hover:text-white border border-black">
+          <Plus className="w-4 h-4 mr-2" /> 
           Thêm gói mới
         </Button>
       </div>
@@ -454,14 +529,14 @@ export default function PackageManagementPage() {
               placeholder="Tìm kiếm gói..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-white text-primary"
+              className="pl-9 bg-white text-black"
             />
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={() => toggleSort("name")}
-              className="flex items-center gap-1 text-black"
+              className="flex items-center gap-1 text-white"
             >
               Tên
               <ArrowUpDown className="h-3 w-3" />
@@ -469,7 +544,7 @@ export default function PackageManagementPage() {
             <Button
               variant="outline"
               onClick={() => toggleSort("price")}
-              className="flex items-center gap-1 text-black"
+              className="flex items-center gap-1 text-white"
             >
               Giá
               <ArrowUpDown className="h-3 w-3" />
@@ -514,84 +589,163 @@ export default function PackageManagementPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPackages.map((pkg) => (
-              <Card key={pkg.id} className={`overflow-hidden transition-all duration-200 hover:shadow-md ${pkg.isDiscounted ? 'border-red-500/30' : ''}`}>
-                <CardHeader className={`pb-3 ${pkg.isDiscounted ? 'bg-red-500/5' : ''}`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        {pkg.name}
-                        {pkg.isDiscounted && pkg.price > pkg.discountedPrice && (
-                          <Badge variant="secondary" className="bg-red-500/10 text-red-500 hover:bg-red-500/20">
-                            <Percent className="w-3 h-3 mr-1" />
-                            Giảm giá
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription className="mt-1">{pkg.description}</CardDescription>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenEditDialog(pkg)}
-                        className="hover:bg-primary/5"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          setSelectedPackage(pkg);
-                          setShowDeleteDialog(true);
-                        }}
-                        className="hover:bg-destructive/90"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      {pkg.isDiscounted && pkg.price > pkg.discountedPrice ? (
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold text-primary">{pkg.discountedPrice.toLocaleString()}đ</span>
-                            <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                              Tiết kiệm {((pkg.price - pkg.discountedPrice) / 1000).toFixed(0)}K
-                            </Badge>
-                          </div>
-                          <span className="text-sm text-muted-foreground line-through">{pkg.price.toLocaleString()}đ</span>
-                        </div>
-                      ) : (
-                        <span className="text-2xl font-bold text-primary">{pkg.price.toLocaleString()}đ</span>
-                      )}
-                      <Badge variant="outline" className="bg-primary/5">
-                        {pkg.duration === 2147483647 ? "Vĩnh viễn" : `${pkg.duration} ngày`}
+              <Card 
+                key={pkg.id} 
+                className="group relative border border-gray-800/60 bg-[#0D1117] shadow-sm transition-all duration-300"
+              >
+                <div className="p-5 flex flex-col h-full">
+                  {/* Top section - Price and package name */}
+                  <div className="text-center mb-4">
+                    {pkg.isDiscounted && (
+                      <Badge className="absolute top-2 right-2 bg-[#09D1C7] text-black text-xs px-2 py-0.5">
+                        Phổ biến
                       </Badge>
-                    </div>
-                    {pkg.featuresName && pkg.featuresName.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                          <Package className="w-4 h-4" />
-                          Tính năng bao gồm:
-                        </h4>
-                        <ul className="space-y-1.5">
-                          {pkg.featuresName.map((feature, index) => (
-                            <li key={index} className="text-sm flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-                              <span className="text-muted-foreground">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
                     )}
+                    
+                    <h3 className="text-lg font-semibold text-white mb-1">{pkg.name}</h3>
+                    
+                    <div className="text-2xl font-bold text-white mb-1">
+                      {pkg.discountedPrice ? pkg.discountedPrice.toLocaleString() : pkg.price.toLocaleString()}đ
+                      <span className="text-xs font-normal text-gray-400"> / gói</span>
+                    </div>
+                    
+                    <div className="text-xs text-gray-400">
+                      {pkg.duration === 2147483647 ? "Vĩnh viễn" : `${pkg.duration} ngày`}
+                    </div>
                   </div>
-                </CardContent>
+                  
+                  {/* Description */}
+                  <div className="mb-4 text-center">
+                    <p className="text-xs text-gray-400 line-clamp-2">
+                      {pkg.description}
+                    </p>
+                  </div>
+                  
+                  {/* Services section */}
+                  <div className="border-t border-b border-gray-800/60 py-4 mb-4">
+                    <div className="text-xs font-medium text-gray-400 uppercase mb-3">
+                      Dịch vụ bao gồm:
+                    </div>
+                    
+                    <ul className="space-y-2">
+                      {pkg.featuresName && pkg.featuresName.map((feature, index) => (
+                        <li key={index} className="flex items-start gap-2 text-xs">
+                          <Check className="w-3.5 h-3.5 text-[#09D1C7] flex-shrink-0 mt-0.5" />
+                          <span className="text-gray-300">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  {/* Savings section */}
+                  {pkg.price > 0 && (
+                    <div className="text-center mb-4">
+                      <span className="text-[#09D1C7] text-xs">
+                        {pkg.isDiscounted && pkg.price > pkg.discountedPrice
+                          ? `Tiết kiệm ${((pkg.price - pkg.discountedPrice) / 1000).toFixed(0)}K`
+                          : `Tiết kiệm ${((pkg.price * 0.1) / 1000).toFixed(0)}K khi đăng ký gói năm`}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Action buttons */}
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <Button 
+                      size="sm"
+                      className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white text-xs font-medium"
+                      onClick={() => handleOpenEditDialog(pkg)}
+                    >
+                      <Pencil className="w-3.5 h-3.5 mr-1" /> Sửa
+                    </Button>
+                    
+                    <Button 
+                      size="sm"
+                      variant="outline" 
+                      className="border-gray-700 hover:border-red-500/50 hover:bg-red-500/10 text-gray-300 hover:text-red-400 text-xs"
+                      onClick={() => {
+                        setSelectedPackage(pkg);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Xóa
+                    </Button>
+                  </div>
+                </div>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Add this after the packages grid div */}
+        {!loading && !error && filteredPackages.length > 0 && (
+          <div className="flex items-center justify-between pt-4 border-t border-gray-800/60">
+            <div className="text-sm text-gray-400">
+              Hiển thị <span className="font-medium text-white">{filteredPackages.length}</span> gói
+              {totalItems > 0 && (
+                <> trên tổng số <span className="font-medium text-white">{totalItems}</span></>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="h-8 w-8 p-0 border-gray-800"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="sr-only">Trang trước</span>
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  // Show 5 pages centered around current page
+                  let pageNumber = currentPage - 2 + i;
+                  
+                  // Adjust if we're at the beginning
+                  if (currentPage < 3) {
+                    pageNumber = i + 1;
+                  }
+                  
+                  // Adjust if we're at the end
+                  if (currentPage > totalPages - 2) {
+                    pageNumber = totalPages - 4 + i;
+                    if (pageNumber <= 0) return null;
+                  }
+                  
+                  // Don't render if out of bounds
+                  if (pageNumber <= 0 || pageNumber > totalPages) return null;
+                  
+                  return (
+                    <Button
+                      key={pageNumber}
+                      onClick={() => handlePageChange(pageNumber)}
+                      variant={currentPage === pageNumber ? "default" : "outline"}
+                      size="sm"
+                      className={`h-8 w-8 p-0 ${
+                        currentPage === pageNumber
+                          ? "bg-[#09D1C7] text-black hover:bg-[#09D1C7]/90"
+                          : "border-gray-800 text-gray-300"
+                      }`}
+                    >
+                      {pageNumber}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || loading}
+                className="h-8 w-8 p-0 border-gray-800"
+              >
+                <ChevronRight className="h-4 w-4" />
+                <span className="sr-only">Trang sau</span>
+              </Button>
+            </div>
           </div>
         )}
       </div>

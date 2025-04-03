@@ -66,6 +66,10 @@ const ProfilePage = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || "profile");
   
+  // Thêm state cho thông tin gói dịch vụ
+  const [subscription, setSubscription] = useState(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  
   // Cập nhật URL khi tab thay đổi
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -111,6 +115,31 @@ const ProfilePage = () => {
     }
   }, [user, navigate]);
   
+  // Lấy thông tin gói dịch vụ
+  useEffect(() => {
+    const fetchUserSubscription = async () => {
+      try {
+        setLoadingSubscription(true);
+        const response = await apiService.getUserSubscription();
+        console.log("User Subscription API Response:", response);
+        
+        if (response.success && response.data) {
+          setSubscription(response.data);
+        } else {
+          console.log("No active subscription found");
+        }
+      } catch (error) {
+        console.error("Error fetching user subscription:", error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+    
+    if (isAuthenticated) {
+      fetchUserSubscription();
+    }
+  }, [isAuthenticated]);
+  
   // Chuyển hướng nếu chưa đăng nhập
   useEffect(() => {
     if (!isAuthenticated && !loading) {
@@ -120,12 +149,18 @@ const ProfilePage = () => {
   
   // Xác định màu sắc và nội dung của badge dựa trên role và tier
   const getBadgeForRole = (role) => {
-    // Ưu tiên hiển thị theo tier nếu có
-    if (user && user.tier && user.tier.toLowerCase() === "premium") {
-      return <Badge className="absolute -top-1 -right-1 bg-yellow-500">Premium</Badge>;
+    // Ưu tiên hiển thị theo subscription nếu có
+    if (subscription) {
+      const packageName = subscription.packageName?.toLowerCase() || "";
+      
+      if (packageName.includes("vip") || packageName.includes("kim cương")) {
+        return <Badge className="absolute -top-1 -right-1 bg-blue-500">VIP</Badge>;
+      } else if (packageName.includes("premium") || packageName.includes("vàng")) {
+        return <Badge className="absolute -top-1 -right-1 bg-yellow-500">Premium</Badge>;
+      }
     }
     
-    // Nếu không có tier Premium, kiểm tra role
+    // Nếu không có subscription, kiểm tra role
     if (role) {
       switch (role.toLowerCase()) {
         case "admin":
@@ -298,6 +333,22 @@ const ProfilePage = () => {
               </div>
               <CardTitle>{userInfo.name}</CardTitle>
               <CardDescription>{userInfo.email}</CardDescription>
+              {loadingSubscription ? (
+                <div className="text-xs text-muted-foreground mt-2">Đang tải thông tin gói...</div>
+              ) : subscription ? (
+                <div className="mt-2">
+                  <Badge className="bg-[#09D1C7]">
+                    {subscription.packageName || "Gói Free"}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {subscription.status === "Active" ? "Đang hoạt động" : 
+                     subscription.status === "Expired" ? "Đã hết hạn" : 
+                     "Chưa kích hoạt"}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground mt-2">Chưa đăng ký gói</div>
+              )}
             </CardHeader>
             <CardContent>
               <nav className="space-y-2">

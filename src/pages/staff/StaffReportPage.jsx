@@ -110,9 +110,24 @@ export default function StaffReportPage() {
   const fetchReports = async () => {
     try {
       setIsLoading(true);
-      const data = await apiService.getReports();
-      setReports(data);
+      
+      if (!user?.id) {
+        console.error("User ID not found");
+        toast.error("Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching reports for staff ID:", user.id);
+      
+      // Sử dụng API endpoint mới để lấy danh sách báo cáo theo ID người dùng
+      const data = await apiService.getStaffReports(user.id);
+      console.log("Staff reports data:", data);
+      
+      // Đảm bảo dữ liệu luôn là mảng
+      setReports(Array.isArray(data) ? data : [data]);
     } catch (error) {
+      console.error("Error fetching reports:", error);
       toast.error(error.message || "Không thể tải danh sách báo cáo");
     } finally {
       setIsLoading(false);
@@ -129,8 +144,14 @@ export default function StaffReportPage() {
       }
 
       if (values.image) {
+        // Nếu có chọn ảnh mới, upload ảnh mới
         const uploadResponse = await apiService.uploadImage(values.image);
         imageUrl = uploadResponse.data;
+        console.log("Uploaded new image:", imageUrl);
+      } else if (selectedReport) {
+        // Nếu đang edit và không chọn ảnh mới, giữ lại ảnh cũ
+        imageUrl = selectedReport.image || selectedReport.imageUrl;
+        console.log("Keeping existing image:", imageUrl);
       }
 
       const reportData = {
@@ -142,7 +163,7 @@ export default function StaffReportPage() {
         image: imageUrl
       };
 
-      console.log("Creating report with data:", reportData);
+      console.log("Report data being sent:", reportData);
 
       if (selectedReport) {
         await apiService.updateReport(selectedReport.id, reportData);
@@ -158,8 +179,6 @@ export default function StaffReportPage() {
     } catch (error) {
       console.error("Error in onSubmit:", error);
       toast.error(error.message || "Không thể tạo báo cáo");
-      
-      
     } finally {
       setIsSubmitting(false);
     }

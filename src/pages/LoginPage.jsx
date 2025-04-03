@@ -41,7 +41,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, getHomePageForRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -129,39 +129,57 @@ const Login = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      console.log("Login attempt with:", data.email); // Debug log
-      
       // Thêm xử lý lỗi và timeout
       const loginPromise = login(data.email, data.password);
       
-      // Đặt timeout để tránh treo quá lâu
+      // Đặt timeout để tránh treo quá lâu (giảm từ 15s xuống 10s)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Đăng nhập quá thời gian, vui lòng thử lại")), 15000);
+        setTimeout(() => reject(new Error("Đăng nhập quá thời gian, vui lòng thử lại")), 10000);
       });
       
       // Chạy cả hai promise và lấy kết quả từ cái hoàn thành trước
       const result = await Promise.race([loginPromise, timeoutPromise]);
-      
-      console.log("Login result:", result); // Debug log
-      console.log("User data after login:", result.user); // Debug log
 
       if (result.success) {
-        toast.success("Đăng nhập thành công!", {
-          position: "top-right",
-          duration: 2000,
-        });
-        
         // Đảm bảo chuyển hướng an toàn
         try {
-          setTimeout(() => {
-            navigate("/stock");
-          }, 1000);
+          // Kiểm tra xem có đơn hàng đang chờ cập nhật sau thanh toán không
+          const pendingOrderCode = localStorage.getItem('pending_payment_order');
+          const redirectFromPayment = location.state?.redirectAfterLogin === '/payment-successfully';
+          const orderCodeFromState = location.state?.orderCode;
+          
+          toast.success("Đăng nhập thành công!", {
+            position: "top-right",
+            duration: 2000,
+          });
+          
+          if (pendingOrderCode || (redirectFromPayment && orderCodeFromState)) {
+            const orderCode = pendingOrderCode || orderCodeFromState;
+            
+            // Xóa orderCode khỏi localStorage nếu có
+            if (pendingOrderCode) {
+              localStorage.removeItem('pending_payment_order');
+            }
+            
+            // Chuyển hướng đến trang cập nhật thanh toán
+            setTimeout(() => {
+              navigate('/payment-successfully', { 
+                state: { orderCode: orderCode } 
+              });
+            }, 500);
+          } else {
+            // Lấy trang chủ tương ứng với role của người dùng
+            const redirectPath = getHomePageForRole(result.user.role);
+            
+            setTimeout(() => {
+              navigate(redirectPath);
+            }, 500);
+          }
         } catch (navError) {
-          console.error("Navigation error:", navError);
           // Nếu có lỗi khi chuyển hướng, thử tải lại trang
           setTimeout(() => {
             window.location.href = "/";
-          }, 2000);
+          }, 1000);
         }
       } else {
         toast.error(result.message || "Tài khoản hoặc mật khẩu không chính xác", {
@@ -170,7 +188,6 @@ const Login = () => {
         });
       }
     } catch (error) {
-      console.error("Login error:", error); // Debug log
       const errorMsg = error.message || "Tài khoản hoặc mật khẩu không chính xác";
       toast.error(errorMsg, {
         position: "top-right",
@@ -197,7 +214,7 @@ const Login = () => {
           <div className="flex items-center -ml-5">
             <img src={logo} alt="StockSmart" className="h-16 w-auto" style={{ transform: 'translateY(4px)' }} />
             <CardTitle className="text-3xl font-bold text-teal-400 -ml-3">
-              StockSmart
+              StockFlow
             </CardTitle>
           </div>
           <CardDescription className="text-teal-400/80 mt-5 text-lg font-bold text-left">
