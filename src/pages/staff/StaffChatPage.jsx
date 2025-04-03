@@ -1,22 +1,42 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Search, Send, Phone, Video, MoreVertical, User } from 'lucide-react';
+import { MessageSquare, Search, Send, Image as ImageIcon, Loader2, XCircle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot,getDocs, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc, Timestamp } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
+import { toast } from "sonner";
+
+// Constants for activity tracking
+const ACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes in milliseconds (giảm từ 5 phút)
 
 export default function StaffChatPage() {
   const [rooms, setRooms] = useState(null);
+  const [filteredRooms, setFilteredRooms] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null); 
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const { user } = useAuth();
+  const [isSending, setIsSending] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [viewImage, setViewImage] = useState(null);
+  const fileInputRef = useRef(null);
+  const { 
+    user,
+    getUserIdFromCookie, 
+    getUserNameFromCookie,
+    getUserRoleFromCookie
+  } = useAuth();
   const messagesEndRef = useRef(null);
+  
+  // Get authenticated user information from cookies
+  const staffId = getUserIdFromCookie() || user?.id;
+  const staffName = "Staff"; // Always use "Staff" as the name
+  const staffRole = getUserRoleFromCookie() || user?.role || "staff";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,7 +113,7 @@ export default function StaffChatPage() {
     });
     return groups;
   };
-
+  
   //Real time chat rooms
   useEffect(() => {
     const q = query(collection(db, "room"));
@@ -103,7 +123,40 @@ export default function StaffChatPage() {
         id: doc.id, // Store Firestore 
         ...doc.data(), // Spread all room data
       }));
-      setRooms(roomData);
+      
+      // Check for user activity status
+      const enhancedRoomData = roomData.map(room => {
+        // Check if room has lastActivity data
+        let lastActivity = null;
+        try {
+          lastActivity = room.lastActivity?.toDate ? new Date(room.lastActivity.toDate()) : null;
+        } catch (error) {
+          console.error(`Error converting lastActivity for room ${room.id}:`, error);
+        }
+        
+        const now = new Date();
+        
+        // Format last activity time for better debugging
+        const formattedLastActivity = lastActivity 
+          ? `${lastActivity.toLocaleDateString()} ${lastActivity.toLocaleTimeString()}`
+          : 'không có';
+        
+        // Calculate time difference in milliseconds
+        const timeDiff = lastActivity ? (now.getTime() - lastActivity.getTime()) : Infinity;
+        
+        // Consider user online if they were active in the last timeout period
+        const isOnline = !!lastActivity && (timeDiff < ACTIVITY_TIMEOUT);
+        
+        // Log for debugging
+        console.log(`Room ${room.id} - User ${room.userId || 'không xác định'} - Hoạt động gần nhất: ${formattedLastActivity} - Thời gian: ${Math.floor(timeDiff / 1000)}s - Trạng thái: ${isOnline ? 'online' : 'offline'}`);
+        
+        return {
+          ...room,
+          online: isOnline
+        };
+      });
+      
+      setRooms(enhancedRoomData);
     });
     return () => unsubscribe();// Cleanup 
   }, []);
@@ -156,189 +209,373 @@ export default function StaffChatPage() {
 
     fetchData();
   }, []);
-  
-  //Send message
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !rooms) return;
-  
-    //Create Message to add to Firestore
-    const newMsg = {
-      userId: 2,
-      userName: "staff",
-      content: newMessage,
-      timestamp: serverTimestamp(),
-      type: "text",
-      roomId: selectedRoom.id,  // Assign ID of customer
-    };
-  
-    try {
-      // Add message to Firestore collection 'message'
-      await addDoc(collection(db, "message"), newMsg);
-      setNewMessage(""); // Clear input after sending
-    } catch (error) {
-      console.error("Error sending message: ", error);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('Kích thước ảnh không được vượt quá 5MB');
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
   
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    fileInputRef.current.value = '';
+  };
+
+  //Send message
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if ((!newMessage.trim() && !selectedImage) || !selectedRoom || isSending) return;
+
+    try {
+      setIsSending(true);
+
+      // Create new message
+      const newMsg = {
+        userId: staffId,
+        userName: staffName,
+        content: newMessage,
+        timestamp: serverTimestamp(),
+        type: selectedImage ? "image" : "text",
+        roomId: selectedRoom.id,
+        imageUrl: imagePreview // Use the image preview directly
+      };
+  
+      // Add message to Firestore collection 'message'
+      await addDoc(collection(db, "message"), newMsg);
+      
+      // Update room's lastMessage and lastMessageTime
+      const roomRef = doc(db, "room", selectedRoom.id);
+      await updateDoc(roomRef, {
+        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : "Staff: " + newMessage,
+        lastMessageTime: serverTimestamp()
+      });
+
+      setNewMessage(""); // Clear input after sending
+      setSelectedImage(null); // Clear selected image
+      setImagePreview(null); // Clear image preview
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Scroll to the bottom after sending a message
+      setTimeout(scrollToBottom, 100);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error('Không thể gửi tin nhắn. Vui lòng thử lại');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Add useEffect to handle search filtering
+  useEffect(() => {
+    if (!rooms) return;
+    
+    if (!searchTerm.trim()) {
+      setFilteredRooms(rooms);
+      return;
+    }
+
+    const searchTermLower = searchTerm.toLowerCase().trim();
+    const filtered = rooms.filter(room => {
+      // Filter by userId (convert to string first to handle numeric userId)
+      if (room.userId && room.userId.toString().includes(searchTermLower)) {
+        return true;
+      }
+      // Also allow filtering by userName as fallback
+      if (room.userName && room.userName.toLowerCase().includes(searchTermLower)) {
+        return true;
+      }
+      return false;
+    });
+    setFilteredRooms(filtered);
+  }, [searchTerm, rooms]);
+
+  // Add debounced search handler
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+  };
+
+  const handleViewImage = (imageUrl) => {
+    if (imageUrl) {
+      setViewImage(imageUrl);
+      document.body.style.overflow = 'hidden'; // Prevent scrolling when dialog is open
+    }
+  };
+
+  const closeImageView = (e) => {
+    if (e) e.stopPropagation();
+    setViewImage(null);
+    document.body.style.overflow = 'auto'; // Restore scrolling when dialog is closed
+  };
+
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col">
-        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-[calc(100vh-8rem)]">
+      <div className="flex flex-col h-[calc(90vh-4rem)]">
+        <div className="grid grid-cols-12 gap-6 bg-[#0a0a14] rounded-lg border border-[#1C1C28] h-full">
           {/* Chat List */}
-          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col">
-            <div className="p-4 border-b border-[#1C1C28]">
+          <div className="col-span-4 border-r border-[#1C1C28] flex flex-col h-full overflow-hidden">
+            <div className="p-4 border-b border-[#1C1C28] shrink-0">
               <div className="flex items-center gap-3">
-                <h4 className="text-2xl font-bold text-white">Chat với khách hàng</h4>
-                <MessageSquare className="h-5 w-5 text-white" />
+                <h4 className="text-xl font-semibold text-white">Chat với khách hàng</h4>
+                <MessageSquare className="h-5 w-5 text-[#808191]" />
               </div>
               <div className="relative mt-4">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#808191]" />
                 <Input
-                  placeholder="Tìm kiếm cuộc trò chuyện..."
-                  className="pl-8 bg-[#1C1C28] border-0 text-white"
+                  placeholder="Tìm kiếm theo ID hoặc tên..."
+                  className="pl-8 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={handleSearch}
                 />
               </div>
             </div>
             
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto">
               <div className="space-y-2 p-4">
-                {rooms && rooms.map((room) => (
-                  <div
-                    key={room.roomId}
-                    className={`flex items-center text-white gap-3 p-3 rounded-lg cursor-pointer hover:bg-[#1C1C28] ${
-                      selectedRoom?.id === room.id ? 'bg-[#1C1C28]' : ''
-                    }`}
-                    onClick={() => setSelectedRoom(room)}
-                  >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={room.avatar} />
-                        <AvatarFallback>{room.userName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {room.online && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#0a0a14]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium truncate">{room.userName}</p>
-                        <span className="text-xs text-muted-foreground">
-                          {formatLastMessageTime(room.lastMessageTime)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-sm text-muted-foreground truncate">
-                          {room.lastMessage || 'Chưa có tin nhắn'}
-                        </p>
-                        {room.unread > 0 && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground ml-2">
-                            {room.unread}
-                          </span>
+                {filteredRooms && filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
+                    <div
+                      key={room.roomId}
+                      className={`flex items-center text-white gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedRoom?.id === room.id ? 'bg-[#26A65B] hover:bg-[#219150]' : 'hover:bg-[#1C1C28]'
+                      }`}
+                      onClick={() => setSelectedRoom(room)}
+                    >
+                      <div className="relative">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={room.avatar} />
+                          <AvatarFallback className="bg-[#1C1C28]">{room.userName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        {room.online && (
+                          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#0a0a14]" />
                         )}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium truncate">{room.userName}</p>
+                          <span className="text-xs text-[#808191]">
+                            {formatLastMessageTime(room.lastMessageTime) || '12:00'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center gap-1">
+                            
+                            <p className="text-sm text-[#808191] truncate">
+                              {room.lastMessage || 'Chưa có tin nhắn'}
+                            </p>
+                          </div>
+                          {room.unread > 0 && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#26A65B] text-xs text-white">
+                              {room.unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-[#808191]">
+                      {searchTerm ? 'Không tìm thấy người dùng nào' : 'Không có cuộc trò chuyện nào'}
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
 
           {/* Chat Box */}
-          <div className="col-span-8 flex flex-col h-full bg-[#0a0a14]">
+          <div className="col-span-8 flex flex-col h-full overflow-hidden">
             {selectedRoom ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-[#1C1C28] flex items-center justify-between">
+                <div className="p-4 border-b border-[#1C1C28] flex items-center justify-between bg-[#0a0a14] shrink-0">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={selectedRoom.avatar} />
-                      <AvatarFallback className='text-white'>{selectedRoom.userName.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="bg-[#1C1C28] text-white">{selectedRoom.userName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-white text-left">{selectedRoom.userName}</h3>
+                      <h3 className="font-medium text-left text-white">{selectedRoom.userName}</h3>
                       <div className="flex items-center gap-1.5">
                         {selectedRoom.online && (
                           <span className="h-2 w-2 rounded-full bg-green-500" />
                         )}
-                        <p className="text-xs text-muted-foreground">
-                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'}
+                        <p className="text-xs text-[#808191]">
+                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'} · ID: {selectedRoom.userId}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col flex-1 bg-[#0a0a14]">
-                  {/* Messages Container with White Background */}
-                  <div className="flex-1 mx-4 my-4 bg-white rounded-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
-                    {/* Messages Scroll Area */}
-                    <ScrollArea className="flex-1 h-full overflow-y-auto pr-4" style={{ maxHeight: 'inherit' }}>
-                      <div className="space-y-4 p-4">
-                        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-                          <div key={date} className="space-y-4">
-                            <div className="flex items-center justify-center">
-                              <div className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
-                                {formatDate(dateMessages[0].timestamp)}
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-4">
+                    {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                      <div key={date} className="space-y-4">
+                        <div className="flex items-center justify-center">
+                          <div className="bg-[#1C1C28] text-[#808191] px-3 py-1 rounded-full text-sm">
+                            {formatDate(dateMessages[0].timestamp)}
+                          </div>
+                        </div>
+                        {dateMessages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`flex items-start gap-3 ${
+                              message.userId === staffId ? 'flex-row-reverse' : ''
+                            }`}
+                          >
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarImage src={message.avatar} />
+                              <AvatarFallback className="bg-[#1C1C28] text-white">{message.userName?.[0] || "U"}</AvatarFallback>
+                            </Avatar>
+                            
+                            <div className={`flex flex-col ${
+                              message.userId === staffId ? 'items-end' : ''
+                            }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-[#808191]">
+                                  {message.userId === staffId ? "Staff" : message.userName}
+                                </span>
+                                <span className="text-xs text-[#808191]">
+                                  {formatTimestamp(message.timestamp)}
+                                </span>
+                              </div>
+                              
+                              <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                                message.userId === staffId
+                                  ? 'bg-[#26A65B] text-white'
+                                  : 'bg-[#1C1C28] text-white'
+                              }`}>
+                                {message.type === 'image' ? (
+                                  <div 
+                                    className="relative group cursor-pointer"
+                                    onClick={() => handleViewImage(message.imageUrl)}
+                                  >
+                                    <img 
+                                      src={message.imageUrl} 
+                                      alt="Shared" 
+                                      className="max-w-full max-h-[300px] rounded-lg object-contain"
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                      <span className="text-white opacity-0 group-hover:opacity-100 transition-all duration-200 text-sm font-medium">
+                                        Xem ảnh đầy đủ
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-left">{message.content}</p>
+                                )}
                               </div>
                             </div>
-                            {dateMessages.map((message) => (
-                              <div
-                                key={message.messageId}
-                                className={`flex items-start gap-2 ${
-                                  message.userName === 'staff' ? 'flex-row-reverse' : ''
-                                }`}
-                              >
-                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                  <AvatarFallback className="bg-[#1C1C28] text-white">
-                                    {message.userName === 'staff' ? 'S' : selectedRoom?.userName.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div
-                                  className={`rounded-lg p-3 max-w-[70%] ${
-                                    message.userName === 'staff'
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'bg-[#f0f0f0] text-black'
-                                  }`}
-                                >
-                                  <p className="break-words">{message.content}</p>
-                                  <span className="text-xs opacity-70 mt-1 block">
-                                    {formatTimestamp(message.timestamp)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
                           </div>
                         ))}
-                        <div ref={messagesEndRef} />
                       </div>
-                    </ScrollArea>
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
+                </div>
 
-                  {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-[#1C1C28] mt-auto">
-                    <div className="flex items-center gap-2">
+                {/* Selected Image Preview */}
+                {imagePreview && (
+                  <div className="px-4 pt-2">
+                    <div className="bg-[#1C1C28] rounded-lg p-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-14 h-14 overflow-hidden rounded-md">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-sm text-white">Ảnh đã chọn</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C] rounded-full p-1"
+                        onClick={removeSelectedImage}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input Area */}
+                <div className="p-4 border-t border-[#1C1C28] bg-[#0a0a14] shrink-0">
+                  <form 
+                    onSubmit={handleSendMessage}
+                    className="flex items-center gap-4"
+                  >
+                    <div className="flex-1 flex items-center gap-2">
                       <Input
+                        type="text"
                         placeholder="Nhập tin nhắn..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        className="flex-1 bg-[#1C1C28] border-0 text-white placeholder:text-muted-foreground"
+                        className="flex-1 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
+                        disabled={isSending}
                       />
-                      <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90">
-                        <Send className="h-4 w-4" />
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageSelect}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-[#808191] hover:text-white hover:bg-[#1C1C28]"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isSending}
+                      >
+                        <ImageIcon className="h-5 w-5" />
                       </Button>
                     </div>
+                    
+                    <Button 
+                      type="submit"
+                      className="bg-[#26A65B] hover:bg-[#219150] text-white px-6 min-w-[100px]"
+                      disabled={isSending || (!newMessage.trim() && !selectedImage)}
+                    >
+                      {isSending ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Đang gửi...</span>
+                        </div>
+                      ) : (
+                        'Gửi'
+                      )}
+                    </Button>
                   </form>
                 </div>
               </>
             ) : (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-[#0a0a14]">
                 <div className="text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <MessageSquare className="h-12 w-12 mx-auto text-[#808191]" />
                   <h3 className="mt-4 text-lg font-medium text-white">Chưa có cuộc trò chuyện nào được chọn</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-[#808191]">
                     Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu
                   </p>
                 </div>
@@ -347,6 +584,35 @@ export default function StaffChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Image View Dialog */}
+      {viewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
+          onClick={closeImageView} // Close when clicking outside the image
+          onKeyDown={(e) => e.key === 'Escape' && closeImageView(e)}
+          tabIndex={0}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the image
+          >
+            <img 
+              src={viewImage} 
+              alt="Full view" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <button
+              type="button"
+              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white hover:bg-opacity-70 rounded-full p-2 transition-all"
+              onClick={closeImageView}
+              aria-label="Close image view"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

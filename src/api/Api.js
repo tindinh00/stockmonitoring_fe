@@ -1,17 +1,75 @@
 import axios from "axios";
 import Cookies from "js-cookie"; // Import js-cookie
+import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
 
 // Base URL cho API
-const BASE_URL = "https://stockmonitoring.onrender.com";
+export const APP_BASE_URL = "https://stockmonitoring-api-app-service.onrender.com";
+export const STOCK_BASE_URL = "https://stockmonitoring-api-stock-service.onrender.com";
 
 // Tạo Basic Auth token cho Swagger
 const username = "admin";
 const password = "password@123";
 const basicAuthToken = btoa(`${username}:${password}`);
 
+// Kiểm tra khả năng tương thích của cookie
+export const checkCookieCompatibility = () => {
+  try {
+    const testKey = "cookie_test";
+    Cookies.set(testKey, "test");
+    const result = Cookies.get(testKey) === "test";
+    Cookies.remove(testKey);
+    return result;
+  } catch (e) {
+    console.error("Cookie compatibility check failed:", e);
+    return false;
+  }
+};
+
+// Hàm để lưu user ID vào cả cookie và localStorage
+export const saveUserId = (userId) => {
+  try {
+    // Luôn cố gắng lưu vào cookie
+    Cookies.set("user_id", userId, { path: '/' });
+    
+    // Lưu vào localStorage như một phương án dự phòng
+    localStorage.setItem('user_id_backup', userId);
+    
+    return true;
+  } catch (error) {
+    console.error("Error saving user ID:", error);
+    return false;
+  }
+};
+
+// Hàm để lấy user ID từ cookie hoặc localStorage
+export const getUserId = () => {
+  try {
+    // Cố gắng lấy từ cookie trước
+    const userIdFromCookie = Cookies.get("user_id");
+    
+    if (userIdFromCookie) {
+      return userIdFromCookie;
+    }
+    
+    // Nếu không có trong cookie, thử lấy từ localStorage
+    const userIdFromStorage = localStorage.getItem('user_id_backup');
+    
+    if (userIdFromStorage) {
+      // Thử set lại cookie
+      Cookies.set("user_id", userIdFromStorage, { path: '/' });
+    }
+    
+    return userIdFromStorage;
+  } catch (error) {
+    console.error("Error getting user ID:", error);
+    return null;
+  }
+};
+
 // Tạo axios instance với cấu hình chung
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: APP_BASE_URL,
+  timeout: 10000, // Add timeout of 10 seconds
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",
@@ -42,8 +100,6 @@ api.interceptors.request.use(
     const token = Cookies.get("auth_token"); // Lấy token từ cookie
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.log("Interceptor - Using Basic Auth"); // Debug
     }
     return config;
   },
@@ -91,7 +147,7 @@ api.interceptors.response.use(
 
       // Lưu token mới
       Cookies.set("auth_token", token);
-      Cookies.set("refresh_token", response.data.value.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
+      Cookies.set("refresh_token", response.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
       // Xử lý hàng đợi với token mới
@@ -106,7 +162,6 @@ api.interceptors.response.use(
       Cookies.remove("auth_token");
       Cookies.remove("refresh_token");
       delete api.defaults.headers.common["Authorization"];
-      console.log("Tokens removed from cookies");
       window.location.href = "/login";
       return Promise.reject(refreshError);
     } finally {
@@ -150,6 +205,27 @@ export const apiService = {
     }
   },
 
+  // Lấy chi tiết tin tức từ API
+  getNewsDetail: async (newsLink) => {
+    try {
+      // Mã hóa URL tin tức
+      const encodedLink = encodeURIComponent(newsLink);
+      // Gọi API lấy chi tiết tin tức
+      const response = await api.get(`/api/news/detail?link=${encodedLink}`);
+      
+      console.log("Get news detail response:", response.data);
+      
+      if (response.data && response.data.value) {
+        return response.data.value.data || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Get news detail error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Cập nhật role của người dùng
   updateUserRole: async (userId, newRole) => {
     try {
@@ -161,32 +237,30 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
       }
 
-      // Xác định endpoint dựa trên role mới
-      let endpoint;
-      if (newRole === "manager") {
-        endpoint = `/api/users/make-manager?userId=${userId}`;
-      } else if (newRole === "staff") {
-        endpoint = `/api/users/make-staff?userId=${userId}`;
-      } else if (newRole === "admin") {
-        endpoint = `/api/users/make-admin?userId=${userId}`;
-      } else {
-        throw new Error("Role không hợp lệ. Chỉ hỗ trợ admin, manager hoặc staff.");
+      // Chuyển đổi role từ string sang số nguyên theo quy ước API
+      let roleValue;
+      switch(newRole.toLowerCase()) {
+        case "customer":
+          roleValue = 1;
+          break;
+        case "staff":
+          roleValue = 2;
+          break;
+        case "manager":
+          roleValue = 3;
+          break;
+        case "admin":
+          roleValue = 4;
+          break;
+        default:
+          throw new Error("Role không hợp lệ.");
       }
       
       // Debug logs
-      console.log("Making API call to:", endpoint);
-      console.log("Using token:", token.substring(0, 10) + "...");
+      console.log(`Updating role for user ${userId} to ${newRole} (value: ${roleValue})`);
       
-      // Tạo config với header Authorization
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'accept': '*/*'
-        }
-      };
-      
-      // Gửi request PUT
-      const response = await api.put(endpoint, null, config);
+      // Gửi request PUT với body đúng định dạng
+      const response = await api.put(`/api/users/${userId}/role`, { role: roleValue });
       
       console.log("Update user role response:", response.data);
       
@@ -247,7 +321,7 @@ export const apiService = {
 
   login: async (credentials) => {
     try {
-      const response = await api.post("/api/users/login", {
+      const response = await api.post("/api/auth/login", {
         email: credentials.email,
         password: credentials.password,
       });
@@ -257,9 +331,26 @@ export const apiService = {
       if (response.data && response.data.value) {
         const userData = response.data.value.data;
         if (userData.token) {
+          console.log("Setting cookies with user ID:", userData.id, "and token:", userData.token.substring(0, 15) + "...");
+          
+          // Kiểm tra khả năng tương thích của cookie
+          const cookieCompatible = checkCookieCompatibility();
+          console.log("Cookie compatibility:", cookieCompatible ? "Good" : "Limited");
+          
+          // Sử dụng cookie options mà không có domain restriction
+          const cookieOptions = { 
+            expires: 7, 
+            path: '/'
+          };
+          
           // Lưu cả access token và refresh token
-          Cookies.set("auth_token", userData.token, { expires: 7 });
-          Cookies.set("refresh_token", userData.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
+          Cookies.set("auth_token", userData.token, cookieOptions);
+          Cookies.set("refresh_token", userData.refreshToken, { ...cookieOptions, expires: 30 }); // Refresh token có thời hạn dài hơn
+          
+          // Lưu id thành user_id trong cả cookie và localStorage
+          saveUserId(userData.id);
+          
+          // Đặt token cho các API request
           api.defaults.headers.common["Authorization"] = `Bearer ${userData.token}`;
           
           // Lưu thông tin user vào localStorage với cấu trúc rõ ràng
@@ -267,14 +358,15 @@ export const apiService = {
             id: userData.id,
             email: userData.email,
             name: userData.name,
-            role: userData.role
+            role: userData.role || userData.roleName
           };
           localStorage.setItem('user_info', JSON.stringify(userInfo));
-          
-          console.log("Tokens saved to cookies and user info saved to localStorage:", userInfo);
+        } else {
+          console.error("No token found in user data", userData);
         }
         return response.data.value;
       }
+      console.error("Invalid response format", response.data);
       throw new Error("Invalid response format");
     } catch (error) {
       console.error("Login error:", error);
@@ -284,7 +376,7 @@ export const apiService = {
 
   register: async (userData) => {
     try {
-      const response = await api.post("/api/users/register", userData);
+      const response = await api.post("/api/auth/register", userData);
       return response;
     } catch (error) {
       if (error.response) {
@@ -296,11 +388,25 @@ export const apiService = {
 
   logout: async () => {
     try {
+      console.log("Removing cookies and user info");
+      // Tùy chọn cookie để đảm bảo nó được xóa đúng
+      const cookieOptions = { 
+        path: '/',
+      };
+      
       // Xóa cả access token, refresh token và user info
-      Cookies.remove("auth_token");
-      Cookies.remove("refresh_token");
+      Cookies.remove("auth_token", cookieOptions);
+      Cookies.remove("refresh_token", cookieOptions);
+      Cookies.remove("user_id", cookieOptions);
+      
+      // Xóa cả dữ liệu backup trong localStorage
       localStorage.removeItem('user_info');
+      localStorage.removeItem('user_id_backup');
+      
       delete api.defaults.headers.common["Authorization"];
+      
+      console.log("After logout - All cookies:", document.cookie);
+      console.log("After logout - LocalStorage user_id_backup:", localStorage.getItem('user_id_backup'));
       console.log("Tokens and user info removed");
       return true;
     } catch (error) {
@@ -313,7 +419,7 @@ export const apiService = {
     try {
       console.log(`Verifying OTP for email: ${email}, code: ${code}`);
       
-      const response = await api.post("/api/otp/verify-otp-register", {
+      const response = await api.post("/api/otp/verify-registration", {
         email: email,
         code: code.toString(),
       });
@@ -353,7 +459,7 @@ export const apiService = {
     try {
       console.log(`Requesting OTP for email: ${email}`);
       
-      const response = await api.post("/api/otp/resend-otp", {
+      const response = await api.post("/api/otp/resend", {
         email: email
       });
       
@@ -388,64 +494,9 @@ export const apiService = {
     }
   },
   
-  resetPassword: async (email, newPassword) => {
-    try {
-      console.log(`Resetting password for email: ${email}`);
-      
-      const response = await api.post("/api/users/reset-password", {
-        email: email,
-        newPassword: newPassword
-      });
-      
-      console.log("Reset password response:", response);
-      
-      // Kiểm tra cấu trúc dữ liệu phản hồi
-      const responseData = response.data;
-      
-      // Xử lý cấu trúc dữ liệu lồng nhau
-      if (responseData.value) {
-        console.log("Extracted data from value:", responseData.value);
-        return {
-          success: true,
-          message: "Mật khẩu đã được đặt lại thành công",
-          data: responseData.value
-        };
-      }
-      
-      return {
-        success: response.status === 200,
-        message: responseData.message || "Mật khẩu đã được đặt lại thành công"
-      };
-    } catch (error) {
-      console.error("Reset password error:", error);
-      console.error("Error details:", error.response?.data);
-      
-      // Trả về đối tượng lỗi có cấu trúc phù hợp
-      return {
-        success: false,
-        message: error.response?.data?.message || "Không thể đặt lại mật khẩu"
-      };
-    }
-  },
-
-  forgotPassword: async (email) => {
-    try {
-      const response = await api.post("/api/users/forgot-password", {
-        email: email
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      if (error.response?.status === 404) {
-        throw new Error("Không tìm thấy API quên mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
-      }
-      throw error.response?.data || error;
-    }
-  },
-  
   resetPassword: async (email, code, newPassword) => {
     try {
-      const response = await api.post("/api/users/reset-password", {
+      const response = await api.put("/api/auth/reset-password", {
         email: email,
         code: code.toString(),
         newPassword: newPassword
@@ -455,6 +506,21 @@ export const apiService = {
       console.error("Reset password error:", error);
       if (error.response?.status === 404) {
         throw new Error("Không tìm thấy API đặt lại mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
+      }
+      throw error.response?.data || error;
+    }
+  },
+
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post("/api/auth/forgot-password", {
+        email: email
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      if (error.response?.status === 404) {
+        throw new Error("Không tìm thấy API quên mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
       }
       throw error.response?.data || error;
     }
@@ -493,7 +559,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm lấy danh sách features
   getFeatures: async () => {
     try {
       const token = Cookies.get("auth_token");
@@ -517,7 +582,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm tạo gói mới
   createPackage: async (packageData) => {
     try {
       const token = Cookies.get("auth_token");
@@ -543,7 +607,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm cập nhật gói
   updatePackage: async (id, packageData) => {
     try {
       const token = Cookies.get("auth_token");
@@ -569,7 +632,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm xóa gói
   deletePackage: async (id) => {
     try {
       const token = Cookies.get("auth_token");
@@ -595,7 +657,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm lấy danh sách báo cáo
   getReports: async () => {
     try {
       const token = Cookies.get("auth_token");
@@ -605,7 +666,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
-      const response = await api.get("/api/StaffReport");
+      const response = await api.get("/api/staff-reports");
       
       console.log("Get reports response:", response.data);
       
@@ -625,7 +686,500 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm xóa người dùng
+  createReport: async (reportData) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.post("/api/staff-reports", reportData);
+
+      console.log("Create report response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Create report error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  updateReport: async (id, reportData) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.put(`/api/staff-reports/${id}`, reportData);
+
+      console.log("Update report response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Update report error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  deleteReport: async (id) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.delete(`/api/staff-reports/${id}`);
+
+      console.log("Delete report response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Delete report error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getReportById: async (id) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.get(`/api/staff-reports/${id}`);
+
+      console.log("Get report details response:", response.data);
+      
+      if (response.data?.value?.data) {
+        return response.data.value.data;
+      } else if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Get report details error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getKnowledge: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.get("/api/knowledges");
+      console.log("Get knowledge response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting knowledge:", error);
+      throw new Error(error.response?.data?.message || "Không thể tải danh sách bài viết");
+    }
+  },
+
+  createKnowledge: async (data) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.post("/api/knowledges", {
+        title: data.title,
+        content: data.content,
+        imageUrl: data.imageUrl
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error("Create knowledge error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getKnowledgeById: async (id) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.get(`/api/knowledges/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Get knowledge detail error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
+
+  updateKnowledge: async (id, data) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.put(`/api/knowledges/${id}`, {
+        id: id,
+        title: data.title,
+        content: data.content,
+        imageUrl: data.imageUrl
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error("Update knowledge error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  deleteKnowledge: async (id) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.delete(`/api/knowledges/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Delete knowledge error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  uploadImage: async (file) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post("/api/images", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data?.value) {
+        return response.data.value;
+      }
+      throw new Error("Không thể tải lên hình ảnh");
+    } catch (error) {
+      console.error("Upload image error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  deleteImage: async (imageUrl) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.delete("/api/images", {
+        data: { imageUrl }
+      });
+
+      console.log("Delete image response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Delete image error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  createPayment: async (data) => {
+    try {
+      const { amount, packageId } = data;
+      const response = await api.post(`/api/payments?amount=${amount}&packageId=${packageId}`);
+      console.log('Payment API response:', response);
+      console.log('Payment data structure:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data?.value?.data) {
+        console.log('Payment QR code:', response.data.value.data.qrCode);
+        console.log('Payment checkout URL:', response.data.value.data.checkoutUrl);
+        return response.data;
+      } else {
+        console.error('Invalid payment response structure:', response.data);
+        throw new Error('Cấu trúc dữ liệu thanh toán không hợp lệ');
+      }
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  
+  cancelPayment: async (orderCode) => {
+    try {
+      if (!orderCode) {
+        throw new Error('Mã đơn hàng không được để trống');
+      }
+      
+      console.log(`Cancelling payment order: ${orderCode}`);
+      const response = await api.post(`/api/payments/${orderCode}/cancel`);
+      
+      console.log('Cancel payment response:', response);
+      
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: 'Hủy đơn hàng thành công'
+        };
+      } else {
+        throw new Error('Hủy đơn hàng không thành công');
+      }
+    } catch (error) {
+      console.error('Error cancelling payment:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  
+  getPaymentStatus: async (orderCode) => {
+    try {
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("User ID không tồn tại");
+      }
+      const response = await api.get(`/api/payments/${orderCode}`);
+      
+      return {
+        success: true,
+        data: response.data.value
+      };
+    } catch (error) {
+      console.error("Get payment status error:", error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+    }
+  },
+  
+  updatePaymentStatus: async (orderCode) => {
+    try {
+      if (!orderCode) {
+        throw new Error("Mã đơn hàng không được để trống");
+      }
+      
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      // Get user ID for the request
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("Không tìm thấy thông tin người dùng");
+      }
+      
+      console.log(`Updating payment status for order: ${orderCode} with userId: ${userId}`);
+      
+      // Create proper request body
+      const requestBody = {
+        userId: userId,
+        orderCode: orderCode
+      };
+      
+      // Explicitly include the Authorization header for reliability
+      // The interceptor should also add it, this is a backup
+      const response = await api.put(`/api/payments/${orderCode}`, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      
+      console.log('Update payment status response:', response);
+      
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: 'Mua gói dịch vụ thành công',
+          data: response.data?.value
+        };
+      } else {
+        throw new Error('Không thể cập nhật trạng thái thanh toán');
+      }
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+    }
+  },
+
+  getNews: async (source = "cafef") => {
+    try {
+      const response = await api.get(`/api/news?src=${source}`);
+      
+      console.log("Get news response:", response.data);
+      
+      if (response.data && response.data.value && response.data.value.data) {
+        // Process and return news items with URLs
+        const newsItems = response.data.value.data;
+        return newsItems.map(item => ({
+          ...item,
+          url: item.link || null // Ensure URL is available for fetching details
+        }));
+      }
+      
+      // Handle alternative data structure
+      if (response.data && response.data.data) {
+        // Process and return news items with URLs
+        const newsItems = response.data.data;
+        return newsItems.map(item => ({
+          ...item,
+          url: item.link || null // Ensure URL is available for fetching details
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Get news error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  updateReportStatus: async (id, status) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await api.put(`/api/staff-reports/${id}/status`, JSON.stringify(status), {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log("Update report status response:", response.data);
+      
+      if (response.data?.value) {
+        return response.data.value;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Update report status error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Authentication APIs
+  refreshToken: async (refreshToken) => {
+    try {
+      // Lấy token hiện tại từ cookie để gửi trong header
+      const currentToken = Cookies.get("auth_token");
+      
+      const response = await api.post("/api/auth/refresh-token", 
+        { token: refreshToken },
+        {
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json',
+            'accept': '*/*'
+          }
+        }
+      );
+
+      console.log("Refresh token response:", response.data);
+      
+      // Kiểm tra và xử lý response
+      if (response.data?.value) {
+        const { token, refreshToken: newRefreshToken } = response.data.value;
+        
+        // Lưu tokens mới vào cookies
+        Cookies.set("auth_token", token);
+        if (newRefreshToken) {
+          Cookies.set("refresh_token", newRefreshToken);
+        }
+        
+        return {
+          token,
+          refreshToken: newRefreshToken
+        };
+      }
+
+      throw new Error("Invalid refresh token response");
+    } catch (error) {
+      console.error("Refresh token error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // User Management APIs
   deleteUser: async (id) => {
     try {
       const token = Cookies.get("auth_token");
@@ -657,324 +1211,6 @@ export const apiService = {
     }
   },
 
-  // Thêm hàm upload ảnh
-  uploadImage: async (file) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await api.post("/api/Images/upload-image", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      console.log("Upload image response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Upload image error:", error);
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm xóa ảnh
-  deleteImage: async (imageUrl) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.delete("/api/Images/delete-image", {
-        data: { imageUrl }
-      });
-
-      console.log("Delete image response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Delete image error:", error);
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm tạo báo cáo
-  createReport: async (reportData) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.post("/api/StaffReport", reportData);
-
-      console.log("Create report response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Create report error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm cập nhật báo cáo
-  updateReport: async (id, reportData) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.put(`/api/StaffReport/${id}`, reportData);
-
-      console.log("Update report response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Update report error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm xóa báo cáo
-  deleteReport: async (id) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.delete(`/api/StaffReport/${id}`);
-
-      console.log("Delete report response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Delete report error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm lấy chi tiết báo cáo
-  getReportById: async (id) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.get(`/api/StaffReport/${id}`);
-
-      console.log("Get report details response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Get report details error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm lấy danh sách bài viết knowledge
-  getKnowledge: async (pageIndex = 1, pageSize = 10) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.get(`/api/Knowledge?pageIndex=${pageIndex}&pageSize=${pageSize}`);
-
-      console.log("Get knowledge response:", response.data);
-      
-      if (response.data?.value) {
-        return {
-          articles: response.data.value.map(article => ({
-            id: article.id,
-            title: article.title,
-            content: article.content,
-            image: article.imageUrl,
-            date: article.createdTime,
-            readTime: "5" // Temporary hardcoded value since it's not in the response
-          })),
-          totalPages: Math.ceil(response.data.value.length / pageSize),
-          totalItems: response.data.value.length
-        };
-      }
-
-      return {
-        articles: [],
-        totalPages: 1,
-        totalItems: 0
-      };
-    } catch (error) {
-      console.error("Get knowledge error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Thêm hàm tạo bài viết knowledge
-  createKnowledge: async (data) => {
-    try {
-      const token = Cookies.get("auth_token");
-      
-      if (!token) {
-        console.error("No authentication token found");
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      // Create knowledge article
-      const response = await api.post("/api/Knowledge", {
-        title: data.title,
-        content: data.content,
-        imageUrl: data.imageUrl // Chỉ sử dụng URL ảnh được truyền vào
-      });
-
-      console.log("Create knowledge response:", response.data);
-      
-      if (response.data?.value) {
-        return response.data.value;
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("Create knowledge error:", error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      
-      throw error.response?.data || error.message;
-    }
-  },
-
-  getKnowledgeById: async (id) => {
-    try {
-      const token = Cookies.get("auth_token");
-      if (!token) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.get(`/api/Knowledge/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error("Get knowledge detail error:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      throw error.response?.data || error.message;
-    }
-  },
-
-  updateKnowledge: async (id, data) => {
-    try {
-      const token = Cookies.get("auth_token");
-      if (!token) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.put(`/api/Knowledge/${id}`, {
-        title: data.title,
-        content: data.content,
-        imageUrl: data.imageUrl
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error("Update knowledge error:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      throw error.response?.data || error.message;
-    }
-  },
-
-  deleteKnowledge: async (id) => {
-    try {
-      const token = Cookies.get("auth_token");
-      if (!token) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
-      const response = await api.delete(`/api/Knowledge/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error("Delete knowledge error:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
-      }
-      throw error.response?.data || error.message;
-    }
-  },
-
   updateProfile: async (userData) => {
     try {
       const response = await api.put("/api/users", {
@@ -1001,27 +1237,38 @@ export const apiService = {
     }
   },
 
-  refreshToken: async (refreshToken) => {
+  // Thêm hàm mới để lấy danh sách báo cáo theo ID người dùng
+  getStaffReports: async (staffId) => {
     try {
-      const response = await api.post("/api/users/refresh-token", {
-        token: refreshToken
-      });
-
-      console.log("Refresh token response:", response.data);
+      const token = Cookies.get("auth_token");
       
-      if (response.data?.value) {
-        const { token, refreshToken: newRefreshToken } = response.data.value;
-        
-        // Lưu tokens mới vào cookies
-        Cookies.set("auth_token", token);
-        Cookies.set("refresh_token", newRefreshToken);
-        
-        return response.data.value;
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
-
-      throw new Error("Invalid refresh token response");
+      
+      if (!staffId) {
+        throw new Error("Staff ID không được để trống");
+      }
+      
+      console.log(`Getting reports for staff ID: ${staffId}`);
+      
+      const response = await api.get(`/api/staff-reports/${staffId}/list`);
+      
+      console.log("Get staff reports response:", response.data);
+      
+      if (response.data?.value?.data) {
+        return response.data.value.data;
+      }
+      
+      return response.data || [];
     } catch (error) {
-      console.error("Refresh token error:", error);
+      console.error("Get staff reports error:", error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      
       throw error.response?.data || error.message;
     }
   },

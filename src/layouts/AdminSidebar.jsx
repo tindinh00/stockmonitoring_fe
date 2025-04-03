@@ -12,7 +12,9 @@ import {
   PanelLeft,
   User,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Users,
+  Package
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -53,47 +55,24 @@ import { toast } from 'sonner';
 // Mock data for navigation items
 export const navItems = [
   {
-    title: "Dashboard",
+    title: "Bảng điều khiển",
     url: "/admin/dashboard",
     icon: "layoutDashboard",
     isActive: true
   },
   {
-    title: "Quản lý",
-    url: "#",
-    icon: "settings",
-    isActive: true,
-    items: [
-      { title: "Người dùng", url: "/admin/users" },
-      { title: "Gói dịch vụ", url: "/admin/packages" }
-    ]
+    title: "Người dùng",
+    url: "/admin/users",
+    icon: "users",
+    isActive: true
   },
   {
-    title: "Playground",
-    url: "#",
-    icon: "box",
-    isActive: true,
-    items: [
-      { title: "History", url: "/history" },
-      { title: "Starred", url: "/starred" },
-      { title: "Settings", url: "/settings" }
-    ]
+    title: "Gói dịch vụ",
+    url: "/admin/packages",
+    icon: "package",
+    isActive: true
   },
-  {
-    title: "Models",
-    url: "/models",
-    icon: "database"
-  },
-  {
-    title: "Documentation",
-    url: "/docs",
-    icon: "fileText"
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: "settings"
-  }
+  
 ];
 
 // Mock company data
@@ -110,7 +89,9 @@ export const Icons = {
   box: () => <GalleryVerticalEnd className="size-4" />,
   database: () => <GalleryVerticalEnd className="size-4" />,
   fileText: () => <GalleryVerticalEnd className="size-4" />,
-  settings: () => <Settings className="size-4" />
+  settings: () => <Settings className="size-4" />,
+  users: () => <Users className="size-4" />,
+  package: () => <Package className="size-4" />
 };
 
 // Custom sidebar trigger component
@@ -160,7 +141,7 @@ export default function AdminSidebar() {
           </div>
           <div className='grid flex-1 text-left text-sm leading-tight'>
             <span className='truncate font-semibold text-primary'>{company.name}</span>
-            <span className='truncate text-xs text-[#09D1C7]'>{user?.tier || company.plan}</span>
+            <span className='truncate text-xs text-[#09D1C7]'>Admin</span>
           </div>
         </div>
       </SidebarHeader>

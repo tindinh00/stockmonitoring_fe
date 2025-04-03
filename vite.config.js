@@ -15,6 +15,15 @@ export default defineConfig({
   },
   server: {
     historyApiFallback: true, //  Cần thiết nếu dùng React Router
+    proxy: {
+      // Proxy configuration to bypass CORS issues
+      '/api': {
+        target: 'https://stockmonitoring-api-stock-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
 
   // contributed 
