@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 const OAuthCallback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { loginWithGoogle, registerWithGoogle } = useAuth();
+  const { loginWithGoogle, registerWithGoogle, getHomePageForRole } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState(null);
   const hasHandledCallback = useRef(false);
@@ -70,8 +70,9 @@ const OAuthCallback = () => {
               position: "top-right",
               duration: 2000,
             });
-            // Chuyển hướng đến trang chính sau khi đăng ký thành công
-            setTimeout(() => navigate('/stock'), 1500);
+            // Chuyển hướng đến trang dựa trên role của người dùng
+            const redirectPath = getHomePageForRole(result.user?.role);
+            setTimeout(() => navigate(redirectPath), 1500);
           } else {
             const errorMsg = result.message || "Đăng ký Google thất bại";
             console.warn("Registration error message:", errorMsg);
@@ -100,8 +101,9 @@ const OAuthCallback = () => {
               position: "top-right",
               duration: 2000,
             });
-            // Chuyển hướng đến trang chính sau khi đăng nhập thành công
-            setTimeout(() => navigate('/stock'), 1500);
+            // Chuyển hướng đến trang dựa trên role của người dùng
+            const redirectPath = getHomePageForRole(result.user?.role);
+            setTimeout(() => navigate(redirectPath), 1500);
           } else {
             const errorMsg = result.message || "Đăng nhập Google thất bại";
             console.warn("Login error message:", errorMsg);
@@ -138,7 +140,7 @@ const OAuthCallback = () => {
     if (isProcessing) {
       handleOAuthCallback();
     }
-  }, [location, loginWithGoogle, registerWithGoogle, navigate, isProcessing]);
+  }, [location, loginWithGoogle, registerWithGoogle, navigate, isProcessing, getHomePageForRole]);
 
   if (error) {
     return (

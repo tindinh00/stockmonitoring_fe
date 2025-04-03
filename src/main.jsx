@@ -6,43 +6,33 @@ import './index.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import signalRService from './api/signalRService'
 
-// Inicialização do SignalR com retry e fallback
+// Khởi tạo kết nối SignalR
 const initSignalR = async () => {
   try {
-    // Tentativa de inicializar AppDataHub
-    try {
-      await signalRService.start();
-      console.log('AppDataHub connection initialized');
-    } catch (error) {
-      console.warn('AppDataHub connection failed, will use polling fallback:', error.message);
-    }
+    console.log("Initializing SignalR connections");
     
-    // Tentativa de inicializar StockDataHub
+    // Khởi tạo kết nối với StockDataHub
     try {
       await signalRService.startStockConnection();
-      console.log('StockDataHub connection initialized');
-    } catch (error) {
-      console.warn('StockDataHub connection failed, will use polling fallback:', error.message);
-    }
-    
-    // Verificar status final das conexões
-    const connectionStatus = signalRService.isConnected();
-    if (!connectionStatus.appHub && !connectionStatus.stockHub) {
-      console.info('Using polling fallback for all data updates');
-    } else if (!connectionStatus.appHub) {
-      console.info('Using polling fallback for app data updates');
-    } else if (!connectionStatus.stockHub) {
-      console.info('Using polling fallback for stock data updates');
+      console.log("StockDataHub connection initialized");
+      
+      // Thiết lập các listener cho stock updates
+      await signalRService.setupStockListeners();
+      console.log("Stock update listeners registered");
+    } catch (stockError) {
+      console.error("StockDataHub connection failed:", stockError.message);
     }
   } catch (error) {
-    console.error('SignalR initialization error:', error);
+    console.error("Error initializing SignalR:", error);
   }
 };
 
-// Inicializar após um pequeno atraso para garantir que o restante do app carregue primeiro
+// Khởi tạo SignalR sau khi các thành phần khác đã tải
 setTimeout(() => {
-  initSignalR();
-}, 1000);
+  initSignalR().catch(error => {
+    console.error("Error in SignalR initialization:", error);
+  });
+}, 1000); // Delay 1 giây trước khi khởi tạo
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

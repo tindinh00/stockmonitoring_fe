@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -97,9 +98,11 @@ export default function HeaderLogined() {
       </div>
 
       <div className='flex items-center gap-2 px-4 shrink-0'>
-        <button className='hidden sm:flex bg-[#0ABDB4] hover:bg-[#0C6478] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap'>
-          Mua dịch vụ
-        </button>
+        <Link to="/upgrade-package">
+          <button className='hidden sm:flex bg-[#0ABDB4] hover:bg-[#0C6478] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap'>
+            Mua dịch vụ
+          </button>
+        </Link>
         
         <Popover>
           <PopoverTrigger asChild>

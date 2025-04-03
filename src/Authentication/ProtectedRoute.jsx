@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 // Component ProtectedRoute để kiểm tra quyền truy cập
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, user, loading, getHomePageForRole } = useAuth();
   const location = useLocation();
 
   // In ra logs để kiểm tra
@@ -46,15 +46,8 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     toast.error('Bạn không có quyền truy cập trang này');
     console.error(`Access denied: User role (${userRole}) not in allowed roles:`, allowedRoles);
     
-    // Chuyển hướng dựa vào role
-    const roleRedirectMap = {
-      'admin': '/admin/dashboard',
-      'manager': '/manager/knowledge',
-      'staff': '/staff/chat',
-      'user': '/'
-    };
-    
-    const redirectPath = roleRedirectMap[userRole] || '/';
+    // Chuyển hướng dựa vào role của người dùng
+    const redirectPath = getHomePageForRole(userRole);
     return <Navigate to={redirectPath} replace />;
   }
 

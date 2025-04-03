@@ -70,23 +70,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      console.log(`Attempting login with email: ${email}`);
-      
-      const response = await axios.post(`${API_URL}/api/users/login`, {
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
+      }, {
+        timeout: 10000 // Add timeout of 10 seconds
       });
-      
-      console.log("API Response:", response);
       
       // Kiểm tra dữ liệu phản hồi
       if (!response || !response.data) {
-        console.error("Invalid API response:", response);
         return { success: false, message: "Lỗi kết nối đến máy chủ" };
       }
       
       const responseData = response.data;
-      console.log("Login data:", responseData);
       
       // Xử lý cấu trúc dữ liệu lồng nhau
       let data = responseData;
@@ -94,7 +90,6 @@ export const AuthProvider = ({ children }) => {
       // Kiểm tra nếu dữ liệu nằm trong trường value
       if (responseData.value) {
         data = responseData.value;
-        console.log("Extracted data from value:", data);
       }
       
       // Kiểm tra nếu token nằm trong data.data
@@ -104,16 +99,13 @@ export const AuthProvider = ({ children }) => {
       if (data.data && data.data.token) {
         token = data.data.token;
         userData = data.data;
-        console.log("Found token in data.data:", token);
       } else if (data.token) {
         token = data.token;
         userData = data;
-        console.log("Found token directly in data:", token);
       }
       
       // Kiểm tra token
       if (!token) {
-        console.error("No token in response:", responseData);
         return { 
           success: false, 
           message: data.message || "Không nhận được token xác thực" 
@@ -137,8 +129,6 @@ export const AuthProvider = ({ children }) => {
         tier: userData.tier || "Free"
       };
       
-      console.log("Processed user data:", userInfo);
-      
       // Lưu thông tin người dùng
       localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
       
@@ -154,15 +144,9 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user: userInfo };
     } catch (error) {
-      console.error("Login error:", error);
-      
-      // Xử lý lỗi từ API
       let errorMessage = "Đăng nhập thất bại";
       
       if (error.response) {
-        // Lỗi từ server với status code
-        console.log("Error response:", error.response);
-        
         // Xử lý tùy theo mã lỗi HTTP
         if (error.response.status === 400 || error.response.status === 401) {
           errorMessage = "Tài khoản hoặc mật khẩu không chính xác";
@@ -171,8 +155,8 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Lấy thông báo lỗi từ phản hồi API nếu có
           errorMessage = error.response.data?.message || 
-                         error.response.data?.error || 
-                         `Lỗi: ${error.response.statusText}`;
+                       error.response.data?.error || 
+                       `Lỗi: ${error.response.statusText}`;
         }
       } else if (error.request) {
         // Không nhận được phản hồi
@@ -190,7 +174,7 @@ export const AuthProvider = ({ children }) => {
       console.log("State parameter:", state);
       
       // Gọi API với code và state từ Google OAuth
-      const url = `${API_URL}/api/OAuth/google-login?code=${encodeURIComponent(code)}`;
+      const url = `${API_URL}/api/oauth/google/login?code=${encodeURIComponent(code)}`;
       const finalUrl = state ? `${url}&state=${encodeURIComponent(state)}` : url;
       
       const response = await axios.get(finalUrl);
@@ -349,7 +333,7 @@ export const AuthProvider = ({ children }) => {
       console.log("State parameter:", state);
       
       // Gọi API với code và state từ Google OAuth
-      const url = `${API_URL}/api/OAuth/google-register?code=${encodeURIComponent(code)}`;
+      const url = `${API_URL}/api/oauth/google/register?code=${encodeURIComponent(code)}`;
       const finalUrl = state ? `${url}&state=${encodeURIComponent(state)}` : url;
       
       const response = await axios.get(finalUrl);
@@ -522,7 +506,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post(`${API_URL}/api/users/register`, userData);
+      const response = await axios.post(`${API_URL}/api/auth/register`, userData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error("Registration error:", error);
@@ -559,7 +543,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log(`Attempting to change password for user ID: ${userId}`);
       
-      const response = await axios.post(`${API_URL}/api/users/change-password`, {
+      const response = await axios.post(`${API_URL}/api/auth/change-password`, {
         id: userId,
         password: newPassword
       });
@@ -626,6 +610,25 @@ export const AuthProvider = ({ children }) => {
   const getUserNameFromCookie = () => Cookies.get(USER_NAME_KEY);
   const getUserTierFromCookie = () => Cookies.get(USER_TIER_KEY);
 
+  // Hàm để lấy trang chủ tương ứng với role của người dùng
+  const getHomePageForRole = (role) => {
+    if (!role) return '/';
+    
+    const roleLower = role.toLowerCase();
+    switch (roleLower) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'manager':
+        return '/manager/knowledge';
+      case 'staff':
+        return '/staff/chat';
+      case 'customer':
+        return '/stock';
+      default:
+        return '/';
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -641,7 +644,8 @@ export const AuthProvider = ({ children }) => {
         getUserIdFromCookie,
         getUserRoleFromCookie,
         getUserNameFromCookie,
-        getUserTierFromCookie
+        getUserTierFromCookie,
+        getHomePageForRole
       }}
     >
       {children}

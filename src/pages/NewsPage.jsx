@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, TrendingUp, Newspaper, Share2, Bookmark, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, TrendingUp, Newspaper, Share2, Bookmark, Eye, ArrowLeft, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import signalRService from '@/api/signalRService';
@@ -21,6 +21,11 @@ const NewsPage = () => {
   const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
   // Thêm state để theo dõi các ảnh bị lỗi
   const [failedImages, setFailedImages] = useState({});
+  // Thêm state để theo dõi quá trình tải chi tiết bài viết
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [newsDetail, setNewsDetail] = useState(null);
+  // URL của bài viết được chọn
+  const [selectedArticleUrl, setSelectedArticleUrl] = useState(null);
   const itemsPerPage = 9;
 
   // Categories
@@ -87,7 +92,8 @@ const NewsPage = () => {
           imageUrl: (item.image || item.imageUrl) && !(item.image || item.imageUrl).includes('placeholder.com') 
             ? (item.image || item.imageUrl) 
             : DEFAULT_IMAGE,
-          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>')
+          content: item.content || (item.description ? `<p>${item.description}</p>` : '<p>Không có nội dung</p>'),
+          url: item.url || item.link || null // Ensure URL is available
         }));
         
         // Sắp xếp tin tức theo thời gian cũ nhất đến mới nhất
@@ -203,8 +209,39 @@ const NewsPage = () => {
     };
   }, [fetchNewsData, handleNewsUpdate]);
 
+  // Hàm để lấy chi tiết tin tức
+  const fetchNewsDetail = async (url) => {
+    setLoadingDetail(true);
+    setNewsDetail(null);
+    
+    try {
+      const detail = await apiService.getNewsDetail(url);
+      console.log("Fetched news detail:", detail);
+      if (detail) {
+        setNewsDetail(detail);
+      } else {
+        toast.error("Không thể tải chi tiết bài viết");
+      }
+    } catch (error) {
+      console.error("Error fetching news detail:", error);
+      toast.error("Đã xảy ra lỗi khi tải chi tiết bài viết");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  // Xử lý mở chi tiết bài viết
   const openArticleDetail = (article) => {
     setSelectedArticle(article);
+    
+    // Chỉ gọi API nếu article có URL
+    if (article.url) {
+      setSelectedArticleUrl(article.url);
+      fetchNewsDetail(article.url);
+    } else {
+      setNewsDetail(null);
+      setSelectedArticleUrl(null);
+    }
   };
 
   const toggleBookmark = (articleId) => {
@@ -220,7 +257,7 @@ const NewsPage = () => {
       navigator.share({
         title: article.title,
         text: article.title,
-        url: window.location.href,
+        url: article.url || window.location.href,
       });
     }
   };
@@ -239,6 +276,13 @@ const NewsPage = () => {
   };
 
   const currentItems = getCurrentPageItems();
+
+  // Mở liên kết bài viết trong tab mới
+  const openNewsInNewTab = (url) => {
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
 
   const LoadingSkeleton = () => (
     <div className="grid grid-cols-3 gap-6 pl-4 pr-4">
@@ -556,57 +600,99 @@ const NewsPage = () => {
 
         {/* Article Detail Dialog */}
         <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
-          <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-4xl">
+          <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-4xl max-h-[90vh] overflow-y-auto">
             {selectedArticle && (
               <div className="space-y-6">
-                <div className="space-y-4">
-                  <h2 className="text-2xl font-semibold hover:text-[#09D1C7] transition-colors duration-300">
-                    {selectedArticle.title}
-                  </h2>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <Clock className="w-4 h-4" />
-                      <span>{selectedArticle.timeAgo}</span>
-                      <span>•</span>
-                      <span>{selectedArticle.source}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => toggleBookmark(selectedArticle.id)}
-                        className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                      >
-                        <Bookmark 
-                          className={`w-4 h-4 ${
-                            bookmarkedArticles.includes(selectedArticle.id)
-                              ? 'fill-[#09D1C7] text-[#09D1C7]'
-                              : 'text-gray-400'
-                          }`}
-                        />
-                      </button>
-                      <button 
-                        onClick={() => shareArticle(selectedArticle)}
-                        className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                      >
-                        <Share2 className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
-                      </button>
-                    </div>
+                {loadingDetail ? (
+                  <div className="flex flex-col items-center justify-center py-10">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#09D1C7] mb-4"></div>
+                    <p className="text-lg text-gray-400">Đang tải chi tiết bài viết...</p>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-4 flex-1">
+                        <h2 className="text-2xl font-semibold hover:text-[#09D1C7] transition-colors duration-300">
+                          {newsDetail ? newsDetail.title : selectedArticle.title}
+                        </h2>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <Clock className="w-4 h-4" />
+                            <span>{newsDetail ? newsDetail.publishDate : selectedArticle.timeAgo}</span>
+                            {newsDetail && newsDetail.category && (
+                              <>
+                                <span>•</span>
+                                <span>{newsDetail.category}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span>{selectedArticle.source}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => toggleBookmark(selectedArticle.id)}
+                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                            >
+                              <Bookmark 
+                                className={`w-4 h-4 ${
+                                  bookmarkedArticles.includes(selectedArticle.id)
+                                    ? 'fill-[#09D1C7] text-[#09D1C7]'
+                                    : 'text-gray-400'
+                                }`}
+                              />
+                            </button>
+                            <button 
+                              onClick={() => shareArticle(selectedArticle)}
+                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                            >
+                              <Share2 className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                            </button>
+                            {selectedArticleUrl && (
+                              <button 
+                                onClick={() => openNewsInNewTab(selectedArticleUrl)}
+                                className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                                title="Mở trong tab mới"
+                              >
+                                <ExternalLink className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="aspect-video overflow-hidden rounded-lg">
-                  <img
-                    src={failedImages[selectedArticle.id] ? DEFAULT_IMAGE : selectedArticle.imageUrl}
-                    alt={selectedArticle.title}
-                    className="w-full h-full object-cover"
-                    onError={() => handleImageError(selectedArticle.id)}
-                  />
-                </div>
+                    {newsDetail && newsDetail.description && (
+                      <div className="bg-gray-800/50 p-4 rounded-lg">
+                        <p className="text-gray-300 italic text-sm">
+                          {newsDetail.description}
+                        </p>
+                      </div>
+                    )}
 
-                <div 
-                  className="prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
-                />
+                    <div className="aspect-video overflow-hidden rounded-lg">
+                      <img
+                        src={
+                          newsDetail && newsDetail.imageUrl 
+                            ? newsDetail.imageUrl 
+                            : (failedImages[selectedArticle.id] ? DEFAULT_IMAGE : selectedArticle.imageUrl)
+                        }
+                        alt={newsDetail ? newsDetail.title : selectedArticle.title}
+                        className="w-full h-full object-cover"
+                        onError={() => handleImageError(selectedArticle.id)}
+                      />
+                    </div>
+
+                    <div 
+                      className="prose prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ 
+                        __html: newsDetail && newsDetail.content 
+                          ? newsDetail.content 
+                          : (selectedArticle.content || '<p>Không có nội dung chi tiết</p>')
+                      }}
+                    />
+                  </>
+                )}
               </div>
             )}
           </DialogContent>
