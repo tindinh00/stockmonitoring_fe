@@ -63,6 +63,7 @@ const StockDerivatives = () => {
   const [alertPrice, setAlertPrice] = useState('');
   const [alertType, setAlertType] = useState('above');
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
+  const [currentTime, setCurrentTime] = useState(moment());
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -823,6 +824,15 @@ const StockDerivatives = () => {
     );
   };
 
+  // Add useEffect for real-time clock update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(moment());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -947,17 +957,17 @@ const StockDerivatives = () => {
 
         {/* Date and Time Display */}
         <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300 w-[140px]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-white font-medium">{moment().format('DD/MM/YYYY')}</span>
+            <span className="text-white font-medium w-full text-center">{currentTime.format('DD/MM/YYYY')}</span>
           </div>
-          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300 w-[120px]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-white font-medium">{moment().format('HH:mm:ss')}</span>
+            <span className="text-white font-medium w-full text-center">{currentTime.format('HH:mm:ss')}</span>
           </div>
         </div>
       </div>

@@ -66,17 +66,14 @@ export const getUserId = () => {
   }
 };
 
-// Tạo axios instance với cấu hình chung
-const api = axios.create({
-  baseURL: APP_BASE_URL,
-  timeout: 10000, // Add timeout of 10 seconds
+// Create axios instance with default config
+export const axiosInstance = axios.create({
+  baseURL: STOCK_BASE_URL,
+  withCredentials: true,
   headers: {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    "Authorization": `Basic ${basicAuthToken}`,
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,PATCH,OPTIONS",
-  },
+    'Content-Type': 'application/json',
+    'Accept': '*/*'
+  }
 });
 
 // Thêm biến để theo dõi trạng thái refresh token
@@ -95,9 +92,9 @@ const processQueue = (error, token = null) => {
 };
 
 // Add request interceptor
-api.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
-    const token = Cookies.get("auth_token"); // Lấy token từ cookie
+    const token = Cookies.get("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -108,56 +105,19 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle token refresh
-api.interceptors.response.use(
+// Add response interceptor
+axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Nếu lỗi không phải 401 hoặc request đã được thử refresh
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
+    // If error is CORS related, retry with updated headers
+    if (error.response?.status === 0 || error.code === 'ERR_NETWORK') {
+      originalRequest.headers['Access-Control-Allow-Origin'] = '*';
+      return axiosInstance(originalRequest);
     }
 
-    originalRequest._retry = true;
-
-    try {
-      const refreshToken = Cookies.get('refresh_token');
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await axios.post(`${APP_BASE_URL}/api/auth/refresh-token`, {
-        refreshToken
-      });
-
-      if (!response?.data?.value?.data?.token) {
-        throw new Error('Invalid refresh token response');
-      }
-
-      const { token, refreshToken: newRefreshToken } = response.data.value.data;
-
-      // Cập nhật tokens
-      Cookies.set("auth_token", token, { expires: 7 });
-      Cookies.set('refresh_token', newRefreshToken, { expires: 30 });
-
-      // Cập nhật token trong header của request gốc
-      originalRequest.headers.Authorization = `Bearer ${token}`;
-
-      // Thử lại request gốc
-      return api(originalRequest);
-    } catch (refreshError) {
-      // Xóa tokens nếu refresh thất bại
-      Cookies.remove("auth_token");
-      Cookies.remove('refresh_token');
-      
-      // Chuyển hướng về trang login hoặc dispatch event
-      window.dispatchEvent(new CustomEvent('auth-error', {
-        detail: { message: 'Session expired. Please login again.' }
-      }));
-      
-      return Promise.reject(refreshError);
-    }
+    return Promise.reject(error);
   }
 );
 
@@ -175,7 +135,7 @@ export const apiService = {
       }
       
       // Gửi request - không cần thêm headers vì interceptor đã thêm token
-      const response = await api.get("/api/users");
+      const response = await axiosInstance.get("/api/users");
       console.log("Get users response:", response.data);
       
       // Kiểm tra cấu trúc dữ liệu phản hồi
@@ -202,7 +162,7 @@ export const apiService = {
       // Mã hóa URL tin tức
       const encodedLink = encodeURIComponent(newsLink);
       // Gọi API lấy chi tiết tin tức
-      const response = await api.get(`/api/news/detail?link=${encodedLink}`);
+      const response = await axiosInstance.get(`/api/news/detail?link=${encodedLink}`);
       
       console.log("Get news detail response:", response.data);
       
@@ -251,7 +211,7 @@ export const apiService = {
       console.log(`Updating role for user ${userId} to ${newRole} (value: ${roleValue})`);
       
       // Gửi request PUT với body đúng định dạng
-      const response = await api.put(`/api/users/${userId}/role`, { role: roleValue });
+      const response = await axiosInstance.put(`/api/users/${userId}/role`, { role: roleValue });
       
       console.log("Update user role response:", response.data);
       
@@ -287,7 +247,7 @@ export const apiService = {
       
       // Gửi request cập nhật trạng thái
       const action = isBanned ? "ban" : "unban";
-      const response = await api.put(`/api/users/${userId}/status`, {
+      const response = await axiosInstance.put(`/api/users/${userId}/status`, {
         action: action
       });
       
@@ -312,7 +272,7 @@ export const apiService = {
 
   login: async (credentials) => {
     try {
-      const response = await api.post("/api/auth/login", {
+      const response = await axiosInstance.post("/api/auth/login", {
         email: credentials.email,
         password: credentials.password,
       });
@@ -342,7 +302,7 @@ export const apiService = {
           saveUserId(userData.id);
           
           // Đặt token cho các API request
-          api.defaults.headers.common["Authorization"] = `Bearer ${userData.token}`;
+          axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${userData.token}`;
           
           // Lưu thông tin user vào localStorage với cấu trúc rõ ràng
           const userInfo = {
@@ -367,7 +327,7 @@ export const apiService = {
 
   register: async (userData) => {
     try {
-      const response = await api.post("/api/auth/register", userData);
+      const response = await axiosInstance.post("/api/auth/register", userData);
       return response;
     } catch (error) {
       if (error.response) {
@@ -394,7 +354,7 @@ export const apiService = {
       localStorage.removeItem('user_info');
       localStorage.removeItem('user_id_backup');
       
-      delete api.defaults.headers.common["Authorization"];
+      delete axiosInstance.defaults.headers.common["Authorization"];
       
       console.log("After logout - All cookies:", document.cookie);
       console.log("After logout - LocalStorage user_id_backup:", localStorage.getItem('user_id_backup'));
@@ -410,7 +370,7 @@ export const apiService = {
     try {
       console.log(`Verifying OTP for email: ${email}, code: ${code}`);
       
-      const response = await api.post("/api/otp/verify-registration", {
+      const response = await axiosInstance.post("/api/otp/verify-registration", {
         email: email,
         code: code.toString(),
       });
@@ -450,7 +410,7 @@ export const apiService = {
     try {
       console.log(`Requesting OTP for email: ${email}`);
       
-      const response = await api.post("/api/otp/resend", {
+      const response = await axiosInstance.post("/api/otp/resend", {
         email: email
       });
       
@@ -487,7 +447,7 @@ export const apiService = {
   
   resetPassword: async (email, code, newPassword) => {
     try {
-      const response = await api.put("/api/auth/reset-password", {
+      const response = await axiosInstance.put("/api/auth/reset-password", {
         email: email,
         code: code.toString(),
         newPassword: newPassword
@@ -504,7 +464,7 @@ export const apiService = {
 
   forgotPassword: async (email) => {
     try {
-      const response = await api.post("/api/auth/forgot-password", {
+      const response = await axiosInstance.post("/api/auth/forgot-password", {
         email: email
       });
       return response.data;
@@ -528,7 +488,7 @@ export const apiService = {
       }
       
       // Gửi request GET với query parameters - không cần thêm config vì interceptor đã xử lý token
-      const response = await api.get(`/api/package?pageIndex=${pageIndex}&pageSize=${pageSize}`);
+      const response = await axiosInstance.get(`/api/package?pageIndex=${pageIndex}&pageSize=${pageSize}`);
       
       console.log("Get packages response:", response.data);
       
@@ -559,7 +519,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.get("/api/feature");
+      const response = await axiosInstance.get("/api/feature");
       console.log("Get features response:", response.data);
 
       if (response.data?.value?.data) {
@@ -583,7 +543,7 @@ export const apiService = {
       }
 
       // Gửi request với body đúng format
-      const response = await api.post("/api/package", packageData);
+      const response = await axiosInstance.post("/api/package", packageData);
 
       console.log("Create package response:", response.data);
       
@@ -608,7 +568,7 @@ export const apiService = {
       }
 
       // Gửi request với body đúng format
-      const response = await api.put(`/api/package/${id}`, packageData);
+      const response = await axiosInstance.put(`/api/package/${id}`, packageData);
 
       console.log("Update package response:", response.data);
       
@@ -633,7 +593,7 @@ export const apiService = {
       }
 
       // Gửi request DELETE với token
-      const response = await api.delete(`/api/package/${id}`);
+      const response = await axiosInstance.delete(`/api/package/${id}`);
 
       console.log("Delete package response:", response.data);
       
@@ -657,7 +617,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
-      const response = await api.get("/api/staff-reports");
+      const response = await axiosInstance.get("/api/staff-reports");
       
       console.log("Get reports response:", response.data);
       
@@ -686,7 +646,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.post("/api/staff-reports", reportData);
+      const response = await axiosInstance.post("/api/staff-reports", reportData);
 
       console.log("Create report response:", response.data);
       
@@ -715,7 +675,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.put(`/api/staff-reports/${id}`, reportData);
+      const response = await axiosInstance.put(`/api/staff-reports/${id}`, reportData);
 
       console.log("Update report response:", response.data);
       
@@ -744,7 +704,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.delete(`/api/staff-reports/${id}`);
+      const response = await axiosInstance.delete(`/api/staff-reports/${id}`);
 
       console.log("Delete report response:", response.data);
       
@@ -773,7 +733,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.get(`/api/staff-reports/${id}`);
+      const response = await axiosInstance.get(`/api/staff-reports/${id}`);
 
       console.log("Get report details response:", response.data);
       
@@ -797,7 +757,7 @@ export const apiService = {
 
   getKnowledge: async () => {
     try {
-      const response = await api.get("/api/knowledges");
+      const response = await axiosInstance.get("/api/knowledges");
       console.log("Get knowledge response:", response.data);
       return response.data;
     } catch (error) {
@@ -813,7 +773,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.post("/api/knowledges", {
+      const response = await axiosInstance.post("/api/knowledges", {
         title: data.title,
         content: data.content,
         imageUrl: data.imageUrl
@@ -833,7 +793,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.get(`/api/knowledges/${id}`);
+      const response = await axiosInstance.get(`/api/knowledges/${id}`);
       return response.data;
     } catch (error) {
       console.error("Get knowledge detail error:", error);
@@ -851,7 +811,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.put(`/api/knowledges/${id}`, {
+      const response = await axiosInstance.put(`/api/knowledges/${id}`, {
         id: id,
         title: data.title,
         content: data.content,
@@ -872,7 +832,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.delete(`/api/knowledges/${id}`);
+      const response = await axiosInstance.delete(`/api/knowledges/${id}`);
       return response.data;
     } catch (error) {
       console.error("Delete knowledge error:", error);
@@ -890,7 +850,7 @@ export const apiService = {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post("/api/images", formData, {
+      const response = await axiosInstance.post("/api/images", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -915,7 +875,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.delete("/api/images", {
+      const response = await axiosInstance.delete("/api/images", {
         data: { imageUrl }
       });
 
@@ -935,7 +895,7 @@ export const apiService = {
   createPayment: async (data) => {
     try {
       const { amount, packageId } = data;
-      const response = await api.post(`/api/payments?amount=${amount}&packageId=${packageId}`);
+      const response = await axiosInstance.post(`/api/payments?amount=${amount}&packageId=${packageId}`);
       console.log('Payment API response:', response);
       console.log('Payment data structure:', JSON.stringify(response.data, null, 2));
       
@@ -961,7 +921,7 @@ export const apiService = {
       }
       
       console.log(`Cancelling payment order: ${orderCode}`);
-      const response = await api.post(`/api/payments/${orderCode}/cancel`);
+      const response = await axiosInstance.post(`/api/payments/${orderCode}/cancel`);
       
       console.log('Cancel payment response:', response);
       
@@ -986,7 +946,7 @@ export const apiService = {
       if (!userId) {
         throw new Error("User ID không tồn tại");
       }
-      const response = await api.get(`/api/payments/${orderCode}`);
+      const response = await axiosInstance.get(`/api/payments/${orderCode}`);
       
       return {
         success: true,
@@ -1028,7 +988,7 @@ export const apiService = {
       
       // Explicitly include the Authorization header for reliability
       // The interceptor should also add it, this is a backup
-      const response = await api.put(`/api/payments/${orderCode}`, requestBody, {
+      const response = await axiosInstance.put(`/api/payments/${orderCode}`, requestBody, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1060,7 +1020,7 @@ export const apiService = {
 
   getNews: async (source = "cafef") => {
     try {
-      const response = await api.get(`/api/news?src=${source}`);
+      const response = await axiosInstance.get(`/api/news?src=${source}`);
       
       console.log("Get news response:", response.data);
       
@@ -1099,7 +1059,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await api.put(`/api/staff-reports/${id}/status`, JSON.stringify(status), {
+      const response = await axiosInstance.put(`/api/staff-reports/${id}/status`, JSON.stringify(status), {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -1129,7 +1089,7 @@ export const apiService = {
       // Lấy token hiện tại từ cookie để gửi trong header
       const currentToken = Cookies.get("auth_token");
       
-      const response = await api.post("/api/auth/refresh-token", 
+      const response = await axios.post(`${APP_BASE_URL}/api/auth/refresh-token`, 
         { token: refreshToken },
         {
           headers: {
@@ -1176,7 +1136,7 @@ export const apiService = {
       }
 
       // Gửi request DELETE với token
-      const response = await api.delete(`/api/users/${id}`);
+      const response = await axiosInstance.delete(`/api/users/${id}`);
 
       console.log("Delete user response:", response.data);
       
@@ -1199,7 +1159,7 @@ export const apiService = {
 
   updateProfile: async (userData) => {
     try {
-      const response = await api.put("/api/users", {
+      const response = await axiosInstance.put("/api/users", {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
@@ -1239,7 +1199,7 @@ export const apiService = {
       
       console.log(`Getting reports for staff ID: ${staffId}`);
       
-      const response = await api.get(`/api/staff-reports/${staffId}/list`);
+      const response = await axiosInstance.get(`/api/staff-reports/${staffId}/list`);
       
       console.log("Get staff reports response:", response.data);
       
@@ -1369,4 +1329,4 @@ export const apiService = {
   },
 };
 
-export default api;
+export default axiosInstance;
