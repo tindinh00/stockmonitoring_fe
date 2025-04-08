@@ -22,6 +22,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/ai-api': {
+        target: 'https://stockmonitoring-api-ai-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/ai-api/, '/api')
       }
     }
   },
