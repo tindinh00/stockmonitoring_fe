@@ -13,55 +13,57 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuGroup,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { User, CreditCard, Settings, LogOut } from "lucide-react";
-import { apiService } from '@/api/Api';
 import { toast } from 'sonner';
+import { getUserId } from '@/api/Api';
+import { stockService } from '@/api/StockApi';
 import TradingSessionBadge from '@/components/TradingSessionBadge';
 
 export default function HeaderLogined() {
   // State to store notifications
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch price alerts when component mounts
-  useEffect(() => {
-    const fetchPriceAlerts = async () => {
-      try {
-        setLoading(true);
-        const result = await apiService.getPriceAlerts();
-        if (result.success) {
-          // Transform API response to notification format
-          const alertNotifications = result.data.map(alert => ({
-            id: alert.id || Math.random().toString(36).substr(2, 9),
-            type: alert.type === 'increase' ? 'increase' : 'decrease',
-            title: `Cảnh báo giá ${alert.tickerSymbol}`,
-            message: `Giá ${alert.type === 'increase' ? 'tăng lên' : 'giảm xuống'} ${alert.price.toLocaleString()} VND`,
-            time: new Date(alert.createdAt || Date.now()).toLocaleString(),
-            read: false,
-            stockCode: alert.tickerSymbol,
-            price: alert.price
-          }));
-          setNotifications(alertNotifications);
-        } else {
-          console.error("Failed to fetch price alerts:", result.message);
-        }
-      } catch (error) {
-        console.error("Error fetching price alerts:", error);
-      } finally {
-        setLoading(false);
+  // Fetch notifications when popup opens
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const userId = getUserId();
+      if (!userId) {
+        console.warn("No user ID found for notifications");
+        return;
       }
-    };
 
-    fetchPriceAlerts();
-  }, []);
+      const response = await stockService.getNotificationMessages(userId);
+      if (response?.value?.data) {
+        const notificationMessages = response.value.data.map(notification => ({
+          id: notification.id,
+          type: notification.type?.toLowerCase() || 'info',
+          title: notification.title || 'Thông báo giá',
+          message: notification.message,
+          time: new Date(notification.time).toLocaleString(),
+          read: notification.read || false,
+          stockCode: notification.tickerSymbol?.toUpperCase(),
+          exchange: notification.exchange
+        }));
+        setNotifications(notificationMessages);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      toast.error("Không thể tải thông báo");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup auto-refresh when popup is open
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 60000); // Refresh every minute when open
+      return () => clearInterval(interval);
+    }
+  }, [isOpen]);
 
   // Mark all notifications as read
   const markAllAsRead = () => {
@@ -137,7 +139,7 @@ export default function HeaderLogined() {
           </button>
         </Link>
         
-        <Popover>
+        <Popover onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <div className="relative">
               <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -188,9 +190,11 @@ export default function HeaderLogined() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-black">{notification.title}</p>
-                          <Badge variant={notification.type === 'increase' ? 'success' : 'destructive'} className="text-[10px]">
-                            {notification.stockCode}
-                          </Badge>
+                          {notification.stockCode && (
+                            <Badge variant={notification.type === 'increase' ? 'success' : 'destructive'} className="text-[10px]">
+                              {notification.stockCode}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-gray-700 truncate">{notification.message}</p>
                         <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
@@ -210,9 +214,9 @@ export default function HeaderLogined() {
               )}
             </div>
             <div className="p-2 text-center border-t border-gray-200 bg-white">
-              <Link to="/stock">
+              <Link to="/notifications">
                 <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  Thiết lập thông báo giá
+                  Xem tất cả thông báo
                 </button>
               </Link>
             </div>

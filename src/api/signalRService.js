@@ -42,25 +42,31 @@ class SignalRService {
     console.log(`[SignalR-Stock] Attempt ${this.state.attempts}/${maxAttempts}`);
 
     this.state.connectionPromise = this.state.connectionPromise || new Promise((resolve, reject) => {
-      // Lưu reject để có thể sử dụng trong timeout
       let timeoutId;
       
       const connectToHub = async () => {
         try {
-          // Thiết lập timeout để reject nếu kết nối quá lâu
           timeoutId = setTimeout(() => {
             this.state.isConnecting = false;
             this.state.failed = true;
-            // Reject promise thay vì throw error
             reject(new Error('Connection timeout'));
           }, 15000);
 
           console.log("[SignalR-Stock] Connecting to hub URL:", `${BASE_URL}/stockDataHub`);
+          
+          // Lấy token từ cookie
+          const token = Cookies.get('access_token');
+          
           const connectionConfig = {
             transport: HttpTransportType.WebSockets,
             skipNegotiation: false,
             withCredentials: false,
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+            accessTokenFactory: () => token,
+            headers: { 
+              'Accept': 'application/json', 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
           };
 
           this.state.connection = new HubConnectionBuilder()
@@ -102,7 +108,6 @@ class SignalRService {
           if (this.state.attempts < maxAttempts) {
             console.log(`[SignalR-Stock] Will retry in ${retryDelay}ms`);
             setTimeout(() => this.startStockConnection(), retryDelay);
-            // Không reject ở đây vì sẽ có retry
           } else {
             this.state.failed = true;
             reject(error);
@@ -110,7 +115,6 @@ class SignalRService {
         }
       };
 
-      // Bắt đầu kết nối
       connectToHub();
     });
 
@@ -385,6 +389,65 @@ class SignalRService {
 
   getStockConnection() {
     return this.state.connection;
+  }
+
+  async setupNotificationListener(userId) {
+    console.log("[SignalR-Notification] Setting up notification listener for user:", userId);
+    
+    try {
+      if (!this.state.connection) {
+        console.warn("[SignalR-Notification] No active connection, connecting first");
+        await this.startStockConnection();
+      }
+      
+      if (this.state.connection?.state === 'Connected') {
+        // Đăng ký vào nhóm thông báo theo userId
+        console.log("[SignalR-Notification] Attempting to join notification group for user:", userId);
+        await this.state.connection.invoke("JoinNotificationGroup", userId);
+        console.log("[SignalR-Notification] Successfully joined notification group");
+        
+        // Đăng ký lắng nghe sự kiện StockNotification
+        console.log("[SignalR-Notification] Setting up StockNotification event handler");
+        this.state.connection.off("StockNotification"); // Remove any existing handlers
+        this.state.connection.on("StockNotification", (data) => {
+          console.log("[SignalR-Notification] Received notification data:", data);
+          
+          // Emit event cho components xử lý
+          const event = new CustomEvent('stockNotification', {
+            detail: {
+              message: data.message,
+              time: data.time,
+              userId: data.userId,
+              exchange: data.exchange
+            }
+          });
+          console.log("[SignalR-Notification] Dispatching stockNotification event");
+          window.dispatchEvent(event);
+        });
+        
+        return { success: true, message: "Notification listener setup complete" };
+      } else {
+        console.error("[SignalR-Notification] Connection not in Connected state:", this.state.connection?.state);
+        return { success: false, message: "Connection not available" };
+      }
+    } catch (error) {
+      console.error("[SignalR-Notification] Error setting up notification listener:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  async leaveNotificationGroup(userId) {
+    try {
+      if (this.state.connection?.state === 'Connected') {
+        await this.state.connection.invoke("LeaveNotificationGroup", userId);
+        this.state.connection.off("StockNotification");
+        console.log("[SignalR] Left notification group for user:", userId);
+        return true;
+      }
+    } catch (error) {
+      console.error("[SignalR] Error leaving notification group:", error);
+    }
+    return false;
   }
 }
 
