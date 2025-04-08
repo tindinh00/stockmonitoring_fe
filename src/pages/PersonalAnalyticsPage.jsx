@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getUserId } from '@/api/Api';
-import { stockService, mockAnalyticStocks } from '@/api/StockApi';
+import { stockService } from '@/api/StockApi';
 import { toast } from "sonner";
 import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2 } from 'lucide-react';
 
@@ -20,156 +20,73 @@ const PersonalAnalyticsPage = () => {
     try {
       setIsLoading(true);
       
-      // Lấy userId từ getUserId
       const userId = getUserId();
-      
       if (!userId) {
-        console.log("No user ID found, skipping watchlist fetch");
+        toast.error("Vui lòng đăng nhập để xem danh sách theo dõi");
         setIsLoading(false);
         return;
       }
-      
-      // Gọi API để lấy danh sách mã chứng khoán trong watchlist
-      const watchlistResponse = await stockService.getWatchlistByUser(userId);
-      console.log("Watchlist response:", watchlistResponse);
-      
-      if (watchlistResponse && watchlistResponse.value) {
-        const watchlistCodes = watchlistResponse.value;
+
+      // Gọi API lấy danh sách watchlist
+      const response = await stockService.getWatchlistByUser(userId);
+      console.log("Watchlist response:", response);
+
+      if (response?.value?.data?.stocks && Array.isArray(response.value.data.stocks)) {
+        const watchlistData = response.value.data.stocks.map(stock => ({
+          code: stock.ticketSymbol,
+          name: stock.company?.name || `Cổ phiếu ${stock.ticketSymbol}`,
+          weight: stock.weight || 0,
+          beta: stock.beta || 0,
+          stockReturn: stock.stockReturn || 0,
+          returnWeight: stock.returnWeight || 0,
+          betaWeight: stock.betaWeight || 0,
+          // Thêm các chỉ số phân tích giả lập
+          currentPrice: calculateRandomMetric(10000, 100000).toFixed(2),
+          change: stock.stockReturn || calculateRandomMetric(-5, 5),
+          changeFormatted: `${stock.stockReturn > 0 ? '+' : ''}${stock.stockReturn?.toFixed(2)}%` || '--',
+          volume: Math.floor(calculateRandomMetric(100000, 1000000)),
+          volumeFormatted: Math.floor(calculateRandomMetric(100000, 1000000)).toLocaleString(),
+          pe: calculateRandomMetric(5, 25),
+          pb: calculateRandomMetric(0.5, 5),
+          eps: calculateRandomMetric(1000, 10000),
+          roe: calculateRandomMetric(5, 30),
+          roa: calculateRandomMetric(2, 20),
+          dividend: calculateRandomMetric(0, 10),
+          rsi: calculateRandomMetric(0, 100),
+          macd: calculateRandomMetric(-2, 2),
+          signal: calculateRandomMetric(-2, 2),
+          ma20: calculateRandomMetric(10000, 100000),
+          ma50: calculateRandomMetric(10000, 100000),
+          ma200: calculateRandomMetric(10000, 100000),
+          volatility: calculateRandomMetric(10, 50),
+          sharpe: calculateRandomMetric(-1, 3),
+          targetPrice: calculateRandomMetric(10000, 100000),
+          stopLoss: calculateRandomMetric(10000, 100000),
+          risk: calculateRiskRating(),
+          recommendation: calculateRecommendation()
+        }));
+
+        setStocks(watchlistData);
         
-        if (watchlistCodes.length === 0) {
-          setStocks([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Gọi API để lấy dữ liệu chi tiết của các mã CK
-        const stockResponse = await stockService.getStockInSession();
-        
-        if (stockResponse && stockResponse.value && stockResponse.value.data) {
-          // Lọc ra chỉ các mã CK có trong watchlist
-          const watchlistStocks = stockResponse.value.data.filter(
-            stock => watchlistCodes.includes(stock.stockCode)
-          ).map(stock => {
-            // Tìm dữ liệu phân tích từ dữ liệu giả
-            const analyticData = mockAnalyticStocks.find(
-              analyticStock => analyticStock.code === stock.stockCode
-            ) || {
-              pe: calculateRandomMetric(5, 25),
-              pb: calculateRandomMetric(0.5, 5),
-              eps: calculateRandomMetric(1000, 10000),
-              roe: calculateRandomMetric(5, 30),
-              roa: calculateRandomMetric(2, 20),
-              dividend: calculateRandomMetric(0, 10),
-              rsi: calculateRandomMetric(0, 100),
-              macd: calculateRandomMetric(-2, 2),
-              signal: calculateRandomMetric(-2, 2),
-              beta: calculateRandomMetric(0.5, 2),
-              volatility: calculateRandomMetric(10, 50),
-              sharpe: calculateRandomMetric(-1, 3),
-              risk: calculateRiskRating(),
-              recommendation: calculateRecommendation()
-            };
-            
-            return {
-              code: stock.stockCode,
-              name: stock.stockName || `Cổ phiếu ${stock.stockCode}`,
-              currentPrice: stock.matchPrice?.toFixed(2) || '--',
-              change: stock.plusMinus || 0,
-              changeFormatted: stock.plusMinus ? `${stock.plusMinus > 0 ? '+' : ''}${stock.plusMinus.toFixed(2)}%` : '--',
-              volume: stock.volumeAccumulation || 0,
-              volumeFormatted: stock.volumeAccumulation?.toLocaleString() || '--',
-              ceiling: stock.ceilPrice?.toFixed(2) || '--',
-              floor: stock.floorPrice?.toFixed(2) || '--',
-              reference: stock.priorClosePrice?.toFixed(2) || '--',
-              high: stock.highPrice?.toFixed(2) || '--',
-              low: stock.lowPrice?.toFixed(2) || '--',
-              openPrice: stock.openPrice?.toFixed(2) || '--',
-              foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
-              foreignSell: stock.foreignSellVolume?.toLocaleString() || '--',
-              
-              // Thêm các chỉ số phân tích từ dữ liệu giả
-              pe: analyticData.pe,
-              pb: analyticData.pb, 
-              eps: analyticData.eps,
-              roe: analyticData.roe,
-              roa: analyticData.roa,
-              dividend: analyticData.dividend,
-              
-              // Các chỉ số kỹ thuật
-              rsi: analyticData.rsi,
-              macd: analyticData.macd,
-              signal: analyticData.signal,
-              ma20: analyticData.ma20 || calculateRandomMetric(
-                parseFloat(stock.matchPrice || 0) * 0.95, 
-                parseFloat(stock.matchPrice || 0) * 1.05
-              ),
-              ma50: analyticData.ma50 || calculateRandomMetric(
-                parseFloat(stock.matchPrice || 0) * 0.9, 
-                parseFloat(stock.matchPrice || 0) * 1.1
-              ),
-              ma200: analyticData.ma200 || calculateRandomMetric(
-                parseFloat(stock.matchPrice || 0) * 0.85, 
-                parseFloat(stock.matchPrice || 0) * 1.15
-              ),
-              
-              // Phân tích rủi ro
-              beta: analyticData.beta,
-              volatility: analyticData.volatility,
-              sharpe: analyticData.sharpe,
-              targetPrice: analyticData.targetPrice || calculateRandomMetric(
-                parseFloat(stock.matchPrice || 0) * 1.05, 
-                parseFloat(stock.matchPrice || 0) * 1.25
-              ),
-              stopLoss: analyticData.stopLoss || calculateRandomMetric(
-                parseFloat(stock.matchPrice || 0) * 0.8, 
-                parseFloat(stock.matchPrice || 0) * 0.95
-              ),
-              risk: analyticData.risk || calculateRiskRating(),
-              recommendation: analyticData.recommendation || calculateRecommendation()
-            };
-          });
-          
-          setStocks(watchlistStocks);
-          
-          // Nếu không có dữ liệu từ API, thêm vài dữ liệu giả để hiển thị UI
-          if (watchlistStocks.length === 0) {
-            const fakeDemoData = mockAnalyticStocks.slice(0, 5).map(stock => ({
-              ...stock,
-              currentPrice: String(stock.currentPrice),
-              changeFormatted: `${stock.change > 0 ? '+' : ''}${stock.change.toFixed(2)}%`,
-              volumeFormatted: stock.volume.toLocaleString()
-            }));
-            setStocks(fakeDemoData);
-            
-            // Hiển thị thông báo
-            toast.info("Đang hiển thị dữ liệu mẫu cho mục đích demo", {
-              description: "Thêm cổ phiếu vào danh sách theo dõi để xem phân tích thực tế",
-              duration: 5000
-            });
-          }
-        } else {
-          console.log("No stock data available");
-          setStocks([]);
-        }
+        // Hiển thị thông tin tổng hợp danh mục
+        toast.info("Thông tin danh mục đầu tư", {
+          description: `Tổng trọng số lợi nhuận: ${response.value.data.totalReturnWeight?.toFixed(2)}%, Tổng trọng số Beta: ${response.value.data.totalBetaWeight?.toFixed(2)}`,
+          duration: 5000
+        });
       } else {
-        console.log("No watchlist data available");
         setStocks([]);
+        toast.info("Danh sách theo dõi trống", {
+          description: "Hãy thêm cổ phiếu vào danh sách theo dõi để xem phân tích",
+          duration: 5000
+        });
       }
     } catch (error) {
-      console.error("Error fetching watchlist data:", error);
-      // Hiển thị dữ liệu mẫu trong trường hợp lỗi
-      const fakeDemoData = mockAnalyticStocks.slice(0, 5).map(stock => ({
-        ...stock,
-        currentPrice: String(stock.currentPrice),
-        changeFormatted: `${stock.change > 0 ? '+' : ''}${stock.change.toFixed(2)}%`,
-        volumeFormatted: stock.volume.toLocaleString()
-      }));
-      setStocks(fakeDemoData);
-      
-      toast.error("Có lỗi khi tải dữ liệu, đang hiển thị dữ liệu mẫu", {
+      console.error("Error fetching watchlist:", error);
+      toast.error("Không thể tải dữ liệu danh sách theo dõi", {
         description: error.message || "Vui lòng thử lại sau",
         duration: 5000
       });
+      setStocks([]);
     } finally {
       setIsLoading(false);
     }

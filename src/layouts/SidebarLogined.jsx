@@ -79,6 +79,11 @@ export const navItems = [
     icon: "thermometer"
   },
   {
+    title: "Quản lý thông báo",
+    url: "/notifications",
+    icon: "bell"
+  },
+  {
     title: "Tin tức",
     url: "/news",
     icon: "newspaper"
@@ -111,7 +116,8 @@ export const Icons = {
   settings: Settings,
   thermometer: Thermometer,
   messageSquare: MessageSquare,
-  barChart3: BarChart3
+  barChart3: BarChart3,
+  bell: Bell
 };
 
 // Custom sidebar trigger component

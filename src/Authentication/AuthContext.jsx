@@ -78,54 +78,43 @@ export const AuthProvider = ({ children }) => {
       });
       
       // Kiểm tra dữ liệu phản hồi
-      if (!response || !response.data) {
+      if (!response || !response.data || !response.data.value) {
         return { success: false, message: "Lỗi kết nối đến máy chủ" };
       }
       
-      const responseData = response.data;
+      const responseData = response.data.value;
       
-      // Xử lý cấu trúc dữ liệu lồng nhau
-      let data = responseData;
-      
-      // Kiểm tra nếu dữ liệu nằm trong trường value
-      if (responseData.value) {
-        data = responseData.value;
-      }
-      
-      // Kiểm tra nếu token nằm trong data.data
-      let token = null;
-      let userData = null;
-      
-      if (data.data && data.data.token) {
-        token = data.data.token;
-        userData = data.data;
-      } else if (data.token) {
-        token = data.token;
-        userData = data;
-      }
-      
-      // Kiểm tra token
-      if (!token) {
+      if (responseData.status !== 200 || !responseData.data) {
         return { 
           success: false, 
-          message: data.message || "Không nhận được token xác thực" 
+          message: responseData.message || "Đăng nhập thất bại" 
         };
       }
       
-      // Lưu token vào cookie
-      Cookies.set(TOKEN_KEY, token, { expires: 7 });
+      const userData = responseData.data;
+      
+      // Kiểm tra token và refresh token
+      if (!userData.token || !userData.refreshToken) {
+        return { 
+          success: false, 
+          message: "Không nhận được token xác thực" 
+        };
+      }
+      
+      // Lưu token và refresh token vào cookie
+      Cookies.set(TOKEN_KEY, userData.token, { expires: 7 });
+      Cookies.set("refresh_token", userData.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
       
       // Đảm bảo các trường cần thiết
       const userInfo = {
-        id: userData.id || userData._id || "",
-        name: userData.name || userData.fullName || userData.username || "",
+        id: userData.id || "",
+        name: userData.name || "",
         email: userData.email || email,
-        role: userData.roleName || userData.role || "user",
-        phone: userData.phone || userData.phoneNumber || "",
+        role: userData.roleName || "user",
+        phone: userData.phone || "",
         isVerified: userData.isVerified || false,
         isActive: userData.isActive !== false, // Mặc định là true nếu không có
         isOAuth: userData.isOAuth || false,
-        avatar: userData.avatar || userData.profilePicture || "",
         tier: userData.tier || "Free"
       };
       
@@ -154,8 +143,8 @@ export const AuthProvider = ({ children }) => {
           errorMessage = "Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt";
         } else {
           // Lấy thông báo lỗi từ phản hồi API nếu có
-          errorMessage = error.response.data?.message || 
-                       error.response.data?.error || 
+          errorMessage = error.response.data?.value?.message || 
+                       error.response.data?.message || 
                        `Lỗi: ${error.response.statusText}`;
         }
       } else if (error.request) {
@@ -628,6 +617,97 @@ export const AuthProvider = ({ children }) => {
         return '/';
     }
   };
+
+  const refreshToken = async () => {
+    try {
+      const currentRefreshToken = Cookies.get("refresh_token");
+      
+      if (!currentRefreshToken) {
+        throw new Error("No refresh token found");
+      }
+      
+      const response = await axios.post(`${API_URL}/api/auth/refresh-token`, {
+        refreshToken: currentRefreshToken
+      }, {
+        timeout: 5000
+      });
+      
+      if (!response || !response.data || !response.data.value) {
+        throw new Error("Invalid response format");
+      }
+      
+      const responseData = response.data.value;
+      
+      if (responseData.status !== 200 || !responseData.data) {
+        throw new Error(responseData.message || "Token refresh failed");
+      }
+      
+      const { token, refreshToken: newRefreshToken } = responseData.data;
+      
+      if (!token || !newRefreshToken) {
+        throw new Error("Missing tokens in response");
+      }
+      
+      // Cập nhật tokens trong cookies
+      Cookies.set(TOKEN_KEY, token, { expires: 7 });
+      Cookies.set("refresh_token", newRefreshToken, { expires: 30 });
+      
+      return true;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      
+      // Xóa tokens và thông tin người dùng
+      Cookies.remove(TOKEN_KEY);
+      Cookies.remove("refresh_token");
+      Cookies.remove(USER_ID_KEY);
+      Cookies.remove(USER_ROLE_KEY);
+      Cookies.remove(USER_NAME_KEY);
+      Cookies.remove(USER_TIER_KEY);
+      localStorage.removeItem(USER_KEY);
+      
+      // Cập nhật state
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      return false;
+    }
+  };
+
+  // Thêm hàm setupTokenRefresh để tự động refresh token
+  const setupTokenRefresh = () => {
+    // Kiểm tra token mỗi phút
+    const interval = setInterval(async () => {
+      const token = Cookies.get(TOKEN_KEY);
+      if (!token) return;
+
+      try {
+        // Giải mã token để kiểm tra thời gian hết hạn
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expirationTime = payload.exp * 1000; // Chuyển sang milliseconds
+        const currentTime = Date.now();
+        
+        // Nếu token sắp hết hạn (còn 5 phút), thực hiện refresh
+        if (expirationTime - currentTime <= 5 * 60 * 1000) {
+          const success = await refreshToken();
+          if (!success) {
+            clearInterval(interval);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking token expiration:", error);
+      }
+    }, 60000); // Kiểm tra mỗi phút
+
+    // Cleanup khi component unmount
+    return () => clearInterval(interval);
+  };
+
+  // Sử dụng useEffect để thiết lập auto refresh
+  useEffect(() => {
+    if (isAuthenticated) {
+      return setupTokenRefresh();
+    }
+  }, [isAuthenticated]);
 
   return (
     <AuthContext.Provider
