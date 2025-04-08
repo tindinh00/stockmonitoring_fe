@@ -405,6 +405,102 @@ export const stockService = {
       console.error('Error fetching heatmap data:', error);
       throw error;
     }
+  },
+
+  // Tạo thông báo mới
+  createNotification: async (data) => {
+    try {
+      const response = await axiosInstance.post(
+        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications',
+        {
+          tickerSymbol: data.tickerSymbol,
+          userId: data.userId,
+          price: data.price,
+          type: data.type
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách thông báo của user
+  getNotifications: async (userId) => {
+    try {
+      const response = await axiosInstance.get(
+        `https://stockmonitoring-api-stock-service.onrender.com/api/notifications/${userId}`
+      );
+      console.log("Get notifications response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách cổ phiếu trong watchlist
+  getWatchlistStocks: async () => {
+    try {
+      const response = await axiosInstance.get(
+        'https://stockmonitoring-api-stock-service.onrender.com/api/watchlist-stock'
+      );
+      console.log("Get watchlist stocks response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Get watchlist stocks error:", error);
+      throw error;
+    }
+  },
+
+  updateNotificationPrice: async (notificationId, data) => {
+    try {
+      const response = await axiosInstance.put(
+        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications/price',
+        {
+          ...data,
+          id: notificationId
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating notification price:', error);
+      throw error;
+    }
+  },
+
+  deleteNotification: async (data) => {
+    try {
+      const response = await axiosInstance.delete(
+        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications',
+        {
+          params: {
+            tickerSymbol: data.tickerSymbol,
+            userId: data.userId,
+            type: data.type
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách tin nhắn thông báo của user
+  getNotificationMessages: async (userId) => {
+    try {
+      const response = await axiosInstance.get(
+        `https://stockmonitoring-api-stock-service.onrender.com/api/notifications/${userId}/messages`
+      );
+      console.log("Get notification messages response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Get notification messages error:", error);
+      throw error;
+    }
   }
 };
 
