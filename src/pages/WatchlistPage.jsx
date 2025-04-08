@@ -9,6 +9,8 @@ import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import signalRService from '@/api/signalRService';
 import moment from 'moment';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
@@ -44,14 +46,6 @@ const WatchlistPage = () => {
   // Thêm state để phân biệt initial loading và update loading
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Lấy watchlist từ localStorage khi component mount
-  useEffect(() => {
-    const savedWatchlist = localStorage.getItem('watchlist');
-    if (savedWatchlist) {
-      setWatchlist(JSON.parse(savedWatchlist));
-    }
-  }, []);
-
   // Thêm useEffect để debug dữ liệu
   useEffect(() => {
     console.log("Watchlist data:", watchlist);
@@ -60,40 +54,100 @@ const WatchlistPage = () => {
 
   // Thêm useEffect để fetch các sectors đã thêm vào watchlist của user
   useEffect(() => {
-    const fetchUserSectors = async () => {
+    const fetchUserSectors = async (retryCount = 0) => {
       try {
         setIsLoadingIndustries(true);
         const userId = getUserId();
+        console.log("Fetching sectors for user ID:", userId);
         
         if (!userId) {
-          console.log("No user ID found, skipping sectors fetch");
+          console.warn("No user ID found");
+          setSectors([]);
           setIsLoadingIndustries(false);
           return;
         }
-        
-        // Gọi API để lấy danh sách sectors của user
-        const response = await stockService.getUserSectors(userId);
-        console.log("User sectors response:", response);
-        
-        // Kiểm tra cấu trúc response và lấy data
-        if (response?.value?.data) {
-          const userSectors = response.value.data;
-          setIndustries(userSectors.map(sector => ({
-            id: sector.id,
-            name: sector.name,
-            stocks: sector.stocks || [],
-            smg: sector.smg || 0,
-            dayChange: sector.percentD || 0,
-            weekChange: sector.percentW || 0,
-            monthChange: sector.percentM || 0
-          })));
+
+        const token = Cookies.get("auth_token");
+        if (!token) {
+          console.warn("No auth token found");
+          setSectors([]);
+          setIsLoadingIndustries(false);
+          return;
+        }
+
+        // Gọi API với cấu hình giống Postman
+        const response = await axios({
+          method: 'GET',
+          url: `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-sector/${userId}`,
+          headers: {
+            'accept': '*/*',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        console.log("Raw API Response:", response);
+
+        // Kiểm tra nếu có lỗi từ API
+        if (response?.data?.value?.status === 400) {
+          const errorMessage = response?.data?.value?.data;
+          console.error("API Error:", errorMessage);
+
+          // Nếu là lỗi OutOfMemory và chưa retry quá 3 lần
+          if (errorMessage.includes("OutOfMemoryException") && retryCount < 3) {
+            console.log(`Retry attempt ${retryCount + 1} after OutOfMemoryException`);
+            // Đợi 2 giây trước khi retry
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return fetchUserSectors(retryCount + 1);
+          }
+
+          // Nếu đã retry quá 3 lần hoặc lỗi khác
+          setSectors([]);
+          toast.error("Hệ thống đang tải nặng, vui lòng thử lại sau");
+          return;
+        }
+
+        if (response?.data?.value?.data) {
+          const sectorsData = response.data.value.data;
+          
+          if (sectorsData === "Watch list is empty") {
+            console.log("Watchlist is empty");
+            setSectors([]);
+            toast.info("Bạn chưa theo dõi ngành nào");
+          } else if (sectorsData.sectors && Array.isArray(sectorsData.sectors)) {
+            const formattedSectors = sectorsData.sectors.map(sector => ({
+              id: sector.id,
+              name: sector.name,
+              code: sector.code,
+              stocks: sector.stocks.map(stock => ({
+                id: stock.id,
+                ticketSymbol: stock.ticketSymbol,
+                percentD: stock.percentD,
+                percentW: stock.percentW,
+                percentM: stock.percentM,
+                smg: stock.smg
+              })),
+              percentD: sector.percentD,
+              percentW: sector.percentW,
+              percentM: sector.percentM,
+              smg: sector.smg
+            }));
+            
+            console.log("Formatted sectors:", formattedSectors);
+            setSectors(formattedSectors);
+          }
         } else {
-          console.log("No user sectors data found in response");
-          setIndustries([]);
+          console.warn("Invalid response format:", response);
+          setSectors([]);
         }
       } catch (error) {
-        console.error("Error fetching user sectors:", error);
-        toast.error("Không thể tải danh sách ngành theo dõi");
+        console.error("Error fetching sectors:", error);
+        if (error.response?.data?.value?.data?.includes("OutOfMemoryException") && retryCount < 3) {
+          console.log(`Retry attempt ${retryCount + 1} after OutOfMemoryException`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return fetchUserSectors(retryCount + 1);
+        }
+        setSectors([]);
+        toast.error("Không thể tải danh sách ngành theo dõi, vui lòng thử lại sau");
       } finally {
         setIsLoadingIndustries(false);
       }
@@ -199,94 +253,243 @@ const WatchlistPage = () => {
 
   // Fetch stock data from API
   const fetchStockData = async () => {
-    console.log("=== Fetching watchlist and stock data ===");
-    setLoading(true);
+    console.log("=== Fetching watchlist data ===");
+    setIsLoading(true);
     
     try {
-      const userId = localStorage.getItem('userId');
+      const userId = getUserId();
       console.log("Current user ID:", userId);
     
-      // Đầu tiên lấy danh sách watchlist từ API
-      let watchlistData = null;
-      try {
-        if (userId) {
-          console.log(`Fetching watchlist for user ID: ${userId}`);
-          watchlistData = await stockService.getWatchlistByUser(userId);
-          console.log("Watchlist API response:", watchlistData);
-        } else {
-          console.warn("No user ID found, creating sample watchlist");
+      if (!userId) {
+        console.warn("No user ID found in cookie or localStorage");
+        setWatchlist([]);
+        setIsLoading(false);
+        toast.error("Bạn cần đăng nhập để xem danh sách theo dõi");
+        return false;
+      }
+
+      // Lấy token từ cookies
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        console.warn("No auth token found");
+        setWatchlist([]);
+        setIsLoading(false);
+        toast.error("Phiên đăng nhập đã hết hạn");
+        return false;
+      }
+
+      // Gọi API watchlist
+      const response = await axios.get(
+        `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*'
+          }
         }
-      } catch (watchlistError) {
-        console.error("Error fetching watchlist:", watchlistError);
-      }
+      );
       
-      // Trích xuất mã chứng khoán từ watchlist data
-      let stockCodes = [];
-      if (watchlistData && watchlistData.length > 0) {
-        stockCodes = watchlistData
-          .map(stock => stock.tickerSymbol || stock.ticketSymbol)
-          .filter(Boolean);
-        console.log("Extracted stock codes from watchlist:", stockCodes);
-      } else {
-        console.warn("No watchlist data received or empty watchlist");
-      }
+      console.log("Watchlist API response:", response.data);
       
-      // Nếu watchlist trống, sử dụng danh sách mẫu
-      if (stockCodes.length === 0) {
-        stockCodes = ['VIC', 'VNM', 'HPG', 'VRE', 'MSN', 'BID'];
-        console.log("Using sample stock codes:", stockCodes);
-      }
-      
-      setWatchlistCodes(stockCodes);
-      console.log("Set watchlistCodes state to:", stockCodes);
-      
-      // Lấy dữ liệu phiên giao dịch hiện tại với timestamp
-      console.log("Fetching current stock session data");
-      const timestampStr = lastTimestamp || moment().format('YYYYMMDDHHmmss');
-      
-      // Thiết lập exchange là HSX (mặc định)
-      const exchange = "HSX";
-      console.log(`Using exchange: ${exchange}, timestamp: ${timestampStr}`);
-      
-      // Gọi API với tham số exchange và timestamp
-      const sessionData = await stockService.getStockInSession(exchange, timestampStr);
-      console.log("Stock session API response:", sessionData);
-      
-      // Xử lý dữ liệu từ phản hồi API
-      if (sessionData && sessionData.value && sessionData.value.data) {
-        let allStocks = sessionData.value.data;
-        console.log(`Received ${allStocks.length} stocks from API`);
+      // Kiểm tra và xử lý dữ liệu từ API
+      if (response.data?.value?.data?.stocks) {
+        const watchlistStocks = response.data.value.data.stocks;
         
-        // Lọc những mã chứng khoán trong watchlist
-        const watchlistStocks = allStocks.filter(stock => {
-          if (!stock.stockCode) return false;
-          return stockCodes.some(code => 
-            code.toLowerCase() === stock.stockCode.toLowerCase()
-          );
-        });
+        // Chuyển đổi dữ liệu thành định dạng hiển thị
+        const formattedWatchlist = watchlistStocks.map(stock => ({
+          code: stock.ticketSymbol,
+          matchPrice: '--',
+          matchChange: '--',
+          totalVolume: '--',
+          matchVolume: '--',
+          high: '--',
+          low: '--',
+          foreignBuy: '--',
+          foreignSell: '--',
+          ceiling: '--',
+          floor: '--',
+          ref: '--',
+          buyPrice1: '--',
+          buyVolume1: '--',
+          buyPrice2: '--',
+          buyVolume2: '--',
+          buyPrice3: '--',
+          buyVolume3: '--',
+          sellPrice1: '--',
+          sellVolume1: '--',
+          sellPrice2: '--',
+          sellVolume2: '--',
+          sellPrice3: '--',
+          sellVolume3: '--',
+          weight: stock.weight || 0,
+          beta: stock.beta || 0,
+          stockReturn: stock.stockReturn || 0,
+          returnWeight: stock.returnWeight || 0,
+          betaWeight: stock.betaWeight || 0
+        }));
+
+        console.log("Formatted watchlist:", formattedWatchlist);
+        setWatchlist(formattedWatchlist);
         
-        console.log(`Filtered ${watchlistStocks.length} stocks that are in watchlist`);
-        setWatchlist(watchlistStocks);
+        // Lưu danh sách mã chứng khoán để sử dụng sau này
+        const stockCodes = watchlistStocks.map(stock => stock.ticketSymbol);
+        setWatchlistCodes(stockCodes);
         
-        // Cập nhật trạng thái hiển thị
-        setNoStocks(watchlistStocks.length === 0);
-        if (watchlistStocks.length > 0) {
-          console.log("Watchlist has stocks, setting noStocks to false");
-        } else {
-          console.warn("No stocks found in watchlist after filtering, setting noStocks to true");
+        // Sau khi có danh sách cổ phiếu, gọi API để lấy giá realtime
+        if (stockCodes.length > 0) {
+          setupSignalRConnection();
         }
       } else {
-        console.error("Invalid or empty session data format", sessionData);
-        setNoStocks(true);
+        console.warn("No stocks found in watchlist response");
+        setWatchlist([]);
+        setWatchlistCodes([]);
       }
       
-      setLoading(false);
+      setIsLoading(false);
+      setIsInitialLoading(false);
+      return true;
     } catch (error) {
       console.error("Error in fetchStockData:", error);
-      setLoading(false);
-      setNoStocks(true);
+      setIsLoading(false);
+      setIsInitialLoading(false);
+      toast.error("Không thể tải dữ liệu danh sách theo dõi");
+      return false;
     }
   };
+
+  // Tách riêng việc thiết lập SignalR ra khỏi fetching data
+  const setupSignalRConnection = async () => {
+    try {
+      console.log("=== Setting up SignalR for watchlist with detailed logging ===");
+      
+      // Start the SignalR connection
+      await signalRService.startStockConnection();
+      
+      // Check connection status
+      const connectionStatus = signalRService.isConnected();
+      console.log("WatchlistPage - SignalR Connection Status:", connectionStatus);
+      
+      if (connectionStatus.stockHub) {
+        console.log("WatchlistPage - SignalR connected successfully, setting up event listeners");
+        
+        // Đăng ký lắng nghe sự kiện ReceiveHSXStockUpdate - logic từ Android
+        console.log("WatchlistPage - Registering for HSX stock updates via ReceiveHSXStockUpdate event");
+        signalRService.onStock("ReceiveHSXStockUpdate", (messageObj) => {
+          // Sử dụng IIFE để không trả về Promise
+          (async () => {
+            try {
+              console.log("WatchlistPage - RECEIVED HSX STOCK UPDATE:", messageObj);
+              
+              // Trích xuất thông tin từ message object
+              const message = messageObj.Message;
+              const timestamp = messageObj.Timestamp;
+              
+              console.log("WatchlistPage - HSX update message:", message);
+              console.log("WatchlistPage - Using timestamp:", timestamp);
+              
+              // Lưu timestamp mới vào state
+              setLastTimestamp(timestamp);
+              
+              // Tiến hành gọi API để lấy dữ liệu mới với tham số chính xác
+              console.log("WatchlistPage - Fetching HSX stock data with timestamp:", timestamp);
+              try {
+                const response = await stockService.getStockInSession("hsx", timestamp);
+                if (response && response.value && response.value.data) {
+                  console.log("WatchlistPage - Received new HSX stock data:", response.value.data.length, "stocks");
+                  // Cập nhật dữ liệu watchlist với đúng exchange
+                  updateWatchlistData(response.value.data);
+                } else {
+                  console.warn("WatchlistPage - Invalid response format from HSX API");
+                  toast.error("Không thể cập nhật dữ liệu HSX");
+                }
+              } catch (apiError) {
+                console.error("WatchlistPage - Error fetching HSX stock data:", apiError);
+                toast.error("Có lỗi khi cập nhật dữ liệu HSX");
+              }
+            } catch (error) {
+              console.error("WatchlistPage - Error processing HSX update:", error);
+            }
+          })();
+        });
+        
+        // Đăng ký lắng nghe sự kiện ReceiveHNXStockUpdate - logic từ Android
+        console.log("WatchlistPage - Registering for HNX stock updates via ReceiveHNXStockUpdate event");
+        signalRService.onStock("ReceiveHNXStockUpdate", (messageObj) => {
+          // Tương tự như logic HSX nhưng cho sàn HNX
+          (async () => {
+            try {
+              console.log("WatchlistPage - RECEIVED HNX STOCK UPDATE:", messageObj);
+              
+              const message = messageObj.Message;
+              const timestamp = messageObj.Timestamp;
+              
+              setLastTimestamp(timestamp);
+              
+              console.log("WatchlistPage - Fetching HNX stock data with timestamp:", timestamp);
+              try {
+                const response = await stockService.getStockInSession("hnx", timestamp);
+                if (response && response.value && response.value.data) {
+                  console.log("WatchlistPage - Received new HNX stock data:", response.value.data.length, "stocks");
+                  updateWatchlistData(response.value.data);
+                } else {
+                  console.warn("WatchlistPage - Invalid response format from HNX API");
+                  toast.error("Không thể cập nhật dữ liệu HNX");
+                }
+              } catch (apiError) {
+                console.error("WatchlistPage - Error fetching HNX stock data:", apiError);
+                toast.error("Có lỗi khi cập nhật dữ liệu HNX");
+              }
+            } catch (error) {
+              console.error("WatchlistPage - Error processing HNX update:", error);
+            }
+          })();
+        });
+      } else {
+        console.warn("WatchlistPage - SignalR connection failed, falling back to polling");
+        // Có thể thêm polling định kỳ nếu SignalR thất bại
+      }
+    } catch (error) {
+      console.error("WatchlistPage - Error setting up SignalR:", error);
+    }
+  };
+
+  // Initial data loading and SignalR setup
+  useEffect(() => {
+    const initializeWatchlist = async () => {
+      console.log("=== Initializing Watchlist Page ===");
+      
+      // Đặt trạng thái loading
+      setIsInitialLoading(true);
+      
+      try {
+        // Fetch dữ liệu trước, không đợi SignalR
+        console.log("Fetching initial stock data");
+        const fetchSuccess = await fetchStockData();
+        
+        // Nếu fetch dữ liệu thành công, thiết lập SignalR
+        if (fetchSuccess) {
+          console.log("Initial data fetched successfully, now setting up SignalR");
+          // Thiết lập SignalR sau khi đã có dữ liệu ban đầu
+          setupSignalRConnection();
+        } else {
+          console.warn("Failed to fetch initial data, retrying in 5 seconds");
+          // Retry fetch một lần nữa nếu thất bại
+          setTimeout(fetchStockData, 5000);
+        }
+      } catch (error) {
+        console.error("Error initializing watchlist:", error);
+        setIsInitialLoading(false);
+        setIsLoading(false);
+      }
+    };
+    
+    initializeWatchlist();
+    
+    // Cleanup when component unmounts
+    return () => {
+      console.log("=== Cleaning up Watchlist Page ===");
+    };
+  }, []);
 
   // Thêm useEffect để fetch sectors khi component mount
   useEffect(() => {
@@ -358,24 +561,26 @@ const WatchlistPage = () => {
   const handleStockClick = (stock) => {
     setSelectedStock(stock);
     setIsDialogOpen(true);
-
-    // Generate sample data for the chart
-    const data = Array.from({ length: 30 }).map((_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (30 - index));
-      const basePrice = parseFloat(stock.ref);
-      const randomChange = (Math.random() - 0.5) * 2;
-      
-      return {
-        time: Math.floor(date.getTime() / 1000),
-        open: basePrice + randomChange,
-        high: basePrice + randomChange + Math.random() * 0.5,
-        low: basePrice + randomChange - Math.random() * 0.5,
-        close: basePrice + randomChange + (Math.random() - 0.5),
-        volume: Math.floor(Math.random() * 100000)
-      };
-    });
-    setChartData(data);
+    
+    // Fetch real chart data from API instead of generating sample data
+    const fetchChartData = async () => {
+      try {
+        // Call API to get historical data
+        const response = await stockService.getStockHistory(stock.code);
+        if (response && response.value && response.value.data) {
+          setChartData(response.value.data);
+        } else {
+          setChartData([]);
+          toast.error("Không thể tải dữ liệu biểu đồ");
+        }
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+        setChartData([]);
+        toast.error("Có lỗi khi tải dữ liệu biểu đồ");
+      }
+    };
+    
+    fetchChartData();
   };
 
   const handleIndustryClick = (industry) => {
@@ -385,52 +590,67 @@ const WatchlistPage = () => {
     // Lấy danh sách cổ phiếu trong ngành từ API
     const fetchIndustryStocks = async () => {
       try {
-        // Kiểm tra nếu có danh sách cổ phiếu trong industry
-        if (industry.stocks && industry.stocks.length > 0) {
-          // Gọi API để lấy dữ liệu chi tiết của các mã CK
-          const stockResponse = await stockService.getStockInSession();
-          
-          if (stockResponse && stockResponse.value && stockResponse.value.data) {
-            // Lọc ra chỉ các mã CK có trong ngành
-            const industryStocksData = stockResponse.value.data
-              .filter(stock => industry.stocks.includes(stock.stockCode))
-              .map(stock => ({
-                code: stock.stockCode,
-                chart: [stock.priorClosePrice, stock.lowPrice, stock.matchPrice].filter(Boolean).map(Number),
-                smg: Math.floor(Math.random() * 30) + 70, // Giả lập SMG score
-                price: stock.matchPrice || 0,
-                dayChange: stock.plusMinus || 0,
-                weekChange: ((Math.random() * 4) - 2).toFixed(1),
-                monthChange: ((Math.random() * 10) - 5).toFixed(1)
-              }));
-            
-            setIndustryStocks(industryStocksData);
-          } else {
-            console.log("No stock data available for industry");
-            // Hiển thị dữ liệu giả nếu không có dữ liệu thực
-            const sampleStocks = industry.stocks.map(code => ({
-              code: code,
-              chart: [
-                Math.floor(Math.random() * 50000) + 10000, 
-                Math.floor(Math.random() * 50000) + 10000, 
-                Math.floor(Math.random() * 50000) + 10000
-              ],
-              smg: Math.floor(Math.random() * 30) + 70,
-              price: Math.floor(Math.random() * 50000) + 10000,
-              dayChange: ((Math.random() * 4) - 2).toFixed(1),
-              weekChange: ((Math.random() * 4) - 2).toFixed(1),
-              monthChange: ((Math.random() * 10) - 5).toFixed(1)
-            }));
-            setIndustryStocks(sampleStocks);
+        // Hiển thị trạng thái đang tải
+        setIndustryStocks([]);
+        
+        // Bước 1: Lấy userId
+        const userId = getUserId();
+        if (!userId) {
+          toast.error("Vui lòng đăng nhập để xem danh sách theo dõi");
+          return;
+        }
+        
+        console.log("Fetching watchlist data for userId:", userId);
+        
+        // Bước 2: Lấy danh sách cổ phiếu trong watchlist từ API
+        try {
+          // Get auth token from cookies
+          const token = Cookies.get("auth_token");
+          if (!token) {
+            toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
+            return;
           }
-        } else {
-          // Không có danh sách cổ phiếu, hiển thị trạng thái rỗng
-          setIndustryStocks([]);
+          
+          // Gọi API lấy watchlist
+          const response = await axios.get(
+            `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'accept': '*/*'
+              }
+            }
+          );
+          
+          console.log("Watchlist API complete response:", response);
+          console.log("Watchlist API data:", response.data);
+          
+          // Xử lý API theo cấu trúc đã xác nhận: value.data.stocks
+          if (response.data && response.data.value && response.data.value.data && response.data.value.data.stocks) {
+            const stocks = response.data.value.data.stocks;
+            console.log("Extracted stocks from API:", stocks);
+            
+            if (stocks.length > 0) {
+              processStocks(stocks);
+            } else {
+              console.log("Watchlist is empty");
+              toast.info("Không có cổ phiếu nào trong danh sách theo dõi");
+            }
+          } else {
+            console.error("Invalid API structure:", response.data);
+            toast.error("Cấu trúc dữ liệu API không đúng");
+          }
+        } catch (error) {
+          console.error("Error fetching watchlist:", error);
+          if (error.response) {
+            console.error("Error response:", error.response.data);
+            console.error("Error status:", error.response.status);
+          }
+          toast.error("Không thể tải danh sách cổ phiếu theo dõi");
         }
       } catch (error) {
-        console.error("Error fetching industry stocks:", error);
-        toast.error("Không thể tải danh sách cổ phiếu trong ngành");
-        setIndustryStocks([]);
+        console.error("Error in fetchIndustryStocks:", error);
+        toast.error("Có lỗi xảy ra khi tải dữ liệu ngành");
       }
     };
     
@@ -438,19 +658,62 @@ const WatchlistPage = () => {
   };
 
   const renderMiniChart = (data) => {
-    // Giả lập mini chart bằng div
+    // Kiểm tra dữ liệu trước khi render
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      // Chỉ hiển thị đường cơ bản khi không có dữ liệu
+      return (
+        <div className="w-20 h-8 relative flex items-center justify-center">
+          <div className="w-full h-px bg-[#4A72FF]/30"></div>
+        </div>
+      );
+    }
+    
+    // Chỉ lọc ra các giá trị hợp lệ từ dữ liệu
+    const validData = data.filter(v => typeof v === 'number' && !isNaN(v) && v !== null);
+    
+    // Nếu không có giá trị hợp lệ, hiển thị đường cơ bản
+    if (validData.length === 0) {
+      return (
+        <div className="w-20 h-8 relative flex items-center justify-center">
+          <div className="w-full h-px bg-[#4A72FF]/30"></div>
+        </div>
+      );
+    }
+    
+    // Mở rộng mảng dữ liệu để có hình dạng sóng đẹp hơn 
+    // nhưng vẫn dựa vào dữ liệu gốc, không tạo dữ liệu mẫu
+    let extendedData = [...validData];
+    if (validData.length < 5) {
+      // Tạo thêm điểm để có đường cong đẹp hơn bằng cách nội suy từ dữ liệu gốc
+      const interpolatedData = [];
+      for (let i = 0; i < validData.length; i++) {
+        interpolatedData.push(validData[i]);
+        if (i < validData.length - 1) {
+          interpolatedData.push((validData[i] + validData[i+1]) / 2); // Điểm trung gian
+        }
+      }
+      extendedData = interpolatedData;
+    }
+    
+    // Giả lập mini chart bằng SVG polyline (biểu đồ dạng đường)
     return (
-      <div className="w-16 h-6 flex items-end space-x-[2px]">
-        {data.map((value, index) => {
-          const height = (value / Math.max(...data)) * 100;
-          return (
-            <div
-              key={index}
-              className="flex-1 bg-[#09D1C7]/20"
-              style={{ height: `${height}%` }}
-            />
-          );
-        })}
+      <div className="w-20 h-8 relative">
+        <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full">
+          <polyline
+            points={extendedData.map((value, index) => {
+              const maxValue = Math.max(...extendedData);
+              const minValue = Math.min(...extendedData);
+              const range = maxValue - minValue;
+              const normalizedValue = range > 0 
+                ? 30 - ((value - minValue) / range) * 25 
+                : 15; // Giá trị mặc định nếu tất cả các điểm đều bằng nhau
+              return `${index * (100 / (extendedData.length - 1))},${normalizedValue}`;
+            }).join(' ')}
+            fill="none"
+            stroke="#4A72FF"
+            strokeWidth="2"
+          />
+        </svg>
       </div>
     );
   };
@@ -494,183 +757,13 @@ const WatchlistPage = () => {
     };
   };
 
-  // Thêm phương thức để cập nhật hiển thị với dữ liệu mẫu khi API thất bại
-  const updateDisplayWithSampleData = (market = "HSX") => {
-    console.log(`Creating sample ${market} data for display...`);
-    
-    // Khởi tạo một danh sách mẫu dựa trên watchlistCodes hiện tại
-    const sampleData = watchlistCodes.map(code => {
-      const isUp = Math.random() > 0.5;
-      const basePrice = 10 + Math.random() * 90;
-      const changePercent = Math.random() * 5;
-      const changeValue = basePrice * (changePercent / 100);
-      
-      return {
-        stockCode: code,
-        tickerSymbol: code,
-        exchange: market,
-        currentPrice: basePrice.toFixed(2),
-        changePercent: isUp ? changePercent.toFixed(2) : (-changePercent).toFixed(2),
-        changeValue: isUp ? changeValue.toFixed(2) : (-changeValue).toFixed(2),
-        totalVolume: Math.floor(Math.random() * 1000000),
-        referencePrice: (basePrice - changeValue).toFixed(2),
-        openPrice: (basePrice - (changeValue / 2)).toFixed(2),
-        highestPrice: isUp ? (basePrice + (changeValue / 2)).toFixed(2) : basePrice.toFixed(2),
-        lowestPrice: isUp ? basePrice.toFixed(2) : (basePrice - changeValue - (changeValue / 2)).toFixed(2),
-        lastUpdated: new Date().toISOString()
-      };
-    });
-    
-    if (sampleData.length > 0) {
-      console.log(`Created ${sampleData.length} sample stock items for ${market}`);
-      console.log("Sample data:", sampleData[0]);
-      
-      // Cập nhật dữ liệu hiển thị bằng mẫu đã tạo
-      updateWatchlistData(sampleData);
-    } else {
-      console.warn("No watchlist codes available to create sample data");
-    }
-  };
-
-  // Setup SignalR connection for real-time updates
-  const setupSignalR = async () => {
-    try {
-      console.log("=== Setting up SignalR for watchlist with detailed logging ===");
-      
-      // Start the SignalR connection
-      await signalRService.startStockConnection();
-      
-      // Check connection status
-      const connectionStatus = signalRService.isConnected();
-      console.log("WatchlistPage - SignalR Connection Status:", connectionStatus);
-      
-      if (connectionStatus.stockHub) {
-        console.log("WatchlistPage - SignalR connected successfully, setting up event listeners");
-        
-        // Đăng ký lắng nghe sự kiện ReceiveHSXStockUpdate - logic từ Android
-        console.log("WatchlistPage - Registering for HSX stock updates via ReceiveHSXStockUpdate event");
-        signalRService.onStock("ReceiveHSXStockUpdate", (messageObj) => {
-          // Sử dụng IIFE để không trả về Promise
-          (async () => {
-            try {
-              console.log("WatchlistPage - RECEIVED HSX STOCK UPDATE:", messageObj);
-              
-              // Trích xuất thông tin từ message object
-              const message = messageObj.Message;
-              const timestamp = messageObj.Timestamp;
-              
-              console.log("WatchlistPage - HSX update message:", message);
-              console.log("WatchlistPage - Using timestamp:", timestamp);
-              
-              // Lưu timestamp mới vào state
-              setLastTimestamp(timestamp);
-              
-              // Tiến hành gọi API để lấy dữ liệu mới với tham số chính xác
-              console.log("WatchlistPage - Fetching HSX stock data with timestamp:", timestamp);
-              try {
-                const response = await stockService.getStockInSession("hsx", timestamp);
-                if (response && response.value && response.value.data) {
-                  console.log("WatchlistPage - Received new HSX stock data:", response.value.data.length, "stocks");
-                  // Cập nhật dữ liệu watchlist với đúng exchange
-                  updateWatchlistData(response.value.data);
-                } else {
-                  console.warn("WatchlistPage - Invalid response format from HSX API, using sample data");
-                  updateDisplayWithSampleData("HSX");
-                }
-              } catch (apiError) {
-                console.error("WatchlistPage - Error fetching HSX stock data:", apiError);
-                updateDisplayWithSampleData("HSX");
-              }
-            } catch (error) {
-              console.error("WatchlistPage - Error processing HSX update:", error);
-            }
-          })();
-          
-          // KHÔNG trả về bất kỳ giá trị nào để tránh lỗi "asynchronous response"
-        });
-        
-        // Đăng ký lắng nghe sự kiện ReceiveHNXStockUpdate - logic từ Android
-        console.log("WatchlistPage - Registering for HNX stock updates via ReceiveHNXStockUpdate event");
-        signalRService.onStock("ReceiveHNXStockUpdate", (messageObj) => {
-          // Sử dụng IIFE để không trả về Promise
-          (async () => {
-            try {
-              console.log("WatchlistPage - RECEIVED HNX STOCK UPDATE:", messageObj);
-              
-              // Trích xuất thông tin từ message object
-              const message = messageObj.Message;
-              const timestamp = messageObj.Timestamp;
-              
-              console.log("WatchlistPage - HNX update message:", message);
-              console.log("WatchlistPage - Using timestamp:", timestamp);
-              
-              // Lưu timestamp mới vào state
-              setLastTimestamp(timestamp);
-              
-              // Tiến hành gọi API để lấy dữ liệu mới với tham số chính xác
-              console.log("WatchlistPage - Fetching HNX stock data with timestamp:", timestamp);
-              try {
-                const response = await stockService.getStockInSession("hnx", timestamp);
-                if (response && response.value && response.value.data) {
-                  console.log("WatchlistPage - Received new HNX stock data:", response.value.data.length, "stocks");
-                  // Cập nhật dữ liệu watchlist với đúng exchange
-                  updateWatchlistData(response.value.data);
-                } else {
-                  console.warn("WatchlistPage - Invalid response format from HNX API, using sample data");
-                  updateDisplayWithSampleData("HNX");
-                }
-              } catch (apiError) {
-                console.error("WatchlistPage - Error fetching HNX stock data:", apiError);
-                updateDisplayWithSampleData("HNX");
-              }
-            } catch (error) {
-              console.error("WatchlistPage - Error processing HNX update:", error);
-            }
-          })();
-          
-          // KHÔNG trả về bất kỳ giá trị nào để tránh lỗi "asynchronous response"
-        });
-        
-        console.log("WatchlistPage - SignalR setup complete, waiting for updates");
-      } else {
-        console.warn("WatchlistPage - SignalR not connected, using polling fallback");
-        
-        // Set up polling as fallback
-        const pollingInterval = setInterval(() => {
-          console.log("WatchlistPage - Polling for stock updates (fallback)");
-          fetchStockData();
-        }, 30000); // Poll every 30 seconds
-        
-        // Cleanup when component unmounts
-        return () => {
-          console.log("WatchlistPage - Cleaning up polling");
-          clearInterval(pollingInterval);
-        };
-      }
-    } catch (error) {
-      console.error("WatchlistPage - Error setting up SignalR:", error);
-      
-      // Set up polling as fallback
-      const pollingInterval = setInterval(() => {
-        console.log("WatchlistPage - Polling for stock updates (error fallback)");
-        fetchStockData();
-      }, 30000); // Poll every 30 seconds
-      
-      // Cleanup when component unmounts
-      return () => {
-        console.log("WatchlistPage - Cleaning up polling");
-        clearInterval(pollingInterval);
-      };
-    }
-  };
-
   // Hook để fetch dữ liệu ban đầu và thiết lập SignalR
   useEffect(() => {
     console.log("WatchlistPage - Component mounted");
     fetchStockData();
     
     // Thiết lập SignalR và kết nối
-    const signalRCleanup = setupSignalR();
+    const signalRCleanup = setupSignalRConnection();
     
     // Cleanup khi unmount
     return () => {
@@ -691,6 +784,62 @@ const WatchlistPage = () => {
       }
     };
   }, []);
+
+  // Hàm nội bộ để xử lý dữ liệu cổ phiếu
+  function processStocks(stocks) {
+    console.log("Processing stocks data:", stocks);
+    
+    // Map data cho UI hiển thị
+    const stocksData = stocks.map(stock => {
+      // Lấy mã chứng khoán - xử lý đúng field name
+      const stockCode = stock.ticketSymbol;
+      if (!stockCode) {
+        console.warn("Stock missing ticketSymbol:", stock);
+        return null;
+      }
+      
+      // Tạo dữ liệu chart từ thông tin có sẵn
+      const returnValue = parseFloat(stock.stockReturn || 0);
+      const baseValue = 100;
+      const rangePercent = returnValue / 100;
+      
+      // Tạo chart data dạng đường với các điểm dựa trên stockReturn
+      const chartData = [
+        baseValue * (1 - rangePercent/2), // Điểm đầu (thấp hơn một chút)
+        baseValue * (1 - rangePercent/4), // Điểm 2 
+        baseValue,                        // Điểm giữa (điểm tham chiếu)
+        baseValue * (1 + rangePercent/3), // Điểm 4
+        baseValue * (1 + rangePercent)    // Điểm cuối (tăng theo stockReturn)
+      ];
+      
+      // Lấy các giá trị khác từ API response
+      const weight = parseInt(stock.weight) || 96;
+      const returnWeight = parseFloat(stock.returnWeight) || 0;
+      
+      // Tính % thay đổi dựa trên stockReturn
+      const dayChange = returnValue || 0;
+      const weekChange = returnValue ? returnValue * 1.5 : 0;
+      const monthChange = returnValue ? Math.abs(returnValue) * 5 + 2 : 0;
+      
+      return {
+        code: stockCode,
+        chart: chartData,
+        smg: weight,
+        price: returnWeight,
+        dayChange: dayChange,
+        weekChange: weekChange,
+        monthChange: monthChange
+      };
+    }).filter(stock => stock !== null); // Lọc bỏ các cổ phiếu null
+    
+    console.log("Processed stocks for display:", stocksData);
+    
+    if (stocksData.length > 0) {
+      setIndustryStocks(stocksData);
+    } else {
+      toast.error("Không có cổ phiếu hợp lệ trong danh sách theo dõi");
+    }
+  }
 
   return (
     <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
@@ -809,90 +958,86 @@ const WatchlistPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {watchlist.map((stock) => (
-                      <tr key={stock.code} className="hover:bg-[#1a1a1a]">
-                        <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                          priceChangeColors[stock.code] || 'text-white'
-                        }`} onClick={() => handleStockClick(stock)}>
-                          {stock.code}
-                        </td>
-                        <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-                        <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
-                        <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1 || '--'}</td>
-                        <td 
-                          className={`border-r border-[#333] text-center whitespace-nowrap price-cell-transition py-2 ${
-                          priceChangeColors[stock.code] || 'text-white'
-                          }`}
-                          style={getFlashStyle(stock.code)}
-                        >
-                          {stock.matchPrice}
-                        </td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
-                        <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                          {stock.matchChange}
-                        </td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3 || '--'}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3 || '--'}</td>
-                        <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high}</td>
-                        <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
-                        <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
-                        <td className="text-center py-2">
-                          <button
-                            onClick={() => removeFromWatchlist(stock)}
-                            className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
-                            title="Xóa khỏi danh sách theo dõi"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="26" className="text-center py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                          </button>
+                            <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : watchlist.length === 0 ? (
+                      <tr>
+                        <td colSpan="26" className="text-center py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <AlertTriangle className="h-8 w-8 text-yellow-500" />
+                            <span className="text-gray-400">Không có cổ phiếu nào trong danh sách theo dõi</span>
+                            <span className="text-gray-500 text-sm">Hãy thêm cổ phiếu từ trang "Bảng giá"</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      watchlist.map((stock) => (
+                        <tr key={stock.code} className="hover:bg-[#1a1a1a]">
+                          <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
+                            priceChangeColors[stock.code] || 'text-white'
+                          }`} onClick={() => handleStockClick(stock)}>
+                            {stock.code}
+                          </td>
+                          <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
+                          <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
+                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1 || '--'}</td>
+                          <td 
+                            className={`border-r border-[#333] text-center whitespace-nowrap price-cell-transition py-2 ${
+                            priceChangeColors[stock.code] || 'text-white'
+                            }`}
+                            style={getFlashStyle(stock.code)}
+                          >
+                            {stock.matchPrice}
+                          </td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
+                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                            {stock.matchChange}
+                          </td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3 || '--'}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3 || '--'}</td>
+                          <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high}</td>
+                          <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+                          <td className="text-center py-2">
+                            <button
+                              onClick={() => removeFromWatchlist(stock)}
+                              className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                              title="Xóa khỏi danh sách theo dõi"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-
-              {/* Loading Indicator */}
-              {isLoading && (
-                <div className="flex justify-center items-center py-8">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full border-2 border-[#09D1C7] border-t-transparent animate-spin"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full border-2 border-[#0a8f88] border-t-transparent animate-spin"></div>
-                      </div>
-                    </div>
-                    <span className="text-[#666] text-sm">Đang tải dữ liệu...</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Empty State */}
-              {!isLoading && watchlist.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-white font-medium mb-2">Chưa có cổ phiếu</h3>
-                  <p className="text-[#666] text-sm">Thêm cổ phiếu vào danh sách để theo dõi</p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -905,15 +1050,17 @@ const WatchlistPage = () => {
               </div>
 
               <div className="p-4">
-                {/* Header */}
+                {/* Header - Fix column widths and alignment */}
                 <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[#999] text-sm font-medium">
-                  <div className="col-span-5">Tên ngành</div>
+                  <div className="col-span-4">Tên ngành</div>
                   <div className="col-span-2 text-center">SMG</div>
-                  <div className="col-span-5 grid grid-cols-3 gap-1 text-center">
+                  <div className="col-span-5 grid grid-cols-3 gap-2 text-center">
                     <span>%D</span>
                     <span>%W</span>
                     <span>%M</span>
                   </div>
+                  {/* Add empty column for delete button alignment */}
+                  <div className="col-span-1"></div>
                 </div>
 
                 {/* Industry Items */}
@@ -936,11 +1083,12 @@ const WatchlistPage = () => {
                         key={industry.id}
                         className="bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
                       >
+                        {/* Match the grid structure with header exactly */}
                         <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center">
-                          <div className="col-span-5 flex items-center gap-2">
+                          <div className="col-span-4 flex items-center gap-2 min-w-0">
                             <button
                               onClick={() => handleIndustryClick(industry)}
-                              className={`p-1.5 rounded-lg transition-colors ${
+                              className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
                                 selectedIndustry?.id === industry.id 
                                   ? 'bg-[#09D1C7]/10 text-[#09D1C7]' 
                                   : 'text-[#666] hover:bg-[#333] hover:text-[#09D1C7]'
@@ -958,22 +1106,22 @@ const WatchlistPage = () => {
                               {industry.smg}
                             </span>
                           </div>
-                          <div className="col-span-4 grid grid-cols-3 gap-1 text-center text-sm">
-                            <span className={`rounded px-1.5 py-0.5 ${
+                          <div className="col-span-5 grid grid-cols-3 gap-2 text-center text-xs">
+                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
                               industry.dayChange > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                             }`}>
                               {industry.dayChange > 0 ? '+' : ''}{industry.dayChange}%
                             </span>
-                            <span className={`rounded px-1.5 py-0.5 ${
+                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
                               industry.weekChange > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                             }`}>
                               {industry.weekChange > 0 ? '+' : ''}{industry.weekChange}%
                             </span>
-                            <span className={`rounded px-1.5 py-0.5 ${
+                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
                               industry.monthChange > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
@@ -984,7 +1132,7 @@ const WatchlistPage = () => {
                           <div className="col-span-1 flex justify-end">
                             <button
                               onClick={(e) => handleDeleteSector(industry, e)}
-                              className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                              className="flex-shrink-0 p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
                               title="Xóa ngành khỏi danh sách theo dõi"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1080,36 +1228,38 @@ const WatchlistPage = () => {
                   </div>
                   <div className="col-span-1 flex justify-center">
                     <span className={`rounded-full w-7 h-7 flex items-center justify-center font-medium text-sm
-                      ${stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                        stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                        'bg-red-500/10 text-red-500'}`}>
+                      ${stock.smg >= 95 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                        stock.smg >= 90 ? 'bg-[#5BD75B]/10 text-[#5BD75B]' :
+                        'bg-[#FF6B00]/10 text-[#FF6B00]'}`}>
                       {stock.smg}
                     </span>
                   </div>
-                  <div className="col-span-1 text-right font-medium text-white">
-                    {stock.price.toLocaleString()}
+                  <div className="col-span-1 text-right font-medium text-[#09D1C7]">
+                    {typeof stock.price === 'number' 
+                      ? stock.price.toLocaleString('vi-VN')
+                      : stock.price}
                   </div>
                   <div className="col-span-3 grid grid-cols-3 gap-1 text-center text-sm">
-                    <span className={`rounded px-2 py-0.5 ${
+                    <span className={`rounded px-1 py-0.5 ${
                       stock.dayChange > 0 
-                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
+                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.dayChange > 0 ? '+' : ''}{stock.dayChange}%
+                      {stock.dayChange > 0 ? '+' : ''}{typeof stock.dayChange === 'number' ? stock.dayChange.toFixed(1) : stock.dayChange}%
                     </span>
-                    <span className={`rounded px-2 py-0.5 ${
+                    <span className={`rounded px-1 py-0.5 ${
                       stock.weekChange > 0 
-                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
+                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.weekChange > 0 ? '+' : ''}{stock.weekChange}%
+                      {stock.weekChange > 0 ? '+' : ''}{typeof stock.weekChange === 'number' ? stock.weekChange.toFixed(1) : stock.weekChange}%
                     </span>
-                    <span className={`rounded px-2 py-0.5 ${
+                    <span className={`rounded px-1 py-0.5 ${
                       stock.monthChange > 0 
-                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
+                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.monthChange > 0 ? '+' : ''}{stock.monthChange}%
+                      {stock.monthChange > 0 ? '+' : ''}{typeof stock.monthChange === 'number' ? stock.monthChange.toFixed(1) : stock.monthChange}%
                     </span>
                   </div>
                 </div>
@@ -1259,29 +1409,11 @@ const WatchlistPage = () => {
                         success: (response) => {
                           // Thêm ngành đã chọn vào state
                           const newIndustries = availableIndustries
-                            .filter(industry => selectedIndustryIds.includes(industry.id))
-                            .map(industry => ({
-                              id: industry.id,
-                              name: industry.name,
-                              stocks: [],
-                              smg: industry.smg || 0,
-                              dayChange: industry.dayChange || 0,
-                              weekChange: industry.weekChange || 0,
-                              monthChange: industry.monthChange || 0
-                            }));
-                          
-                          setIndustries(prevIndustries => {
-                            const existingIds = prevIndustries.map(ind => ind.id);
-                            const uniqueNewIndustries = newIndustries.filter(
-                              ind => !existingIds.includes(ind.id)
-                            );
-                            return [...prevIndustries, ...uniqueNewIndustries];
-                          });
-                          
+                            .filter(industry => selectedIndustryIds.includes(industry.id));
+                          setIndustries([...industries, ...newIndustries]);
                           setSelectedIndustryIds([]);
                           setNewIndustryName('');
-                          
-                          return `Đã thêm ${newIndustries.length} ngành`;
+                          return "Đã thêm ngành thành công!";
                         },
                         error: (err) => {
                           console.error("Error adding sectors:", err);

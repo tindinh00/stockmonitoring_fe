@@ -30,7 +30,7 @@ import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Trash2, Plus, Eye, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, Search, X } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 import { apiService } from "@/api/Api";
 import Cookies from "js-cookie";
@@ -52,6 +52,8 @@ const ManagerKnowledge = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
 
   useEffect(() => {
     fetchArticles();
@@ -211,6 +213,13 @@ const ManagerKnowledge = () => {
     setPreviewImage(null);
   };
 
+  const handleImageClick = (e, imageUrl) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPreviewImageUrl(imageUrl);
+    setIsImageDialogOpen(true);
+  };
+
   const filteredArticles = articles.filter(article => 
     article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     article.content.toLowerCase().includes(searchTerm.toLowerCase())
@@ -308,7 +317,7 @@ const ManagerKnowledge = () => {
                           src={article.image}
                           alt={article.title}
                           className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80"
-                          onClick={() => handlePreview(article)}
+                          onClick={(e) => handleImageClick(e, article.image)}
                         />
                       </TableCell>
                       <TableCell className="font-medium max-w-[300px] truncate text-left">
@@ -553,6 +562,31 @@ const ManagerKnowledge = () => {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog 
+        open={isImageDialogOpen} 
+        onOpenChange={setIsImageDialogOpen}
+      >
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="relative w-full bg-black/80 rounded-lg overflow-hidden">
+            <Button 
+              variant="ghost" 
+              className="absolute top-2 right-2 text-white bg-black/50 hover:bg-black/70 p-2 rounded-full"
+              onClick={() => setIsImageDialogOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            {previewImageUrl && (
+              <img 
+                src={previewImageUrl} 
+                alt="Preview" 
+                className="w-full max-h-[80vh] object-contain"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
