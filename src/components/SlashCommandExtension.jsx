@@ -144,38 +144,7 @@ const commands = [
         .run();
     },
   },
-  {
-    title: 'Bullet List',
-    description: 'Danh sách không đánh số',
-    icon: <List className="w-4 h-4 text-black" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBulletList().run();
-    },
-  },
-  {
-    title: 'Numbered List',
-    description: 'Danh sách đánh số',
-    icon: <ListOrdered className="w-4 h-4 text-black" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleOrderedList().run();
-    },
-  },
-  {
-    title: 'Quote',
-    description: 'Trích dẫn',
-    icon: <Quote className="w-4 h-4 text-black" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBlockquote().run();
-    },
-  },
-  {
-    title: 'Code Block',
-    description: 'Khối mã',
-    icon: <Code className="w-4 h-4 text-black" />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
-    },
-  },
+  
   {
     title: 'Horizontal Rule',
     description: 'Đường kẻ ngang',

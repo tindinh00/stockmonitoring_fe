@@ -3,7 +3,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
 
-const API_URL = "https://stockmonitoring.onrender.com";
+const API_URL = "https://stockmonitoring-api-gateway.onrender.com";
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "user_data";
 const USER_ID_KEY = "user_id";
