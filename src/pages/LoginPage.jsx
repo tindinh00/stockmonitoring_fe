@@ -113,7 +113,7 @@ const Login = () => {
       
       // Chuyển hướng trực tiếp đến API endpoint để bắt đầu quá trình đăng nhập Google
       // API sẽ tự tạo state và chuyển hướng đến Google OAuth
-      window.location.href = `${API_URL}/api/OAuth/google-authentication-login`;
+      window.location.href = `${API_URL}/api/oauth/google/login/authentication`;
     } catch (error) {
       console.error("Google login redirect error:", error);
       toast.error("Không thể kết nối đến dịch vụ đăng nhập Google. Vui lòng thử lại sau.", {

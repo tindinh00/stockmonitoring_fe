@@ -44,7 +44,7 @@ import {
   Info
 } from 'lucide-react';
 import Cookies from 'js-cookie';
-import { getUserId } from '@/api/Api'; // Import hàm getUserId
+import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 
 const StockDerivatives = () => {
@@ -317,64 +317,203 @@ const StockDerivatives = () => {
   // Add state for timestamp
   const [lastTimestamp, setLastTimestamp] = useState(moment().format('YYYYMMDDHHmmss')); // Set default timestamp
 
-  // Modify fetchStockData to handle API errors better
+  // Update the existing handleStockDataError function
+  const handleStockDataError = () => {
+    setRealTimeStockData([]);
+    setPriceHistory({});
+    setPriceChangeColors({});
+    setIsLoading(false);
+  };
+
+  // Fetch stock data first, then set up SignalR
   const fetchStockData = async (timestamp = null) => {
     try {
-      if (realTimeStockData.length === 0) {
-        setIsLoading(true);
-      }
+      console.log("=== Fetching stock data ===");
+      setIsLoading(true);
       
-      // Use current timestamp if none provided
-      const currentTimestamp = timestamp || moment().format('YYYYMMDDHHmmss');
-      console.log("Fetching stock data with timestamp:", currentTimestamp);
+      // Map exchange based on selected tab
+      let exchange = selectedExchange === 'HOSE' ? 'hsx' : 'hnx';
       
-      // IMPORTANT: Use the correct API endpoint with the timestamp
-      const response = await axios.get(`https://stockmonitoring-api-stock-service.onrender.com/api/stock/get-stock-in-session`, {
-        params: {
-          exchange: 'hsx',
-          timestamp: currentTimestamp
-        },
-        headers: {
-          'accept': '*/*'
-        },
-        timeout: 8000
-      });
+      console.log(`Fetching ${exchange} stock data${timestamp ? ' with timestamp: ' + timestamp : ''}`);
       
-      if (response.data?.value?.data?.length > 0) {
-        console.log(`Successfully fetched data with timestamp: ${currentTimestamp}`);
-        handleStockDataResponse(response.data.value.data);
-        return;
+      let response;
+      if (timestamp) {
+        // If we have timestamp, use getStockInSession
+        response = await stockService.getStockInSession(exchange, timestamp);
       } else {
-        console.log("No data received with timestamp, trying alternate API endpoint");
-        
-        // Try alternate API endpoint without timestamp
-        const altResponse = await axios.get(`https://stockmonitoring-api-stock-service.onrender.com/api/stock/stocks`, {
-          headers: {
-            'accept': '*/*'
-          },
-          timeout: 8000
-        });
-        
-        if (altResponse.data?.value?.data?.length > 0) {
-          console.log("Successfully fetched data from alternate endpoint");
-          handleStockDataResponse(altResponse.data.value.data);
-          return;
-        } else {
-          throw new Error("No data received from any API endpoint");
-        }
+        // For initial load, use getLatestStockData
+        response = await stockService.getLatestStockData(exchange);
       }
-    } catch (error) {
-      console.error('Error fetching stock data:', error);
-      handleStockDataError();
-    } finally {
+      
+      if (response?.value?.data) {
+        console.log(`Successfully fetched ${response.value.data.length} stocks`);
+        handleStockDataResponse(response.value.data);
+      } else {
+        handleStockDataError();
+      }
       setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Error in fetchStockData:', error);
+      handleStockDataError();
+      return false;
     }
   };
 
+  // Updated SignalR connection function that only sets up event listeners
+  const setupSignalR = async () => {
+    try {
+      console.log("=== Setting up SignalR for stock data ===");
+      
+      // Initialize SignalR connection
+      await signalRService.startStockConnection();
+      
+      // Check connection status
+      const connectionStatus = signalRService.isConnected();
+      console.log("SignalR Connection Status:", connectionStatus);
+      
+      if (connectionStatus.stockHub) {
+        console.log("SignalR Stock Connection successful, setting up event listeners");
+        
+        // Register for HSX stock updates
+        console.log("Registering for HSX stock updates");
+        signalRService.onStock("ReceiveHSXStockUpdate", (data) => {
+          console.log("Received HSX stock update:", data);
+          
+          try {
+            // Only process if current tab is HOSE
+            if (selectedExchange !== 'HOSE') {
+              console.log("Ignoring HSX update as current tab is", selectedExchange);
+              return;
+            }
+
+            // Normalize data
+            let messageData = data;
+            if (typeof data === 'string') {
+              try {
+                messageData = JSON.parse(data);
+              } catch (error) {
+                console.warn("Failed to parse HSX update as JSON:", error);
+              }
+            }
+            
+            // Get timestamp from message
+            const timestamp = messageData.Timestamp || messageData.timestamp;
+            console.log("HSX update timestamp:", timestamp);
+            
+            if (timestamp) {
+              fetchStockData(timestamp);
+            }
+          } catch (error) {
+            console.error("Error processing HSX update:", error);
+          }
+        });
+        
+        // Register for HNX stock updates
+        console.log("Registering for HNX stock updates");
+        signalRService.onStock("ReceiveHNXStockUpdate", (data) => {
+          console.log("Received HNX stock update:", data);
+          
+          try {
+            // Only process if current tab is HNX
+            if (selectedExchange !== 'HNX') {
+              console.log("Ignoring HNX update as current tab is", selectedExchange);
+              return;
+            }
+
+            // Normalize data
+            let messageData = data;
+            if (typeof data === 'string') {
+              try {
+                messageData = JSON.parse(data);
+              } catch (error) {
+                console.warn("Failed to parse HNX update as JSON:", error);
+              }
+            }
+            
+            // Get timestamp from message
+            const timestamp = messageData.Timestamp || messageData.timestamp;
+            console.log("HNX update timestamp:", timestamp);
+            
+            if (timestamp) {
+              fetchStockData(timestamp);
+            }
+          } catch (error) {
+            console.error("Error processing HNX update:", error);
+          }
+        });
+        
+        console.log("SignalR event listeners set up successfully");
+      } else {
+        console.warn("SignalR connection not ready. Status:", connectionStatus);
+      }
+    } catch (error) {
+      console.error("Failed to setup SignalR connection:", error);
+    }
+  };
+
+  // Fetch initial data and setup SignalR
+  useEffect(() => {
+    const initializeStockData = async () => {
+      console.log("=== Initializing Stock Derivatives Page ===");
+      
+      try {
+        // Step 1: Fetch latest data first to show immediately
+        console.log("Fetching initial stock data");
+        const fetchSuccess = await fetchStockData();
+        
+        // Step 2: Set up SignalR only after initial data fetch
+        if (fetchSuccess) {
+          console.log("Initial data fetched successfully, now setting up SignalR");
+          setupSignalR();
+        } else {
+          console.warn("Failed to fetch initial data, retrying in 5 seconds");
+          setTimeout(() => fetchStockData(), 5000);
+        }
+      } catch (error) {
+        console.error("Error initializing stock data:", error);
+      }
+    };
+    
+    initializeStockData();
+    
+    // Cleanup when component unmounts
+    return () => {
+      console.log("=== Cleaning up Stock Derivatives Page ===");
+      // Clean up SignalR connection if needed
+      signalRService.stop();
+    };
+  }, []);
+
+  // Add useEffect to refetch data when exchange changes
+  useEffect(() => {
+    console.log("Exchange changed to:", selectedExchange);
+    // Reset data when changing exchange
+    setRealTimeStockData([]);
+    setPriceHistory({});
+    setPriceChangeColors({});
+    // Fetch new data for selected exchange
+    fetchStockData();
+  }, [selectedExchange]);
+
   // Add helper function to handle successful stock data response
-  const handleStockDataResponse = (data) => {
-    console.log("Processing stock data response");
-    const formattedData = data.map(stock => ({
+  const handleStockDataResponse = (responseData) => {
+    if (!responseData) {
+      handleStockDataError();
+      return;
+    }
+
+    // Check if data is in the new format (nested in value.data)
+    const stockData = responseData.value?.data || responseData;
+    
+    if (!Array.isArray(stockData)) {
+      handleStockDataError();
+      return;
+    }
+
+    console.log('Processing stock data:', stockData);
+
+    const formattedData = stockData.map(stock => ({
       code: stock.stockCode,
       ceiling: stock.ceilPrice?.toFixed(2) || '--',
       floor: stock.floorPrice?.toFixed(2) || '--',
@@ -400,183 +539,36 @@ const StockDerivatives = () => {
       foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
       foreignSell: stock.foreignSellVolume?.toLocaleString() || '--'
     }));
-    
-    // Update price history and colors
-    const newPriceHistory = { ...priceHistory };
-    const newPriceChangeColors = { ...priceChangeColors };
-    
-    formattedData.forEach(newStock => {
-      const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
-      const currentPrice = parseFloat(newStock.matchPrice);
-      
-      if (oldStock) {
-        const previousPrice = parseFloat(oldStock.matchPrice);
-        newPriceHistory[newStock.code] = previousPrice;
-        newPriceChangeColors[newStock.code] = updatePriceColors(
-          newStock.code,
-          currentPrice,
-          previousPrice
-        );
-      } else {
-        newPriceHistory[newStock.code] = currentPrice;
-        newPriceChangeColors[newStock.code] = 'text-white';
-      }
-    });
-    
-    setPriceHistory(newPriceHistory);
-    setPriceChangeColors(newPriceChangeColors);
-    setRealTimeStockData(formattedData);
-  };
 
-  // Add helper function to handle stock data errors
-  const handleStockDataError = () => {
-    if (realTimeStockData.length === 0) {
-      console.log("Creating sample data for testing due to API error");
-      const sampleStocks = [
-        {
-          code: "VNM",
-          ceiling: "85.00",
-          floor: "78.00",
-          ref: "81.50",
-          buyPrice3: "80.80",
-          buyVolume3: "1,200",
-          buyPrice2: "80.90",
-          buyVolume2: "800",
-          buyPrice1: "81.00",
-          buyVolume1: "500",
-          matchPrice: "81.20",
-          matchVolume: "2,300",
-          matchChange: "+0.35%",
-          sellPrice1: "81.30",
-          sellVolume1: "600",
-          sellPrice2: "81.40",
-          sellVolume2: "900",
-          sellPrice3: "81.50",
-          sellVolume3: "1,100",
-          totalVolume: "12,500",
-          high: "81.80",
-          low: "80.90",
-          foreignBuy: "2,000",
-          foreignSell: "1,800"
+    if (formattedData.length > 0) {
+      setRealTimeStockData(formattedData);
+      
+      // Update price history and colors
+      const newPriceHistory = { ...priceHistory };
+      const newPriceChangeColors = { ...priceChangeColors };
+      
+      formattedData.forEach(newStock => {
+        const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
+        const currentPrice = parseFloat(newStock.matchPrice);
+        
+        if (oldStock) {
+          const previousPrice = parseFloat(oldStock.matchPrice);
+          newPriceHistory[newStock.code] = previousPrice;
+          newPriceChangeColors[newStock.code] = updatePriceColors(
+            newStock.code,
+            currentPrice,
+            previousPrice
+          );
+        } else {
+          newPriceHistory[newStock.code] = currentPrice;
+          newPriceChangeColors[newStock.code] = 'text-white';
         }
-      ];
-      
-      setRealTimeStockData(sampleStocks);
-      const newPriceHistory = {};
-      const newPriceChangeColors = {};
-      
-      sampleStocks.forEach(stock => {
-        newPriceHistory[stock.code] = parseFloat(stock.matchPrice);
-        newPriceChangeColors[stock.code] = stock.matchChange.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]';
       });
       
       setPriceHistory(newPriceHistory);
       setPriceChangeColors(newPriceChangeColors);
     } else {
-      toast.error("Không thể cập nhật dữ liệu chứng khoán");
-    }
-  };
-
-  // Kết nối SignalR để nhận cập nhật theo thời gian thực
-  const connectSignalR = async () => {
-    try {
-      console.log("=== Starting SignalR Connection for Stock Data ===");
-      
-      // Khởi tạo kết nối SignalR
-      await signalRService.startStockConnection();
-      
-      // Kiểm tra trạng thái kết nối
-      const connectionStatus = signalRService.isConnected();
-      console.log("SignalR Connection Status:", connectionStatus);
-      
-      if (connectionStatus.stockHub) {
-        console.log("SignalR Stock Connection successful, setting up event listeners");
-        
-        // Đăng ký lắng nghe sự kiện cập nhật HSX
-        console.log("Registering for HSX stock updates");
-        signalRService.onStock("ReceiveHSXStockUpdate", (data) => {
-          console.log("Received HSX stock update:", data);
-          
-          try {
-            // Chuẩn hóa dữ liệu
-            let messageData = data;
-            if (typeof data === 'string') {
-              try {
-                messageData = JSON.parse(data);
-              } catch (error) {
-                // Nếu không phải JSON, kiểm tra định dạng message từ server
-                if (data.includes("HSX stock data updated")) {
-                  messageData = {
-                    Message: data,
-                    Timestamp: new Date().toISOString()
-                  };
-                }
-              }
-            }
-            
-            const timestamp = messageData.Timestamp || messageData.timestamp;
-            console.log("HSX update timestamp:", timestamp);
-            
-            if (timestamp) {
-              // Lưu timestamp để sử dụng sau này
-              setLastTimestamp(timestamp);
-              
-              // Cập nhật dữ liệu thông qua API hoặc sử dụng sample data
-              fetchStockData(timestamp);
-            } else {
-              console.log("No timestamp in HSX update, using current time");
-              const currentTimestamp = new Date().toISOString().replace(/[-:.T]/g, '').slice(0, 14);
-              fetchStockData(currentTimestamp);
-            }
-          } catch (error) {
-            console.error("Error processing HSX update:", error);
-          }
-        });
-        
-        // Đăng ký lắng nghe sự kiện cập nhật HNX
-        console.log("Registering for HNX stock updates");
-        signalRService.onStock("ReceiveHNXStockUpdate", (data) => {
-          console.log("Received HNX stock update:", data);
-          
-          try {
-            // Chuẩn hóa dữ liệu
-            let messageData = data;
-            if (typeof data === 'string') {
-              try {
-                messageData = JSON.parse(data);
-              } catch (error) {
-                // Nếu không phải JSON, kiểm tra định dạng message từ server
-                if (data.includes("HNX stock data updated")) {
-                  messageData = {
-                    Message: data,
-                    Timestamp: new Date().toISOString()
-                  };
-                }
-              }
-            }
-            
-            const timestamp = messageData.Timestamp || messageData.timestamp;
-            console.log("HNX update timestamp:", timestamp);
-            
-            // Tạo dữ liệu mẫu cho cập nhật HNX
-            console.log("Creating sample data for HNX update");
-            createSampleData();
-          } catch (error) {
-            console.error("Error processing HNX update:", error);
-          }
-        });
-        
-        // Không cần gọi SubscribeToExchange - BE sẽ tự gửi cho tất cả clients (Clients.All)
-        console.log("SignalR event listeners set up. Waiting for messages from server.");
-      } else {
-        console.warn("SignalR connection not ready. Status:", connectionStatus);
-        console.log("Setting up polling fallback for stock data");
-        pollForStockData();
-      }
-    } catch (error) {
-      console.error("Failed to setup SignalR connection:", error);
-      console.log("Setting up polling fallback for stock data");
-      pollForStockData();
+      handleStockDataError();
     }
   };
 
@@ -675,7 +667,7 @@ const StockDerivatives = () => {
         
         // Call the new watchlist API endpoint
         const response = await axios.get(
-          `https://stockmonitoring-api-stock-service.onrender.com/api/watchlist-stock/${userId}`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -747,7 +739,7 @@ const StockDerivatives = () => {
       } else {
         // Add to watchlist
         await axios.post(
-          `https://stockmonitoring-api-stock-service.onrender.com/api/WatchListStock`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/WatchListStock`,
           {
             userId: userId,
             tickerSymbol: stock.code
@@ -779,7 +771,7 @@ const StockDerivatives = () => {
   };
 
   // Thêm hàm xử lý lưu cài đặt thông báo giá
-  const handleSavePriceAlert = () => {
+  const handleSavePriceAlert = async () => {
     if (!alertPrice || isNaN(alertPrice)) {
       toast.error('Vui lòng nhập giá hợp lệ');
       return;
@@ -788,6 +780,7 @@ const StockDerivatives = () => {
     const price = parseFloat(alertPrice);
     const currentPrice = parseFloat(selectedAlertStock.matchPrice);
 
+    // Kiểm tra logic giá cảnh báo
     if (alertType === 'above' && price <= currentPrice) {
       toast.error('Giá cảnh báo phải cao hơn giá hiện tại');
       return;
@@ -798,10 +791,26 @@ const StockDerivatives = () => {
       return;
     }
 
-    // Lưu cài đặt thông báo
-    // TODO: Implement API call to save price alert
-    toast.success(`Đã cài đặt thông báo khi giá ${selectedAlertStock.code} ${alertType === 'above' ? 'vượt lên' : 'giảm xuống'} ${alertPrice}`);
-    setIsPriceAlertOpen(false);
+    try {
+      // Gọi API tạo cảnh báo giá
+      const alertTypeApi = alertType === 'above' ? 'increase' : 'decrease';
+      
+      const result = await apiService.createPriceAlert(
+        selectedAlertStock.code,
+        price,
+        alertTypeApi
+      );
+      
+      if (result.success) {
+        toast.success(result.message);
+        setIsPriceAlertOpen(false);
+      } else {
+        toast.error(result.message || 'Không thể tạo cảnh báo giá');
+      }
+    } catch (error) {
+      console.error('Error creating price alert:', error);
+      toast.error(error.message || 'Đã xảy ra lỗi khi tạo cảnh báo giá');
+    }
   };
 
   // Add sort indicator component
@@ -1014,10 +1023,10 @@ const StockDerivatives = () => {
       <Dialog open={isPriceAlertOpen} onOpenChange={setIsPriceAlertOpen}>
         <DialogContent className="bg-[#1a1a1a] text-white border-[#2a2e39] sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">
+            <DialogTitle className="text-lg font-semibold text-center">
               Cài đặt thông báo giá - {selectedAlertStock?.code}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-400">
+            <DialogDescription className="text-sm text-gray-400 text-center">
               Thiết lập mức giá bạn muốn nhận thông báo
             </DialogDescription>
           </DialogHeader>
@@ -1158,91 +1167,112 @@ const StockDerivatives = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getFilteredData().map((stock) => (
-                        <tr 
-                          key={stock.code} 
-                          className="hover:bg-[#1a1a1a]"
-                        >
-                          <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
-                          }`}
-                            onClick={() => handleStockClick(stock)}
-                          >
-                            {stock.code}
-                          </td>
-                          <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-                          <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
-                          <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
-                          }`}>
-                            {stock.matchPrice}
-                          </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
-                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                            {stock.matchChange}
-                          </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
-                          <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
-                          <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
-                          <td className="text-center py-2">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddToWatchlist(stock);
-                                }}
-                                className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
-                                title="Thêm vào danh sách theo dõi"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSetPriceAlert(stock);
-                                }}
-                                className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
-                                title="Cài đặt thông báo giá"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                              </button>
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan="26" className="text-center py-8">
+                            <div className="flex flex-col items-center gap-2">
+                              <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : realTimeStockData.length === 0 ? (
+                        <tr>
+                          <td colSpan="26" className="text-center py-8">
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="w-16 h-16 text-gray-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="text-center">
+                                <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        getFilteredData().map((stock) => (
+                          <tr 
+                            key={stock.code} 
+                            className="hover:bg-[#1a1a1a]"
+                          >
+                            <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
+                              priceChangeColors[stock.code] || 'text-white'
+                            }`}
+                              onClick={() => handleStockClick(stock)}
+                            >
+                              {stock.code}
+                            </td>
+                            <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
+                            <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
+                            <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
+                            <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
+                              priceChangeColors[stock.code] || 'text-white'
+                            }`}>
+                              {stock.matchPrice}
+                            </td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
+                            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                              {stock.matchChange}
+                            </td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
+                            <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
+                            <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
+                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+                            <td className="text-center py-2">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddToWatchlist(stock);
+                                  }}
+                                  className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
+                                  title="Thêm vào danh sách theo dõi"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetPriceAlert(stock);
+                                  }}
+                                  className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
+                                  title="Cài đặt thông báo giá"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
-                  {isLoading && (
-                    <div className="flex justify-center items-center py-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Footer with exchange information - Now sticky */}

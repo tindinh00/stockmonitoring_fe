@@ -3,8 +3,8 @@ import Cookies from "js-cookie"; // Import js-cookie
 import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
 
 // Base URL cho API
-export const APP_BASE_URL = "https://stockmonitoring-api-app-service.onrender.com";
-export const STOCK_BASE_URL = "https://stockmonitoring-api-stock-service.onrender.com";
+export const APP_BASE_URL = "https://stockmonitoring-api-gateway.onrender.com";
+export const STOCK_BASE_URL = "https://stockmonitoring-api-gateway.onrender.com";
 
 // Tạo Basic Auth token cho Swagger
 const username = "admin";
@@ -806,11 +806,6 @@ export const apiService = {
 
   getKnowledge: async () => {
     try {
-      const token = Cookies.get("auth_token");
-      if (!token) {
-        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
-      }
-
       const response = await api.get("/api/knowledges");
       console.log("Get knowledge response:", response.data);
       return response.data;
@@ -1270,6 +1265,115 @@ export const apiService = {
       }
       
       throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm hàm mới để tạo cảnh báo giá
+  createPriceAlert: async (tickerSymbol, price, type) => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("Không tìm thấy thông tin người dùng");
+      }
+      
+      console.log(`Creating price alert for ${tickerSymbol} at price ${price} (${type})`);
+      
+      // Validate alert type
+      if (type !== 'increase' && type !== 'decrease') {
+        throw new Error("Loại cảnh báo không hợp lệ. Chỉ chấp nhận 'increase' hoặc 'decrease'");
+      }
+      
+      // Make API call to create price alert
+      const response = await axios.post(
+        `${STOCK_BASE_URL}/api/notification`,
+        {
+          tickerSymbol: tickerSymbol,
+          userId: userId,
+          price: parseFloat(price),
+          type: type
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': '*/*'
+          }
+        }
+      );
+      
+      console.log("Create price alert response:", response.data);
+      
+      return {
+        success: true,
+        message: `Đã cài đặt thông báo khi giá ${tickerSymbol} ${type === 'increase' ? 'tăng lên' : 'giảm xuống'} ${price}`,
+        data: response.data
+      };
+    } catch (error) {
+      console.error("Create price alert error:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message
+      };
+    }
+  },
+
+  // Lấy danh sách thông báo giá của người dùng
+  getPriceAlerts: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      
+      if (!token) {
+        console.error("No authentication token found");
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("Không tìm thấy thông tin người dùng");
+      }
+      
+      console.log(`Fetching price alerts for user: ${userId}`);
+      
+      // Make API call to get price alerts
+      const response = await axios.get(
+        `${STOCK_BASE_URL}/api/notification/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': '*/*'
+          }
+        }
+      );
+      
+      console.log("Price alerts response:", response.data);
+      
+      // Format the response data
+      let alerts = [];
+      if (response.data && response.data.value && Array.isArray(response.data.value.data)) {
+        alerts = response.data.value.data;
+      } else if (Array.isArray(response.data)) {
+        alerts = response.data;
+      }
+      
+      return {
+        success: true,
+        data: alerts,
+        message: `Đã lấy ${alerts.length} thông báo giá`
+      };
+    } catch (error) {
+      console.error("Get price alerts error:", error);
+      return {
+        success: false,
+        data: [],
+        message: error.response?.data?.message || error.message
+      };
     }
   },
 };

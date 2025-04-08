@@ -38,7 +38,7 @@ const Register = () => {
       
       // Chuyển hướng trực tiếp đến API endpoint để bắt đầu quá trình đăng ký Google
       // API sẽ tự tạo state và chuyển hướng đến Google OAuth
-      window.location.href = `${API_URL}/api/OAuth/google-authentication-register`;
+      window.location.href = `${API_URL}/api/oauth/google/register/authentication`;
     } catch (error) {
       console.error("Google register redirect error:", error);
       toast.error("Không thể kết nối đến dịch vụ đăng ký Google. Vui lòng thử lại sau.", {

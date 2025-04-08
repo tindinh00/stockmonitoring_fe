@@ -1,6 +1,16 @@
 import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
+import Cookies from 'js-cookie';
+import axios from 'axios';
 
-const BASE_URL = "https://stockmonitoring-api-stock-service.onrender.com";
+const BASE_URL = "https://stockmonitoring-api-gateway.onrender.com";
+const axiosInstance = axios.create({
+  baseURL: BASE_URL,
+  withCredentials: true,
+  headers: {
+    Accept: 'application/json',
+    'Content-Type': 'application/json'
+  }
+});
 
 class SignalRService {
   constructor() {
@@ -232,34 +242,115 @@ class SignalRService {
 
   async setupStockListeners() {
     console.log("[SignalR-Stock] Setting up stock update listeners");
-    if (!this.state.connection) {
-      console.warn("[SignalR-Stock] No active connection, connecting first");
-      await this.startStockConnection();
-    }
     
-    if (this.state.connection?.state === 'Connected') {
-      console.log("[SignalR-Stock] Registering for HSX & HNX stock updates");
+    try {
+      // Lấy userId từ cookies hoặc localStorage
+      const userId = Cookies.get("user_id");
+      if (!userId) {
+        console.warn("[SignalR-Stock] No user ID found");
+        return { success: false, message: "No user ID found" };
+      }
+
+      // Fetch watchlist data first
+      console.log("[SignalR-Stock] Fetching initial watchlist data");
+      const response = await axiosInstance.get(`/api/watchlist-stock/${userId}`);
       
-      // Ensure we don't register duplicate listeners
-      this.offStock("ReceiveHSXStockUpdate");
-      this.offStock("ReceiveHNXStockUpdate");
+      if (response?.data?.value) {
+        // Emit event với dữ liệu watchlist ban đầu
+        const event = new CustomEvent('watchlistUpdate', {
+          detail: {
+            data: response.data.value,
+            isInitial: true
+          }
+        });
+        window.dispatchEvent(event);
+      }
+
+      // Sau đó mới thiết lập SignalR connection
+      if (!this.state.connection) {
+        console.warn("[SignalR-Stock] No active connection, connecting first");
+        await this.startStockConnection();
+      }
       
-      // Register new listeners that won't return any value (to prevent SignalR from waiting)
-      this.onStock("ReceiveHSXStockUpdate", (data) => {
-        console.log("[SignalR-Stock] Received HSX stock update:", data);
-        // Don't return anything
-      });
-      
-      this.onStock("ReceiveHNXStockUpdate", (data) => {
-        console.log("[SignalR-Stock] Received HNX stock update:", data);
-        // Don't return anything
-      });
-      
-      console.log("[SignalR-Stock] Stock update listeners setup complete");
-      return { success: true, message: "Stock update listeners registered successfully" };
-    } else {
-      console.error("[SignalR-Stock] Connection not in Connected state");
-      return { success: false, message: "Connection not available" };
+      if (this.state.connection?.state === 'Connected') {
+        console.log("[SignalR-Stock] Registering for HSX & HNX stock updates");
+        
+        // Ensure we don't register duplicate listeners
+        this.offStock("ReceiveHSXStockUpdate");
+        this.offStock("ReceiveHNXStockUpdate");
+        
+        // Register new listeners that won't return any value (to prevent SignalR from waiting)
+        this.onStock("ReceiveHSXStockUpdate", (data) => {
+          console.log("[SignalR-Stock] Received HSX stock update:", data);
+          try {
+            // Parse data if it's a string
+            let stockData = data;
+            if (typeof data === 'string') {
+              try {
+                stockData = JSON.parse(data);
+              } catch (error) {
+                console.warn("Failed to parse HSX update as JSON:", error);
+              }
+            }
+
+            // Get timestamp from message
+            const timestamp = stockData.Timestamp || stockData.timestamp;
+            if (timestamp) {
+              // Emit event for components to handle
+              const event = new CustomEvent('stockUpdate', {
+                detail: {
+                  exchange: 'hsx',
+                  timestamp: timestamp,
+                  data: stockData
+                }
+              });
+              window.dispatchEvent(event);
+            }
+          } catch (error) {
+            console.error("Error processing HSX update:", error);
+          }
+        });
+        
+        this.onStock("ReceiveHNXStockUpdate", (data) => {
+          console.log("[SignalR-Stock] Received HNX stock update:", data);
+          try {
+            // Parse data if it's a string
+            let stockData = data;
+            if (typeof data === 'string') {
+              try {
+                stockData = JSON.parse(data);
+              } catch (error) {
+                console.warn("Failed to parse HNX update as JSON:", error);
+              }
+            }
+
+            // Get timestamp from message
+            const timestamp = stockData.Timestamp || stockData.timestamp;
+            if (timestamp) {
+              // Emit event for components to handle
+              const event = new CustomEvent('stockUpdate', {
+                detail: {
+                  exchange: 'hnx',
+                  timestamp: timestamp,
+                  data: stockData
+                }
+              });
+              window.dispatchEvent(event);
+            }
+          } catch (error) {
+            console.error("Error processing HNX update:", error);
+          }
+        });
+        
+        console.log("[SignalR-Stock] Stock update listeners setup complete");
+        return { success: true, message: "Stock update listeners registered successfully" };
+      } else {
+        console.error("[SignalR-Stock] Connection not in Connected state");
+        return { success: false, message: "Connection not available" };
+      }
+    } catch (error) {
+      console.error("[SignalR-Stock] Error in setupStockListeners:", error);
+      return { success: false, message: error.message };
     }
   }
 
