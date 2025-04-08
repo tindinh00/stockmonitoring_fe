@@ -25,22 +25,22 @@ const Footer = () => {
               <h3 className="text-lg font-semibold text-white">Điều hướng</h3>
               <ul className="space-y-3">
                 <li>
-                  <a href="/market" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                  <a className="text-gray-400 hover:text-green-400 transition-colors text-sm">
                     Thị trường
                   </a>
                 </li>
                 <li>
-                  <a href="/portfolio" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                  <a className="text-gray-400 hover:text-green-400 transition-colors text-sm">
                     Danh mục
                   </a>
                 </li>
                 <li>
-                  <a href="/news" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                  <a className="text-gray-400 hover:text-green-400 transition-colors text-sm">
                     Tin tức
                   </a>
                 </li>
                 <li>
-                  <a href="/analysis" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                  <a className="text-gray-400 hover:text-green-400 transition-colors text-sm">
                     Phân tích
                   </a>
                 </li>
@@ -53,9 +53,9 @@ const Footer = () => {
               <ul className="space-y-3 flex flex-col items-center md:items-start">
                 <li className="flex items-center space-x-2">
                   <Mail className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-400 text-sm">support@stockhub.com</span>
+                  <span className="text-gray-400 text-sm">stockmonitoring@gmail.com</span>
                 </li>
-                <li className="text-gray-400 text-sm">Hotline: 0123-456-789</li>
+                <li className="text-gray-400 text-sm">Hotline: 084-533-3577</li>
                 <li className="text-gray-400 text-sm leading-relaxed text-center md:text-left">
                   Địa chỉ: 123 Đường Chứng Khoán, TP.HCM
                 </li>

@@ -119,53 +119,44 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (isRefreshing) {
-      // Nếu đang refresh token, thêm request vào hàng đợi
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then(token => {
-          originalRequest.headers['Authorization'] = `Bearer ${token}`;
-          return api(originalRequest);
-        })
-        .catch(err => Promise.reject(err));
-    }
-
     originalRequest._retry = true;
-    isRefreshing = true;
-
-    // Lấy refresh token từ cookie
-    const refreshToken = Cookies.get("refresh_token");
-    if (!refreshToken) {
-      processQueue(new Error("No refresh token"));
-      return Promise.reject(new Error("Không có refresh token"));
-    }
 
     try {
-      const response = await apiService.refreshToken(refreshToken);
-      const { token } = response;
+      const refreshToken = Cookies.get('refresh_token');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
 
-      // Lưu token mới
-      Cookies.set("auth_token", token);
-      Cookies.set("refresh_token", response.refreshToken, { expires: 30 }); // Refresh token có thời hạn dài hơn
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const response = await axios.post(`${APP_BASE_URL}/api/auth/refresh-token`, {
+        refreshToken
+      });
 
-      // Xử lý hàng đợi với token mới
-      processQueue(null, token);
+      if (!response?.data?.value?.data?.token) {
+        throw new Error('Invalid refresh token response');
+      }
 
-      // Thực hiện lại request ban đầu với token mới
-      originalRequest.headers['Authorization'] = `Bearer ${token}`;
+      const { token, refreshToken: newRefreshToken } = response.data.value.data;
+
+      // Cập nhật tokens
+      Cookies.set("auth_token", token, { expires: 7 });
+      Cookies.set('refresh_token', newRefreshToken, { expires: 30 });
+
+      // Cập nhật token trong header của request gốc
+      originalRequest.headers.Authorization = `Bearer ${token}`;
+
+      // Thử lại request gốc
       return api(originalRequest);
     } catch (refreshError) {
-      processQueue(refreshError, null);
-      // Xóa cả access token và refresh token
+      // Xóa tokens nếu refresh thất bại
       Cookies.remove("auth_token");
-      Cookies.remove("refresh_token");
-      delete api.defaults.headers.common["Authorization"];
-      window.location.href = "/login";
+      Cookies.remove('refresh_token');
+      
+      // Chuyển hướng về trang login hoặc dispatch event
+      window.dispatchEvent(new CustomEvent('auth-error', {
+        detail: { message: 'Session expired. Please login again.' }
+      }));
+      
       return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
     }
   }
 );
