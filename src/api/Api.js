@@ -94,7 +94,7 @@ const processQueue = (error, token = null) => {
 // Add request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = Cookies.get("access_token");
+    const token = Cookies.get("auth_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -111,10 +111,50 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If error is CORS related, retry with updated headers
-    if (error.response?.status === 0 || error.code === 'ERR_NETWORK') {
-      originalRequest.headers['Access-Control-Allow-Origin'] = '*';
-      return axiosInstance(originalRequest);
+    // If error is 401 and we haven't tried to refresh token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If token refresh is in progress, add request to queue
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          })
+          .catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = Cookies.get("refresh_token");
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
+
+        // Try to refresh the token
+        const response = await apiService.refreshToken(refreshToken);
+        
+        // Update the token in cookies and headers
+        Cookies.set("auth_token", response.token);
+        axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${response.token}`;
+        
+        processQueue(null, response.token);
+        isRefreshing = false;
+
+        // Retry the original request
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        
+        // If refresh token fails, logout the user
+        await apiService.logout();
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
     }
 
     return Promise.reject(error);
@@ -126,19 +166,15 @@ export const apiService = {
   // Lấy danh sách người dùng từ API (Yêu cầu quyền Admin)
   getUsers: async () => {
     try {
-      // Lấy token từ cookie
       const token = Cookies.get("auth_token");
       
       if (!token) {
-        console.error("No authentication token found. Admin access required.");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
       }
       
-      // Gửi request - không cần thêm headers vì interceptor đã thêm token
       const response = await axiosInstance.get("/api/users");
       console.log("Get users response:", response.data);
       
-      // Kiểm tra cấu trúc dữ liệu phản hồi
       if (response.data && response.data.value) {
         return response.data.value.data || [];
       }
@@ -147,7 +183,6 @@ export const apiService = {
     } catch (error) {
       console.error("Get users error:", error);
       
-      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
       if (error.response?.status === 401 || error.response?.status === 403) {
         throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể xem danh sách người dùng.");
       }
@@ -159,9 +194,12 @@ export const apiService = {
   // Lấy chi tiết tin tức từ API
   getNewsDetail: async (newsLink) => {
     try {
-      // Mã hóa URL tin tức
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
       const encodedLink = encodeURIComponent(newsLink);
-      // Gọi API lấy chi tiết tin tức
       const response = await axiosInstance.get(`/api/news/detail?link=${encodedLink}`);
       
       console.log("Get news detail response:", response.data);
@@ -180,15 +218,11 @@ export const apiService = {
   // Cập nhật role của người dùng
   updateUserRole: async (userId, newRole) => {
     try {
-      // Lấy token từ cookie
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found. Admin access required.");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
       }
 
-      // Chuyển đổi role từ string sang số nguyên theo quy ước API
       let roleValue;
       switch(newRole.toLowerCase()) {
         case "customer":
@@ -207,10 +241,8 @@ export const apiService = {
           throw new Error("Role không hợp lệ.");
       }
       
-      // Debug logs
       console.log(`Updating role for user ${userId} to ${newRole} (value: ${roleValue})`);
       
-      // Gửi request PUT với body đúng định dạng
       const response = await axiosInstance.put(`/api/users/${userId}/role`, { role: roleValue });
       
       console.log("Update user role response:", response.data);
@@ -222,10 +254,7 @@ export const apiService = {
       throw new Error("Không nhận được phản hồi hợp lệ từ server");
     } catch (error) {
       console.error("Update user role error:", error);
-      console.error("Error details:", error.response?.data);
-      console.error("Error status:", error.response?.status);
       
-      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
       if (error.response?.status === 401 || error.response?.status === 403) {
         throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể thay đổi role người dùng.");
       }
@@ -237,15 +266,11 @@ export const apiService = {
   // Cập nhật trạng thái ban/unban của người dùng
   updateUserStatus: async (userId, isBanned) => {
     try {
-      // Lấy token từ cookie
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found. Admin access required.");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
       }
       
-      // Gửi request cập nhật trạng thái
       const action = isBanned ? "ban" : "unban";
       const response = await axiosInstance.put(`/api/users/${userId}/status`, {
         action: action
@@ -261,7 +286,6 @@ export const apiService = {
     } catch (error) {
       console.error("Update user status error:", error);
       
-      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
       if (error.response?.status === 401 || error.response?.status === 403) {
         throw new Error("Không có quyền truy cập. Chỉ Admin mới có thể thay đổi trạng thái người dùng.");
       }
@@ -479,20 +503,15 @@ export const apiService = {
 
   getPackages: async (pageIndex = 1, pageSize = 10) => {
     try {
-      // Lấy token từ cookie
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
-      // Gửi request GET với query parameters - không cần thêm config vì interceptor đã xử lý token
       const response = await axiosInstance.get(`/api/package?pageIndex=${pageIndex}&pageSize=${pageSize}`);
       
       console.log("Get packages response:", response.data);
       
-      // Xử lý cấu trúc response đúng
       if (response.data?.value?.data) {
         return response.data.value.data;
       }
@@ -501,7 +520,6 @@ export const apiService = {
     } catch (error) {
       console.error("Get packages error:", error);
       
-      // Kiểm tra lỗi 401 (Unauthorized) hoặc 403 (Forbidden)
       if (error.response?.status === 401 || error.response?.status === 403) {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
       }
@@ -513,9 +531,7 @@ export const apiService = {
   getFeatures: async () => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
@@ -536,13 +552,10 @@ export const apiService = {
   createPackage: async (packageData) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      // Gửi request với body đúng format
       const response = await axiosInstance.post("/api/package", packageData);
 
       console.log("Create package response:", response.data);
@@ -561,13 +574,10 @@ export const apiService = {
   updatePackage: async (id, packageData) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      // Gửi request với body đúng format
       const response = await axiosInstance.put(`/api/package/${id}`, packageData);
 
       console.log("Update package response:", response.data);
@@ -586,13 +596,10 @@ export const apiService = {
   deletePackage: async (id) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      // Gửi request DELETE với token
       const response = await axiosInstance.delete(`/api/package/${id}`);
 
       console.log("Delete package response:", response.data);
@@ -611,9 +618,7 @@ export const apiService = {
   getReports: async () => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
@@ -640,9 +645,7 @@ export const apiService = {
   createReport: async (reportData) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
@@ -669,9 +672,7 @@ export const apiService = {
   updateReport: async (id, reportData) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
@@ -698,9 +699,7 @@ export const apiService = {
   deleteReport: async (id) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
@@ -727,9 +726,7 @@ export const apiService = {
   getReportById: async (id) => {
     try {
       const token = Cookies.get("auth_token");
-      
       if (!token) {
-        console.error("No authentication token found");
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
@@ -894,6 +891,11 @@ export const apiService = {
 
   createPayment: async (data) => {
     try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
       const { amount, packageId } = data;
       const response = await axiosInstance.post(`/api/payments?amount=${amount}&packageId=${packageId}`);
       console.log('Payment API response:', response);
@@ -916,6 +918,11 @@ export const apiService = {
   
   cancelPayment: async (orderCode) => {
     try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
       if (!orderCode) {
         throw new Error('Mã đơn hàng không được để trống');
       }
@@ -942,6 +949,11 @@ export const apiService = {
   
   getPaymentStatus: async (orderCode) => {
     try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
       const userId = getUserId();
       if (!userId) {
         throw new Error("User ID không tồn tại");
@@ -1020,6 +1032,11 @@ export const apiService = {
 
   getNews: async (source = "cafef") => {
     try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
       const response = await axiosInstance.get(`/api/news?src=${source}`);
       
       console.log("Get news response:", response.data);
@@ -1159,6 +1176,11 @@ export const apiService = {
 
   updateProfile: async (userData) => {
     try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
       const response = await axiosInstance.put("/api/users", {
         name: userData.name,
         email: userData.email,

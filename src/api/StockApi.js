@@ -20,9 +20,28 @@ const axiosInstance = axios.create({
 // Add request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = Cookies.get("auth_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // List of endpoints that don't require authentication
+    const publicEndpoints = [
+      '/api/stock/session',
+      '/api/stock/latest',
+      '/api/stock/history',
+      '/api/stock/detail',
+      '/api/stock/stocks',
+      '/api/stock/search',
+      '/api/heatmap'
+    ];
+
+    // Check if the current request URL matches any public endpoint
+    const isPublicEndpoint = publicEndpoints.some(endpoint => 
+      config.url.includes(endpoint)
+    );
+
+    // Only add token if it's not a public endpoint
+    if (!isPublicEndpoint) {
+      const token = Cookies.get("auth_token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },

@@ -88,46 +88,43 @@ export function UserNav() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 bg-white border-gray-200 text-black" align="end" forceMount>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user?.name || "Người dùng"}</p>
-            <p className="text-xs leading-none text-gray-400">{user?.email || "email@example.com"}</p>
+            <p className="text-xs leading-none text-muted-foreground">{user?.email || "email@example.com"}</p>
             {user?.role && (
-              <p className="text-xs leading-none text-teal-400 mt-1">
+              <p className="text-xs leading-none text-teal-500 mt-1">
                 {user.role === "admin" ? "Quản trị viên" : user.role}
               </p>
             )}
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-gray-200" />
+        <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem 
-            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile')}
           >
             <User className="mr-2 h-4 w-4" />
             <span>Hồ sơ</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile?tab=subscriptions')}
           >
             <CreditCard className="mr-2 h-4 w-4" />
             <span>Gói dịch vụ {user?.tier && `(${user.tier})`}</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer"
             onClick={() => handleNavigate('/profile?tab=settings')}
           >
             <Settings className="mr-2 h-4 w-4" />
             <span>Cài đặt</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator className="bg-[#1f1f30]" />
+        <DropdownMenuSeparator />
         <DropdownMenuItem 
-          className="hover:bg-gray-200 focus:bg-gray-200 cursor-pointer text-red-400 hover:text-red-300"
           onClick={handleLogout}
+          className="text-red-600 focus:text-red-600 focus:bg-red-100"
         >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Đăng xuất</span>
