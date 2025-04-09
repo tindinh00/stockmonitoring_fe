@@ -41,7 +41,8 @@ import {
   Star,
   Bell,
   AlertTriangle,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
@@ -64,6 +65,7 @@ const StockDerivatives = () => {
   const [alertType, setAlertType] = useState('above');
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
+  const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -743,7 +745,7 @@ const StockDerivatives = () => {
           `https://stockmonitoring-api-gateway.onrender.com/api/WatchListStock`,
           {
             userId: userId,
-            tickerSymbol: stock.code
+            tickerSymbol: stock.code.toLowerCase()
           },
           {
             headers: {
@@ -793,6 +795,7 @@ const StockDerivatives = () => {
     }
 
     try {
+      setIsSubmittingAlert(true);
       // Gọi API tạo cảnh báo giá
       const alertTypeApi = alertType === 'above' ? 'increase' : 'decrease';
       
@@ -811,6 +814,8 @@ const StockDerivatives = () => {
     } catch (error) {
       console.error('Error creating price alert:', error);
       toast.error(error.message || 'Đã xảy ra lỗi khi tạo cảnh báo giá');
+    } finally {
+      setIsSubmittingAlert(false);
     }
   };
 
@@ -1044,7 +1049,7 @@ const StockDerivatives = () => {
             <div className="grid grid-cols-4 items-center gap-4">
               <label className="text-right text-sm">Loại</label>
               <div className="col-span-3">
-                <Select value={alertType} onValueChange={setAlertType}>
+                <Select value={alertType} onValueChange={setAlertType} disabled={isSubmittingAlert}>
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn loại thông báo" />
                   </SelectTrigger>
@@ -1065,16 +1070,33 @@ const StockDerivatives = () => {
                   onChange={(e) => setAlertPrice(e.target.value)}
                   className="bg-[#2a2a2a] border-[#333]"
                   placeholder={`Giá hiện tại: ${selectedAlertStock?.matchPrice}`}
+                  disabled={isSubmittingAlert}
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button className="bg-red-500 hover:bg-red-600" variant="outline" onClick={() => setIsPriceAlertOpen(false)}>
+            <Button 
+              className="bg-red-500 hover:bg-red-600" 
+              variant="outline" 
+              onClick={() => setIsPriceAlertOpen(false)}
+              disabled={isSubmittingAlert}
+            >
               Hủy
             </Button>
-            <Button className="bg-green-500 hover:bg-green-600" onClick={handleSavePriceAlert}>
-              Lưu cài đặt
+            <Button 
+              className="bg-green-500 hover:bg-green-600" 
+              onClick={handleSavePriceAlert}
+              disabled={isSubmittingAlert}
+            >
+              {isSubmittingAlert ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang lưu...</span>
+                </div>
+              ) : (
+                'Lưu cài đặt'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
