@@ -287,8 +287,9 @@ export default function ScraperManagementPage() {
         </CardHeader>
         <CardContent>
           {/* Search and Filter Controls */}
-          <div className="mb-6 grid gap-4">
-            <div className="flex flex-col md:flex-row gap-4">
+          <div className="mb-6 space-y-4">
+            {/* Search bar */}
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="flex-1">
                 <Input
                   placeholder="Tìm kiếm..."
@@ -319,51 +320,63 @@ export default function ScraperManagementPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row gap-4">
-              <Input
-                placeholder="Lọc theo tên"
-                value={nameFilter}
-                onChange={(e) => setNameFilter(e.target.value)}
-              />
-              <Input
-                type="datetime-local"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-[250px]"
-              />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="true">Thành công</SelectItem>
-                  <SelectItem value="false">Thất bại</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sắp xếp theo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Date">Thời gian</SelectItem>
-                  <SelectItem value="Name">Tên</SelectItem>
-                  <SelectItem value="Source">Nguồn</SelectItem>
-                  <SelectItem value="Status">Trạng thái</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select 
-                value={isDescending.toString()} 
-                onValueChange={(value) => setIsDescending(value === "true")}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Thứ tự" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">Tăng dần</SelectItem>
-                  <SelectItem value="true">Giảm dần</SelectItem>
-                </SelectContent>
-              </Select>
+            
+            {/* Filters - Responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+              <div className="w-full">
+                <Input
+                  placeholder="Lọc theo tên"
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                />
+              </div>
+              <div className="w-full">
+                <Input
+                  type="datetime-local"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="w-full">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="true">Thành công</SelectItem>
+                    <SelectItem value="false">Thất bại</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sắp xếp theo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Date">Thời gian</SelectItem>
+                    <SelectItem value="Name">Tên</SelectItem>
+                    <SelectItem value="Source">Nguồn</SelectItem>
+                    <SelectItem value="Status">Trạng thái</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full">
+                <Select 
+                  value={isDescending.toString()} 
+                  onValueChange={(value) => setIsDescending(value === "true")}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Thứ tự" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="false">Tăng dần</SelectItem>
+                    <SelectItem value="true">Giảm dần</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
