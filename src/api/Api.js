@@ -1234,21 +1234,25 @@ export const apiService = {
         throw new Error("Không tìm thấy thông tin người dùng");
       }
       
-      console.log(`Creating price alert for ${tickerSymbol} at price ${price} (${type})`);
+      // Convert tickerSymbol and type to lowercase
+      const normalizedTickerSymbol = tickerSymbol.toLowerCase();
+      const normalizedType = type.toLowerCase();
+      
+      console.log(`Creating price alert for ${normalizedTickerSymbol} at price ${price} (${normalizedType})`);
       
       // Validate alert type
-      if (type !== 'increase' && type !== 'decrease') {
+      if (normalizedType !== 'increase' && normalizedType !== 'decrease') {
         throw new Error("Loại cảnh báo không hợp lệ. Chỉ chấp nhận 'increase' hoặc 'decrease'");
       }
       
       // Make API call to create price alert
       const response = await axios.post(
-        `${STOCK_BASE_URL}/api/notification`,
+        `${STOCK_BASE_URL}/api/notifications`,
         {
-          tickerSymbol: tickerSymbol,
+          tickerSymbol: normalizedTickerSymbol,
           userId: userId,
           price: parseFloat(price),
-          type: type
+          type: normalizedType
         },
         {
           headers: {
@@ -1263,7 +1267,7 @@ export const apiService = {
       
       return {
         success: true,
-        message: `Đã cài đặt thông báo khi giá ${tickerSymbol} ${type === 'increase' ? 'tăng lên' : 'giảm xuống'} ${price}`,
+        message: `Đã cài đặt thông báo khi giá ${normalizedTickerSymbol.toUpperCase()} ${normalizedType === 'increase' ? 'tăng lên' : 'giảm xuống'} ${price}`,
         data: response.data
       };
     } catch (error) {
