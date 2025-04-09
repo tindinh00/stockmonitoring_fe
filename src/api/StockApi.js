@@ -214,7 +214,7 @@ export const stockService = {
         `/api/WatchListStock`,
         {
           userId: userId,
-          tickerSymbol: tickerSymbol
+          tickerSymbol: tickerSymbol.toLowerCase()
         }
       );
       return response.data;
@@ -365,7 +365,7 @@ export const stockService = {
       const response = await axiosInstance.delete('/api/WatchListStock', {
         params: {
           userId: userId,
-          tickerSymbol: tickerSymbol
+          tickerSymbol: tickerSymbol.toLowerCase()
         }
       });
       console.log("Delete stock from watchlist response:", response.data);

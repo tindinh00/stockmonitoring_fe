@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/Authentication/AuthContext";
 
 // API URL 
-const API_URL = "http://stockmonitoring.onrender.com";
+const API_URL = "https://stockmonitoring.onrender.com";
 
 const Register = () => {
   const [loading, setLoading] = useState(false);
