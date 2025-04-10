@@ -46,9 +46,11 @@ const WatchlistPage = () => {
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [isLoadingStocks, setIsLoadingStocks] = useState(false);
 
-  // Thêm state để theo dõi việc flash giá
+  // Thêm state để theo dõi việc flash giá và khối lượng
   const [flashingCells, setFlashingCells] = useState({});
+  const [volumeHistory, setVolumeHistory] = useState({});
   const previousStockPrices = useRef({});
+  const previousStockVolumes = useRef({});
 
   // Thêm state để phân biệt initial loading và update loading
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -64,6 +66,9 @@ const WatchlistPage = () => {
 
   // Add new state for delete sector loading
   const [isDeletingSector, setIsDeletingSector] = useState(false);
+
+  // Thêm state cho trạng thái đang xóa cổ phiếu
+  const [isDeletingStock, setIsDeletingStock] = useState(false);
 
   // Add function to refresh industries data
   const refreshIndustries = () => {
@@ -147,8 +152,8 @@ const WatchlistPage = () => {
           
           // Transform data to match the required format
           const formattedSectors = sectors.map(sector => ({
-            id: sector.id,
-            name: sector.name,
+              id: sector.id,
+              name: sector.name,
             smg: sector.smg || 0,
             percentD: sector.percentD || 0,
             percentW: sector.percentW || 0,
@@ -172,9 +177,52 @@ const WatchlistPage = () => {
         setIsLoadingIndustries(false);
       }
     };
-
+    
     fetchUserSectors();
   }, [shouldRefreshIndustries]); // Add dependency on shouldRefreshIndustries
+
+  // CSS Animations cho thay đổi giá và khối lượng
+  const priceChangeAnimations = `
+    @keyframes priceUp {
+      0% { background-color: rgba(0, 255, 0, 0); transform: scale(1); }
+      50% { background-color: rgba(0, 255, 0, 0.15); transform: scale(1.05); }
+      100% { background-color: rgba(0, 255, 0, 0); transform: scale(1); }
+    }
+
+    @keyframes priceDown {
+      0% { background-color: rgba(255, 74, 74, 0); transform: scale(1); }
+      50% { background-color: rgba(255, 74, 74, 0.15); transform: scale(1.05); }
+      100% { background-color: rgba(255, 74, 74, 0); transform: scale(1); }
+    }
+    
+    @keyframes priceEqual {
+      0% { background-color: rgba(244, 190, 55, 0); transform: scale(1); }
+      50% { background-color: rgba(244, 190, 55, 0.15); transform: scale(1.05); }
+      100% { background-color: rgba(244, 190, 55, 0); transform: scale(1); }
+    }
+
+    @keyframes volumeChange {
+      0% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .price-up-animation {
+      animation: priceUp 1s ease-out;
+    }
+
+    .price-down-animation {
+      animation: priceDown 1s ease-out;
+    }
+    
+    .price-equal-animation {
+      animation: priceEqual 1s ease-out;
+    }
+
+    .volume-change-animation {
+      animation: volumeChange 1s ease-out;
+    }
+  `;
 
   // Theo dõi thay đổi giá và cập nhật màu sắc
   const updatePriceColors = (stockCode, currentPrice, previousPrice) => {
@@ -184,36 +232,64 @@ const WatchlistPage = () => {
     const previous = parseFloat(previousPrice);
     
     if (current > previous) {
-      return 'text-[#00FF00]'; // Tăng giá - màu xanh
+      return 'text-[#00FF00] price-up-animation'; // Tăng giá - màu xanh + animation
     } else if (current < previous) {
-      return 'text-[#FF4A4A]'; // Giảm giá - màu đỏ
+      return 'text-[#FF4A4A] price-down-animation'; // Giảm giá - màu đỏ + animation
+    } else if (current === previous) {
+      return 'text-[#F4BE37] price-equal-animation'; // Giữ nguyên - màu vàng + animation
     }
-    return 'text-white'; // Giữ nguyên - màu trắng
+    return 'text-white'; // Mặc định - màu trắng
   };
 
   // Tạo hiệu ứng flash khi giá thay đổi
-  const createFlashEffect = (stockCode, currentPrice, previousPrice) => {
-    if (!previousPrice || !currentPrice) return;
+  const createFlashEffect = (stockCode, field, currentValue, previousValue) => {
+    if (!previousValue || !currentValue) return;
     
-    const current = parseFloat(currentPrice);
-    const previous = parseFloat(previousPrice);
-    
-    if (current !== previous) {
-      // Tạo hiệu ứng flash
-      setFlashingCells(prev => ({
-        ...prev,
-        [stockCode]: current > previous ? 'increase' : 'decrease'
-      }));
+    try {
+      const current = parseFloat(currentValue);
+      const previous = parseFloat(previousValue);
       
-      // Xóa hiệu ứng flash sau 1 giây
-      setTimeout(() => {
-        setFlashingCells(prev => {
-          const newState = {...prev};
-          delete newState[stockCode];
-          return newState;
-        });
-      }, 1000);
+      if (current !== previous) {
+        // Xác định loại flash dựa trên trường
+        if (field === 'matchPrice' || field.includes('Price')) {
+          // Tạo hiệu ứng flash cho giá
+          setFlashingCells(prev => ({
+            ...prev,
+            [`${stockCode}-${field}`]: current > previous ? 'increase' : 'decrease'
+          }));
+        } else if (field.includes('volume') || field.includes('Volume')) {
+          // Tạo hiệu ứng flash cho khối lượng
+          setVolumeHistory(prev => ({
+            ...prev,
+            [`${stockCode}-${field}`]: 'changed'
+          }));
+        }
+        
+        // Xóa hiệu ứng flash sau 1 giây
+        setTimeout(() => {
+          if (field === 'matchPrice' || field.includes('Price')) {
+            setFlashingCells(prev => {
+              const newState = {...prev};
+              delete newState[`${stockCode}-${field}`];
+              return newState;
+            });
+          } else {
+            setVolumeHistory(prev => {
+              const newState = {...prev};
+              delete newState[`${stockCode}-${field}`];
+              return newState;
+            });
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      console.error(`Error creating flash effect for ${stockCode}-${field}:`, error);
     }
+  };
+
+  // Hàm để lấy class cho animation volume
+  const getVolumeChangeClass = (stockCode, field) => {
+    return volumeHistory[`${stockCode}-${field}`] ? 'volume-change-animation' : '';
   };
 
   // Update watchlist data khi có dữ liệu mới từ SignalR
@@ -223,52 +299,99 @@ const WatchlistPage = () => {
       const updatedWatchlist = prevWatchlist.map(stock => {
         // Tìm stock cập nhật trong dữ liệu mới
         const updatedStock = newStockData.find(s => 
-          s.stockCode && stock.code && s.stockCode.toLowerCase() === stock.code.toLowerCase()
+          s.stockCode && stock.stockCode && s.stockCode.toLowerCase() === stock.stockCode.toLowerCase()
         );
         
         if (!updatedStock) return stock;
         
-        // Lưu giá cũ để so sánh
-        const oldPrice = stock.matchPrice !== '--' ? stock.matchPrice : null;
-        const newPrice = updatedStock.matchPrice?.toFixed(2) || stock.matchPrice;
-        
-        // Tạo hiệu ứng flash nếu giá thay đổi
-        if (oldPrice && newPrice && parseFloat(oldPrice) !== parseFloat(newPrice)) {
-          createFlashEffect(stock.code, newPrice, oldPrice);
+        // Xử lý animation cho giá và khối lượng
+        // Lưu giá cũ để so sánh (matchPrice)
+        if (stock.matchPrice !== '--' && updatedStock.matchPrice !== undefined) {
+          const oldPrice = stock.matchPrice;
+          const newPrice = String(updatedStock.matchPrice);
           
-          // Cập nhật màu sắc cho ô giá
-          const newPriceColor = updatePriceColors(stock.code, newPrice, oldPrice);
-          if (newPriceColor) {
-            setPriceChangeColors(prev => ({
-              ...prev,
-              [stock.code]: newPriceColor
-            }));
+          if (oldPrice !== newPrice) {
+            // Tạo hiệu ứng flash khi giá khớp lệnh thay đổi
+            createFlashEffect(stock.stockCode, 'matchPrice', newPrice, oldPrice);
+            
+            // Cập nhật màu sắc cho ô giá
+            const newPriceColor = updatePriceColors(stock.stockCode, newPrice, oldPrice);
+            if (newPriceColor) {
+              setPriceChangeColors(prev => ({
+                ...prev,
+                [stock.stockCode]: newPriceColor
+              }));
+            }
+            
+            // Lưu lại giá mới để tham chiếu sau này
+            previousStockPrices.current[stock.stockCode] = newPrice;
           }
+        }
+        
+        // Xử lý animation cho khối lượng khớp lệnh
+        if (stock.matchedOrderVolume !== '--' && updatedStock.matchedOrderVolume !== undefined) {
+          const oldVolume = stock.matchedOrderVolume;
+          const newVolume = String(updatedStock.matchedOrderVolume);
           
-          // Lưu lại giá mới để tham chiếu sau này
-          previousStockPrices.current[stock.code] = newPrice;
+          if (oldVolume !== newVolume) {
+            createFlashEffect(stock.stockCode, 'matchedOrderVolume', newVolume, oldVolume);
+            previousStockVolumes.current[`${stock.stockCode}-matchedOrderVolume`] = newVolume;
+          }
+        }
+        
+        // Xử lý animation cho tổng khối lượng
+        if (stock.volumeAccumulation !== '--' && updatedStock.volumeAccumulation !== undefined) {
+          const oldVolume = stock.volumeAccumulation;
+          const newVolume = String(updatedStock.volumeAccumulation);
+          
+          if (oldVolume !== newVolume) {
+            createFlashEffect(stock.stockCode, 'volumeAccumulation', newVolume, oldVolume);
+            previousStockVolumes.current[`${stock.stockCode}-volumeAccumulation`] = newVolume;
+          }
         }
         
         // Trả về stock với dữ liệu cập nhật
         return {
           ...stock,
-          matchPrice: newPrice,
-          matchChange: updatedStock.plusMinus ? 
+          matchPrice: updatedStock.matchPrice !== undefined ? String(updatedStock.matchPrice) : stock.matchPrice,
+          matchChange: updatedStock.plusMinus !== undefined ? 
             `${updatedStock.plusMinus > 0 ? '+' : ''}${updatedStock.plusMinus.toFixed(2)}%` : 
             stock.matchChange,
-          totalVolume: updatedStock.volumeAccumulation?.toLocaleString() || stock.totalVolume,
-          matchVolume: updatedStock.matchedOrderVolume?.toLocaleString() || stock.matchVolume,
-          high: updatedStock.highPrice?.toFixed(2) || stock.high,
-          low: updatedStock.lowPrice?.toFixed(2) || stock.low,
-          foreignBuy: updatedStock.foreignBuyVolume?.toLocaleString() || stock.foreignBuy,
-          foreignSell: updatedStock.foreignSellVolume?.toLocaleString() || stock.foreignSell
+          totalVolume: updatedStock.volumeAccumulation !== undefined ? String(updatedStock.volumeAccumulation) : stock.totalVolume,
+          matchedOrderVolume: updatedStock.matchedOrderVolume !== undefined ? String(updatedStock.matchedOrderVolume) : stock.matchedOrderVolume,
+          highPrice: updatedStock.highPrice !== undefined ? String(updatedStock.highPrice) : stock.highPrice,
+          lowPrice: updatedStock.lowPrice !== undefined ? String(updatedStock.lowPrice) : stock.lowPrice,
+          foreignBuyVolume: updatedStock.foreignBuyVolume !== undefined ? String(updatedStock.foreignBuyVolume) : stock.foreignBuyVolume,
+          foreignSellVolume: updatedStock.foreignSellVolume !== undefined ? String(updatedStock.foreignSellVolume) : stock.foreignSellVolume,
+          price3Buy: updatedStock.price3Buy !== undefined ? String(updatedStock.price3Buy) : stock.price3Buy,
+          volume3Buy: updatedStock.volume3Buy !== undefined ? String(updatedStock.volume3Buy) : stock.volume3Buy,
+          price2Buy: updatedStock.price2Buy !== undefined ? String(updatedStock.price2Buy) : stock.price2Buy,
+          volume2Buy: updatedStock.volume2Buy !== undefined ? String(updatedStock.volume2Buy) : stock.volume2Buy,
+          price1Buy: updatedStock.price1Buy !== undefined ? String(updatedStock.price1Buy) : stock.price1Buy,
+          volume1Buy: updatedStock.volume1Buy !== undefined ? String(updatedStock.volume1Buy) : stock.volume1Buy,
+          price1Sell: updatedStock.price1Sell !== undefined ? String(updatedStock.price1Sell) : stock.price1Sell,
+          volume1Sell: updatedStock.volume1Sell !== undefined ? String(updatedStock.volume1Sell) : stock.volume1Sell,
+          price2Sell: updatedStock.price2Sell !== undefined ? String(updatedStock.price2Sell) : stock.price2Sell,
+          volume2Sell: updatedStock.volume2Sell !== undefined ? String(updatedStock.volume2Sell) : stock.volume2Sell,
+          price3Sell: updatedStock.price3Sell !== undefined ? String(updatedStock.price3Sell) : stock.price3Sell,
+          volume3Sell: updatedStock.volume3Sell !== undefined ? String(updatedStock.volume3Sell) : stock.volume3Sell
         };
       });
       
-      // Lưu vào localStorage
-      localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
       return updatedWatchlist;
     });
+  };
+
+  // Thêm CSS cho hiệu ứng flash
+  const getFlashStyle = (stock, field) => {
+    const flashKey = `${stock.stockCode}-${field}`;
+    const flashType = flashingCells[flashKey];
+    
+    if (!flashType) return {};
+    
+    return {
+      animation: `${flashType === 'increase' ? 'priceUp' : 'priceDown'} 1s ease-out`,
+    };
   };
 
   // Fetch stock data from API
@@ -511,15 +634,17 @@ const WatchlistPage = () => {
 
   const confirmDeleteStock = async () => {
     try {
+      setIsDeletingStock(true);
       // Lấy userId từ getUserId
       const userId = getUserId();
       
       if (!userId) {
         toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        setIsDeletingStock(false);
         return;
       }
       
-      // Gọi API để xóa khỏi watchlist
+      // Gọi API để xóa khỏi watchlist - sử dụng stockCode như là tickerSymbol
       await stockService.deleteStockFromWatchlist(userId, stockToDelete.stockCode);
       
       // Cập nhật state
@@ -532,6 +657,8 @@ const WatchlistPage = () => {
     } catch (error) {
       console.error("Error removing from watchlist:", error);
       toast.error("Không thể xóa khỏi danh sách theo dõi. Vui lòng thử lại sau.");
+    } finally {
+      setIsDeletingStock(false);
     }
   };
 
@@ -586,7 +713,7 @@ const WatchlistPage = () => {
         </div>
       );
     }
-
+    
     // Tìm giá trị max và min để normalize dữ liệu
     const maxValue = Math.max(...validData);
     const minValue = Math.min(...validData);
@@ -634,6 +761,7 @@ const WatchlistPage = () => {
       
       if (!userId) {
         toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        setIsDeletingSector(false);
         return;
       }
       
@@ -663,17 +791,6 @@ const WatchlistPage = () => {
     } finally {
       setIsDeletingSector(false);
     }
-  };
-
-  // Thêm CSS cho hiệu ứng flash
-  const getFlashStyle = (stockCode) => {
-    const flashType = flashingCells[stockCode];
-    if (!flashType) return {};
-    
-    return {
-      animation: `${flashType === 'increase' ? 'flashGreen' : 'flashRed'} 1s ease-out`,
-      backgroundColor: flashType === 'increase' ? 'rgba(0, 255, 0, 0.15)' : 'rgba(255, 0, 0, 0.15)'
-    };
   };
 
   // Hook để fetch dữ liệu ban đầu và thiết lập SignalR
@@ -898,10 +1015,10 @@ const WatchlistPage = () => {
       const newStocks = selectedStockIds
         .map(id => {
           const stock = availableStocks.find(s => s.id === id);
-          return stock ? stock.ticketSymbol.toLowerCase() : null;
+          return stock ? stock.ticketSymbol : null;
         })
         .filter(Boolean)
-        .filter(ticker => !watchlist.some(w => w.stockCode.toLowerCase() === ticker));
+        .filter(ticker => !watchlist.some(w => w.stockCode === ticker));
 
       if (newStocks.length === 0) {
         toast.info('Tất cả cổ phiếu đã được chọn đã có trong danh sách theo dõi');
@@ -928,7 +1045,7 @@ const WatchlistPage = () => {
       fetchStockData(); // Refresh watchlist
     } catch (error) {
       console.error('Error adding stocks:', error);
-      toast.error('Không thể thêm cổ phiếu vào danh sách theo dõi');
+      toast.error('Không thể thêm cổ phiếu vào danh sách theo dõi. Hoặc bạn đã thêm cổ phiếu này vào danh sách theo dõi rồi');
     } finally {
       setIsAddingStocks(false);
     }
@@ -965,8 +1082,127 @@ const WatchlistPage = () => {
     }
   };
 
+  // Hàm xác định màu sắc dựa trên giá
+  const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
+    // Xử lý trường hợp giá trị là "--" (chuỗi đại diện cho giá trị null)
+    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--') {
+      return 'text-white';
+    }
+    
+    // Xử lý trường hợp null, undefined hoặc giá trị không phải số
+    if (price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
+      return 'text-white';
+    }
+    
+    // Chuyển đổi sang số để so sánh, nhưng không làm tròn
+    let numPrice = parseFloat(price);
+    let numRefPrice = parseFloat(refPrice);
+    let numCeilPrice = parseFloat(ceilPrice);
+    let numFloorPrice = parseFloat(floorPrice);
+
+    if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
+      return 'text-white';
+    }
+
+    // So sánh với sai số
+    const epsilon = 0.001; // Sai số cho phép 0.001
+    const equals = (a, b) => Math.abs(a - b) < epsilon;
+
+    if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
+    if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]'; // Tím - Bằng giá trần
+    if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
+    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
+    if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
+    
+    return 'text-white';
+  };
+
+  // Hàm ánh xạ từ trường khối lượng sang trường giá
+  const getPriceFieldForVolume = (volumeField) => {
+    const fieldMapping = {
+      'volume3Buy': 'price3Buy',
+      'volume2Buy': 'price2Buy',
+      'volume1Buy': 'price1Buy',
+      'matchedOrderVolume': 'matchPrice',
+      'volume1Sell': 'price1Sell',
+      'volume2Sell': 'price2Sell',
+      'volume3Sell': 'price3Sell',
+      'volumeAccumulation': 'matchPrice',
+      'foreignBuyVolume': 'matchPrice',
+      'foreignSellVolume': 'matchPrice'
+    };
+    
+    return fieldMapping[volumeField] || volumeField.replace('Volume', 'Price');
+  };
+
+  // Hàm kết hợp màu sắc và animation
+  const getCellClass = (stock, field, type = 'price') => {
+    // Kiểm tra stock và field tồn tại
+    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    
+    // Kiểm tra trường đặc biệt (tổng khối lượng luôn màu trắng)
+    if (field === 'volumeAccumulation') {
+      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    }
+    
+    // Kiểm tra giá trị field
+    const fieldValue = stock[field];
+    
+    // Xử lý trường hợp giá trị rỗng
+    if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
+      if (type === 'volume') {
+        // Đối với khối lượng, nếu giá trị rỗng, sử dụng màu của giá tương ứng
+        const priceField = getPriceFieldForVolume(field);
+        if (stock[priceField] && stock[priceField] !== '--') {
+          const colorClass = getPriceColor(
+            stock[priceField],
+            stock.priorClosePrice,
+            stock.ceilPrice,
+            stock.floorPrice
+          );
+          return `${colorClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+        }
+      }
+      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    }
+
+    // Xác định màu sắc
+    let colorClass = 'text-white';
+    
+    if (type === 'price') {
+      colorClass = getPriceColor(
+        stock[field],
+        stock.priorClosePrice,
+        stock.ceilPrice,
+        stock.floorPrice
+      );
+    } else if (type === 'volume') {
+      // Xác định trường giá tương ứng với trường khối lượng
+      const priceField = getPriceFieldForVolume(field);
+      
+      // Sử dụng màu sắc của giá tương ứng cho khối lượng
+      if (stock[priceField]) {
+        colorClass = getPriceColor(
+          stock[priceField],
+          stock.priorClosePrice,
+          stock.ceilPrice,
+          stock.floorPrice
+        );
+      }
+    }
+
+    // Kết hợp với hiệu ứng flash nếu có
+    const flashStyle = stockCode => flashingCells[stockCode] || '';
+    const flashClass = field === 'matchPrice' ? flashStyle(stock.stockCode) : '';
+
+    return `${colorClass} ${flashClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+  };
+
   return (
     <div className="bg-[#0a0a14] min-h-screen">
+      {/* Thêm animations vào CSS */}
+      <style jsx global>{priceChangeAnimations}</style>
+      
       {/* Page Header */}
       <div className="sticky top-0 z-50 bg-[#0a0a14] border-b border-[#1a1a1a] px-4 py-4 md:px-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1132,39 +1368,77 @@ const WatchlistPage = () => {
                           }`} onClick={() => handleStockClick(stock)}>
                             {stock.stockCode}
                           </td>
-                          <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceilPrice}</td>
-                          <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floorPrice}</td>
+                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceilPrice}</td>
+                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floorPrice}</td>
                           <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.priorClosePrice}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price3Buy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume3Buy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price2Buy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume2Buy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price1Buy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume1Buy}</td>
-                          <td 
-                            className={`border-r border-[#333] text-center whitespace-nowrap price-cell-transition py-2 ${
-                            priceChangeColors[stock.stockCode] || 'text-white'
-                            }`}
-                            style={getFlashStyle(stock.stockCode)}
-                          >
+                          <td className={`${getCellClass(stock, 'price3Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price3Buy')}`} 
+                              style={getFlashStyle(stock, 'price3Buy')}>
+                            {stock.price3Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume3Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume3Buy')}`}>
+                            {stock.volume3Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'price2Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price2Buy')}`}
+                              style={getFlashStyle(stock, 'price2Buy')}>
+                            {stock.price2Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume2Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume2Buy')}`}>
+                            {stock.volume2Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'price1Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price1Buy')}`}
+                              style={getFlashStyle(stock, 'price1Buy')}>
+                            {stock.price1Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume1Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume1Buy')}`}>
+                            {stock.volume1Buy}
+                          </td>
+                          <td className={`${getCellClass(stock, 'matchPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'matchPrice')}`}
+                              style={getFlashStyle(stock, 'matchPrice')}>
                             {stock.matchPrice}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchedOrderVolume}</td>
+                          <td className={`${getCellClass(stock, 'matchedOrderVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'matchedOrderVolume')}`}>
+                            {stock.matchedOrderVolume}
+                          </td>
                           <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
                             {stock.plusMinus !== '--' ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--'}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price1Sell}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume1Sell}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price2Sell}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume2Sell}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price3Sell}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume3Sell}</td>
-                          <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.highPrice || '--'}</td>
-                          <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.lowPrice || '--'}</td>
+                          <td className={`${getCellClass(stock, 'price1Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price1Sell')}`}
+                              style={getFlashStyle(stock, 'price1Sell')}>
+                            {stock.price1Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume1Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume1Sell')}`}>
+                            {stock.volume1Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'price2Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price2Sell')}`}
+                              style={getFlashStyle(stock, 'price2Sell')}>
+                            {stock.price2Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume2Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume2Sell')}`}>
+                            {stock.volume2Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'price3Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price3Sell')}`}
+                              style={getFlashStyle(stock, 'price3Sell')}>
+                            {stock.price3Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'volume3Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume3Sell')}`}>
+                            {stock.volume3Sell}
+                          </td>
+                          <td className={`${getCellClass(stock, 'highPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'highPrice')}`}
+                              style={getFlashStyle(stock, 'highPrice')}>
+                            {stock.highPrice}
+                          </td>
+                          <td className={`${getCellClass(stock, 'lowPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'lowPrice')}`}
+                              style={getFlashStyle(stock, 'lowPrice')}>
+                            {stock.lowPrice}
+                          </td>
                           <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
                           <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volumeAccumulation}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuyVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSellVolume}</td>
+                          <td className={`${getCellClass(stock, 'foreignBuyVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'foreignBuyVolume')}`}>
+                            {stock.foreignBuyVolume}
+                          </td>
+                          <td className={`${getCellClass(stock, 'foreignSellVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'foreignSellVolume')}`}>
+                            {stock.foreignSellVolume}
+                          </td>
                           <td className="text-center py-2">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
@@ -1609,6 +1883,7 @@ const WatchlistPage = () => {
               variant="outline"
               onClick={() => setIsDeleteSectorDialogOpen(false)}
               className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              disabled={isDeletingSector}
             >
               Hủy
             </Button>
@@ -1616,8 +1891,14 @@ const WatchlistPage = () => {
               variant="destructive"
               onClick={confirmDeleteSector}
               className="bg-red-500 hover:bg-red-600"
+              disabled={isDeletingSector}
             >
-              Xóa ngành
+              {isDeletingSector ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Đang xóa...</span>
+                </div>
+              ) : "Xóa ngành"}
             </Button>
           </div>
         </DialogContent>
@@ -1628,7 +1909,7 @@ const WatchlistPage = () => {
         <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[400px]">
           <DialogTitle className="font-semibold text-xl">Xóa cổ phiếu</DialogTitle>
           <DialogDescription className="text-[#999]">
-            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-white font-medium">{stockToDelete?.code}</span> khỏi danh sách theo dõi?
+            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-white font-medium">{stockToDelete?.stockCode}</span> khỏi danh sách theo dõi?
           </DialogDescription>
           
           <div className="flex justify-end gap-3 mt-6">
@@ -1636,6 +1917,7 @@ const WatchlistPage = () => {
               variant="outline"
               onClick={() => setIsDeleteStockDialogOpen(false)}
               className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              disabled={isDeletingStock}
             >
               Hủy
             </Button>
@@ -1643,8 +1925,14 @@ const WatchlistPage = () => {
               variant="destructive"
               onClick={confirmDeleteStock}
               className="bg-red-500 hover:bg-red-600"
+              disabled={isDeletingStock}
             >
-              Xóa cổ phiếu
+              {isDeletingStock ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Đang xóa...</span>
+                </div>
+              ) : "Xóa cổ phiếu"}
             </Button>
           </div>
         </DialogContent>

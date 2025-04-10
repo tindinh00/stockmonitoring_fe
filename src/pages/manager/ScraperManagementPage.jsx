@@ -80,10 +80,11 @@ export default function ScraperManagementPage() {
   // Pagination states
   const [pageIndex, setPageIndex] = useState(1);
   const pageSize = 5;
+  const [allData, setAllData] = useState([]);
 
   // Xử lý filter và sort dữ liệu
   const filteredData = useMemo(() => {
-    let result = [...allScrapers];
+    let result = [...allData];
 
     // Áp dụng các bộ lọc
     if (searchQuery) {
@@ -137,7 +138,7 @@ export default function ScraperManagementPage() {
     });
 
     return result;
-  }, [allScrapers, searchQuery, nameFilter, dateFilter, statusFilter, sortBy, isDescending]);
+  }, [allData, searchQuery, nameFilter, dateFilter, statusFilter, sortBy, isDescending]);
 
   // Tính toán dữ liệu cho trang hiện tại
   const currentPageData = useMemo(() => {
@@ -145,26 +146,32 @@ export default function ScraperManagementPage() {
     return filteredData.slice(startIndex, startIndex + pageSize);
   }, [filteredData, pageIndex, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
-
   const fetchScrapers = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
         sortBy: 'Date',
-        isDescending: 'false'
+        isDescending: 'false',
+        pageSize: 1000
       });
 
-      const API_URL = 'https://stockmonitoring-api-stock-service.onrender.com/api/scrapper-information';
+      const API_URL = 'https://stockmonitoring-api-gateway.onrender.com/api/scrapper-information';
       
       const response = await axios.get(`${API_URL}?${params.toString()}`, {
         headers: {
+          'accept': '*/*',
           'Authorization': `Bearer ${Cookies.get('auth_token')}`
         }
       });
 
       if (response.data.value.status === 200) {
-        setAllScrapers(response.data.value.data);
+        // Lưu toàn bộ dữ liệu
+        setAllData(response.data.value.data);
+        
+        // Tính toán dữ liệu cho trang hiện tại
+        const startIndex = (pageIndex - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        setAllScrapers(response.data.value.data.slice(startIndex, endIndex));
       } else {
         throw new Error(response.data.value.message || 'Lỗi không xác định từ server');
       }
@@ -181,19 +188,33 @@ export default function ScraperManagementPage() {
         toast.error(`Lỗi: ${error.message || 'Đã có lỗi xảy ra'}`);
       }
       setAllScrapers([]);
+      setAllData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Reset page khi filter/sort thay đổi
+  // Cập nhật dữ liệu hiển thị khi pageIndex thay đổi
+  useEffect(() => {
+    if (allData.length > 0) {
+      const startIndex = (pageIndex - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      setAllScrapers(allData.slice(startIndex, endIndex));
+    }
+  }, [pageIndex, allData]);
+
+  // Gọi API khi component mount hoặc khi filter thay đổi
+  useEffect(() => {
+    fetchScrapers();
+  }, [searchQuery, nameFilter, dateFilter, statusFilter, sortBy, isDescending]);
+
+  // Reset về trang 1 khi thay đổi filter
   useEffect(() => {
     setPageIndex(1);
   }, [searchQuery, nameFilter, dateFilter, statusFilter, sortBy, isDescending]);
 
-  useEffect(() => {
-    fetchScrapers();
-  }, []);
+  // Tính toán tổng số trang
+  const totalPages = Math.max(1, Math.ceil(allData.length / pageSize));
 
   const getStatusColor = (status) => {
     return status 
@@ -465,7 +486,10 @@ export default function ScraperManagementPage() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="mt-4 flex items-center justify-end">
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Hiển thị {allData.length > 0 ? ((pageIndex - 1) * pageSize) + 1 : 0} - {Math.min(pageIndex * pageSize, allData.length)} / {allData.length} bản ghi
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"

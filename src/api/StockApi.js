@@ -141,16 +141,26 @@ export const stockService = {
       console.log(`=== Getting latest stock data for ${exchange} ===`);
       
       const response = await axiosInstance.get(
-        `https://stockmonitoring-api-stock-service.onrender.com/api/stock/latest`,
+        `/api/stock/latest`,
         {
           params: { exchange },
           timeout: 15000
         }
       );
 
-      if (response?.data) {
+      console.log('Latest stock data response:', response);
+
+      // Check if response exists and has data
+      if (!response || !response.data) {
+        throw new Error('No response data received');
+      }
+
+      // Check if response has the expected structure
+      if (response.data.value && response.data.value.status === 200) {
         console.log(`Successfully fetched latest stock data`);
         return response.data;
+      } else if (response.data.value) {
+        throw new Error(response.data.value.message || 'Invalid response format');
       }
       
       throw new Error('Invalid response format');
@@ -420,12 +430,12 @@ export const stockService = {
   },
   
   // Xóa một mã chứng khoán khỏi watchlist
-  deleteStockFromWatchlist: async (userId, stockCode) => {
+  deleteStockFromWatchlist: async (userId, tickerSymbol) => {
     try {
       const response = await axiosInstance.delete('/api/watchlist-stock', {
         params: {
           userId: userId,
-          stockCode: stockCode
+          tickerSymbol: tickerSymbol
         }
       });
       console.log("Delete stock from watchlist response:", response.data);
