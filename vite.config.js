@@ -18,13 +18,13 @@ export default defineConfig({
     proxy: {
       // Proxy configuration to bypass CORS issues
       '/api': {
-        target: 'https://stockmonitoring-api-stock-service.onrender.com',
+        target: 'https://stockmonitoring-api-gateway.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path
       },
       '/ai-api': {
-        target: 'https://stockmonitoring-api-ai-service.onrender.com',
+        target: 'https://stockmonitoring-api-gateway.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/ai-api/, '/api')
