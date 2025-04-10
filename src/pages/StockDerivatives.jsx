@@ -47,6 +47,7 @@ import {
 import Cookies from 'js-cookie';
 import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
 import { stockService } from '@/api/StockApi'; // Update import to use named import
+import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
 
 const StockDerivatives = () => {
   const [activeTab, setActiveTab] = useState('price');
@@ -724,11 +725,10 @@ const StockDerivatives = () => {
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
         await axios.delete(
-          `https://stockmonitoring-api-stock-service.onrender.com/api/WatchListStock`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
           {
             params: {
-              userId: userId,
-              stockId: stock.code
+              tickerSymbol: stock.code.toLowerCase()
             },
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -742,9 +742,8 @@ const StockDerivatives = () => {
       } else {
         // Add to watchlist
         await axios.post(
-          `https://stockmonitoring-api-gateway.onrender.com/api/WatchListStock`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
           {
-            userId: userId,
             tickerSymbol: stock.code.toLowerCase()
           },
           {
@@ -837,6 +836,61 @@ const StockDerivatives = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  // Add to watchlist
+  const addToWatchlist = async (userId, tickerSymbol) => {
+    try {
+      console.log(`Adding ${tickerSymbol} to watchlist for user ${userId}`);
+      
+      const response = await axiosInstance.post(`/api/watchlist-stock/${userId}`, {
+        tickerSymbol: tickerSymbol.toLowerCase()
+      });
+      
+      console.log("Add to watchlist response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Add to watchlist error:", error);
+      throw error;
+    }
+  };
+
+  // Remove from watchlist
+  const removeFromWatchlist = async (userId, tickerSymbol) => {
+    try {
+      console.log(`Removing ${tickerSymbol} from watchlist for user ${userId}`);
+      
+      const response = await axiosInstance.delete(`/api/watchlist-stock/${userId}`, {
+        params: {
+          tickerSymbol: tickerSymbol.toLowerCase()
+        }
+      });
+      
+      console.log("Remove from watchlist response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Remove from watchlist error:", error);
+      throw error;
+    }
+  };
+
+  // Check if stock is in watchlist
+  const isInWatchlist = async (userId, tickerSymbol) => {
+    try {
+      console.log(`Checking if ${tickerSymbol} is in watchlist for user ${userId}`);
+      
+      const response = await axiosInstance.get(`/api/watchlist-stock/${userId}`, {
+        params: {
+          tickerSymbol: tickerSymbol.toLowerCase()
+        }
+      });
+      
+      console.log("Check watchlist response:", response.data);
+      return response.data && response.data.length > 0;
+    } catch (error) {
+      console.error("Check watchlist error:", error);
+      return false;
+    }
+  };
 
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
