@@ -78,11 +78,15 @@ export const AuthProvider = ({ children }) => {
       });
       
       // Kiểm tra dữ liệu phản hồi
-      if (!response || !response.data || !response.data.value) {
+      if (!response || !response.data) {
         return { success: false, message: "Lỗi kết nối đến máy chủ" };
       }
       
-      const responseData = response.data.value;
+      // Xử lý cấu trúc dữ liệu lồng nhau
+      let responseData = response.data;
+      if (responseData.value) {
+        responseData = responseData.value;
+      }
       
       if (responseData.status !== 200 || !responseData.data) {
         return { 
@@ -143,8 +147,9 @@ export const AuthProvider = ({ children }) => {
           errorMessage = "Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt";
         } else {
           // Lấy thông báo lỗi từ phản hồi API nếu có
-          errorMessage = error.response.data?.value?.message || 
-                       error.response.data?.message || 
+          const responseData = error.response.data;
+          errorMessage = responseData?.value?.message || 
+                       responseData?.message || 
                        `Lỗi: ${error.response.statusText}`;
         }
       } else if (error.request) {

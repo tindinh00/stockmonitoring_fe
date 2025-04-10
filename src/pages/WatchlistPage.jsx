@@ -32,12 +32,19 @@ const WatchlistPage = () => {
   const [isLoadingSectors, setIsLoadingSectors] = useState(false);
   const [selectedIndustryIds, setSelectedIndustryIds] = useState([]);
   const [stocks, setStocks] = useState([]);
-  const [activeTab, setActiveTab] = useState('price');
+  const [activeTab, setActiveTab] = useState('hsx');
   const [isDeleteSectorDialogOpen, setIsDeleteSectorDialogOpen] = useState(false);
   const [sectorToDelete, setSectorToDelete] = useState(null);
   const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState(null);
   const [lastTimestamp, setLastTimestamp] = useState(null);
+  
+  // Add new states for add stock feature
+  const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
+  const [availableStocks, setAvailableStocks] = useState([]);
+  const [selectedStockIds, setSelectedStockIds] = useState([]);
+  const [stockSearchQuery, setStockSearchQuery] = useState('');
+  const [isLoadingStocks, setIsLoadingStocks] = useState(false);
 
   // Thêm state để theo dõi việc flash giá
   const [flashingCells, setFlashingCells] = useState({});
@@ -45,6 +52,52 @@ const WatchlistPage = () => {
 
   // Thêm state để phân biệt initial loading và update loading
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Add loading state for add stock
+  const [isAddingStocks, setIsAddingStocks] = useState(false);
+
+  // Add this near other state declarations
+  const [isLoadingAvailableIndustries, setIsLoadingAvailableIndustries] = useState(false);
+
+  // Add new state for tracking when to refresh industries
+  const [shouldRefreshIndustries, setShouldRefreshIndustries] = useState(false);
+
+  // Add new state for delete sector loading
+  const [isDeletingSector, setIsDeletingSector] = useState(false);
+
+  // Add function to refresh industries data
+  const refreshIndustries = () => {
+    setShouldRefreshIndustries(prev => !prev);
+  };
+
+  // Add this function to fetch available industries
+  const fetchAvailableIndustries = async () => {
+    try {
+      setIsLoadingAvailableIndustries(true);
+      const response = await axios.get(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-sector',
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setAvailableIndustries(response.data.value.data);
+      } else {
+        setAvailableIndustries([]);
+        toast.error('Không thể tải danh sách ngành');
+      }
+    } catch (error) {
+      console.error('Error fetching industries:', error);
+      toast.error('Không thể tải danh sách ngành');
+      setAvailableIndustries([]);
+    } finally {
+      setIsLoadingAvailableIndustries(false);
+    }
+  };
 
   // Thêm useEffect để debug dữ liệu
   useEffect(() => {
@@ -54,7 +107,7 @@ const WatchlistPage = () => {
 
   // Thêm useEffect để fetch các sectors đã thêm vào watchlist của user
   useEffect(() => {
-    const fetchUserSectors = async (retryCount = 0) => {
+    const fetchUserSectors = async () => {
       try {
         setIsLoadingIndustries(true);
         const userId = getUserId();
@@ -62,7 +115,7 @@ const WatchlistPage = () => {
         
         if (!userId) {
           console.warn("No user ID found");
-          setSectors([]);
+          setIndustries([]);
           setIsLoadingIndustries(false);
           return;
         }
@@ -70,7 +123,7 @@ const WatchlistPage = () => {
         const token = Cookies.get("auth_token");
         if (!token) {
           console.warn("No auth token found");
-          setSectors([]);
+          setIndustries([]);
           setIsLoadingIndustries(false);
           return;
         }
@@ -87,74 +140,41 @@ const WatchlistPage = () => {
 
         console.log("Raw API Response:", response);
 
-        // Kiểm tra nếu có lỗi từ API
-        if (response?.data?.value?.status === 400) {
-          const errorMessage = response?.data?.value?.data;
-          console.error("API Error:", errorMessage);
-
-          // Nếu là lỗi OutOfMemory và chưa retry quá 3 lần
-          if (errorMessage.includes("OutOfMemoryException") && retryCount < 3) {
-            console.log(`Retry attempt ${retryCount + 1} after OutOfMemoryException`);
-            // Đợi 2 giây trước khi retry
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return fetchUserSectors(retryCount + 1);
-          }
-
-          // Nếu đã retry quá 3 lần hoặc lỗi khác
-          setSectors([]);
-          toast.error("Hệ thống đang tải nặng, vui lòng thử lại sau");
-          return;
-        }
-
-        if (response?.data?.value?.data) {
-          const sectorsData = response.data.value.data;
+        // Kiểm tra và xử lý dữ liệu từ API
+        if (response?.data?.value?.data?.sectors) {
+          const sectors = response.data.value.data.sectors;
+          console.log("Sectors data:", sectors);
           
-          if (sectorsData === "Watch list is empty") {
-            console.log("Watchlist is empty");
-            setSectors([]);
-            toast.info("Bạn chưa theo dõi ngành nào");
-          } else if (sectorsData.sectors && Array.isArray(sectorsData.sectors)) {
-            const formattedSectors = sectorsData.sectors.map(sector => ({
-              id: sector.id,
-              name: sector.name,
-              code: sector.code,
-              stocks: sector.stocks.map(stock => ({
-                id: stock.id,
-                ticketSymbol: stock.ticketSymbol,
-                percentD: stock.percentD,
-                percentW: stock.percentW,
-                percentM: stock.percentM,
-                smg: stock.smg
-              })),
-              percentD: sector.percentD,
-              percentW: sector.percentW,
-              percentM: sector.percentM,
-              smg: sector.smg
-            }));
-            
-            console.log("Formatted sectors:", formattedSectors);
-            setSectors(formattedSectors);
-          }
+          // Transform data to match the required format
+          const formattedSectors = sectors.map(sector => ({
+            id: sector.id,
+            name: sector.name,
+            smg: sector.smg || 0,
+            percentD: sector.percentD || 0,
+            percentW: sector.percentW || 0,
+            percentM: sector.percentM || 0,
+            stocks: sector.stocks || []
+          }));
+          
+          setIndustries(formattedSectors);
+        } else if (response?.data?.value?.status === 200 && !response?.data?.value?.data?.sectors) {
+          console.log("No sectors found in watchlist");
+          setIndustries([]);
         } else {
           console.warn("Invalid response format:", response);
-          setSectors([]);
+          setIndustries([]);
         }
       } catch (error) {
         console.error("Error fetching sectors:", error);
-        if (error.response?.data?.value?.data?.includes("OutOfMemoryException") && retryCount < 3) {
-          console.log(`Retry attempt ${retryCount + 1} after OutOfMemoryException`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          return fetchUserSectors(retryCount + 1);
-        }
-        setSectors([]);
-        toast.error("Không thể tải danh sách ngành theo dõi, vui lòng thử lại sau");
+        toast.error("Không thể tải danh sách ngành");
+        setIndustries([]);
       } finally {
         setIsLoadingIndustries(false);
       }
     };
-    
+
     fetchUserSectors();
-  }, []);
+  }, [shouldRefreshIndustries]); // Add dependency on shouldRefreshIndustries
 
   // Theo dõi thay đổi giá và cập nhật màu sắc
   const updatePriceColors = (stockCode, currentPrice, previousPrice) => {
@@ -278,64 +298,57 @@ const WatchlistPage = () => {
         return false;
       }
 
-      // Gọi API watchlist
-      const response = await axios.get(
-        `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'accept': '*/*'
-          }
-        }
-      );
+      // Gọi API watchlist với exchange parameter
+      const response = await stockService.getWatchlistByUser(userId, activeTab, lastTimestamp);
       
-      console.log("Watchlist API response:", response.data);
+      console.log("Watchlist API response:", response);
       
       // Kiểm tra và xử lý dữ liệu từ API
-      if (response.data?.value?.data?.stocks) {
-        const watchlistStocks = response.data.value.data.stocks;
+      if (response?.value?.data) {
+        console.log("API Response:", response.value.data);
+        
+        // Kiểm tra nếu data có chứa mảng stocks
+        const watchlistStocks = response.value.data.stocks || response.value.data;
+        console.log("Watchlist stocks:", watchlistStocks);
         
         // Chuyển đổi dữ liệu thành định dạng hiển thị
-        const formattedWatchlist = watchlistStocks.map(stock => ({
-          code: stock.ticketSymbol,
-          matchPrice: '--',
-          matchChange: '--',
-          totalVolume: '--',
-          matchVolume: '--',
-          high: '--',
-          low: '--',
-          foreignBuy: '--',
-          foreignSell: '--',
-          ceiling: '--',
-          floor: '--',
-          ref: '--',
-          buyPrice1: '--',
-          buyVolume1: '--',
-          buyPrice2: '--',
-          buyVolume2: '--',
-          buyPrice3: '--',
-          buyVolume3: '--',
-          sellPrice1: '--',
-          sellVolume1: '--',
-          sellPrice2: '--',
-          sellVolume2: '--',
-          sellPrice3: '--',
-          sellVolume3: '--',
-          weight: stock.weight || 0,
-          beta: stock.beta || 0,
-          stockReturn: stock.stockReturn || 0,
-          returnWeight: stock.returnWeight || 0,
-          betaWeight: stock.betaWeight || 0
-        }));
+        const formattedWatchlist = watchlistStocks.map(stock => {
+          console.log("Processing stock:", stock);
+          return {
+            id: stock.stockId || stock.id, // Thử cả stockId và id
+            stockCode: stock.stockCode || stock.tickerSymbol, // Thử cả stockCode và tickerSymbol
+            priorClosePrice: stock.priorClosePrice || '--',
+            ceilPrice: stock.ceilPrice || '--',
+            floorPrice: stock.floorPrice || '--',
+            price3Buy: stock.price3Buy || '--',
+            volume3Buy: stock.volume3Buy || '--',
+            price2Buy: stock.price2Buy || '--',
+            volume2Buy: stock.volume2Buy || '--',
+            price1Buy: stock.price1Buy || '--',
+            volume1Buy: stock.volume1Buy || '--',
+            matchPrice: stock.matchPrice || '--',
+            volumeAccumulation: stock.volumeAccumulation || '--',
+            plusMinus: stock.plusMinus || '--',
+            price1Sell: stock.price1Sell || '--',
+            volume1Sell: stock.volume1Sell || '--',
+            price2Sell: stock.price2Sell || '--',
+            volume2Sell: stock.volume2Sell || '--',
+            price3Sell: stock.price3Sell || '--',
+            volume3Sell: stock.volume3Sell || '--',
+            matchedOrderVolume: stock.matchedOrderVolume || '--',
+            foreignBuyVolume: stock.foreignBuyVolume || '--',
+            foreignSellVolume: stock.foreignSellVolume || '--'
+          };
+        });
 
         console.log("Formatted watchlist:", formattedWatchlist);
         setWatchlist(formattedWatchlist);
         
         // Lưu danh sách mã chứng khoán để sử dụng sau này
-        const stockCodes = watchlistStocks.map(stock => stock.ticketSymbol);
+        const stockCodes = watchlistStocks.map(stock => stock.stockCode);
         setWatchlistCodes(stockCodes);
         
-        // Sau khi có danh sách cổ phiếu, gọi API để lấy giá realtime
+        // Sau khi có danh sách cổ phiếu, thiết lập SignalR
         if (stockCodes.length > 0) {
           setupSignalRConnection();
         }
@@ -491,42 +504,6 @@ const WatchlistPage = () => {
     };
   }, []);
 
-  // Thêm useEffect để fetch sectors khi component mount
-  useEffect(() => {
-    const fetchSectors = async () => {
-      try {
-        setIsLoadingSectors(true);
-        const response = await stockService.getWatchListSectors();
-        console.log("Sectors response:", response);
-        
-        // Kiểm tra cấu trúc response và lấy data
-        if (response?.value?.data) {
-          const sectors = response.value.data;
-          setAvailableIndustries(sectors.map(sector => ({
-            id: sector.id,
-            name: sector.name,
-            code: sector.code || sector.id,
-            smg: sector.smg || 0,
-            dayChange: sector.percentD || 0,
-            weekChange: sector.percentW || 0,
-            monthChange: sector.percentM || 0
-          })));
-        } else {
-          console.log("No sectors data found in response");
-          setAvailableIndustries([]);
-        }
-      } catch (error) {
-        console.error("Error fetching sectors:", error);
-        toast.error("Không thể tải danh sách ngành");
-        setAvailableIndustries([]);
-      } finally {
-        setIsLoadingSectors(false);
-      }
-    };
-
-    fetchSectors();
-  }, []);
-
   const removeFromWatchlist = (stock) => {
     setStockToDelete(stock);
     setIsDeleteStockDialogOpen(true);
@@ -543,14 +520,14 @@ const WatchlistPage = () => {
       }
       
       // Gọi API để xóa khỏi watchlist
-      await stockService.deleteStockFromWatchlist(userId, stockToDelete.code);
+      await stockService.deleteStockFromWatchlist(userId, stockToDelete.stockCode);
       
       // Cập nhật state
-      setStocks(stocks.filter(stock => stock.code !== stockToDelete.code));
-      setWatchlistCodes(watchlistCodes.filter(stockCode => stockCode !== stockToDelete.code));
-      setWatchlist(watchlist.filter(stock => stock.code !== stockToDelete.code));
+      setStocks(stocks.filter(stock => stock.stockCode !== stockToDelete.stockCode));
+      setWatchlistCodes(watchlistCodes.filter(stockCode => stockCode !== stockToDelete.stockCode));
+      setWatchlist(watchlist.filter(stock => stock.stockCode !== stockToDelete.stockCode));
       
-      toast.success(`Đã xóa ${stockToDelete.code} khỏi danh sách theo dõi`);
+      toast.success(`Đã xóa ${stockToDelete.stockCode} khỏi danh sách theo dõi`);
       setIsDeleteStockDialogOpen(false);
     } catch (error) {
       console.error("Error removing from watchlist:", error);
@@ -586,81 +563,11 @@ const WatchlistPage = () => {
   const handleIndustryClick = (industry) => {
     setSelectedIndustry(industry);
     setIsIndustryDetailOpen(true);
-    
-    // Lấy danh sách cổ phiếu trong ngành từ API
-    const fetchIndustryStocks = async () => {
-      try {
-        // Hiển thị trạng thái đang tải
-        setIndustryStocks([]);
-        
-        // Bước 1: Lấy userId
-        const userId = getUserId();
-        if (!userId) {
-          toast.error("Vui lòng đăng nhập để xem danh sách theo dõi");
-          return;
-        }
-        
-        console.log("Fetching watchlist data for userId:", userId);
-        
-        // Bước 2: Lấy danh sách cổ phiếu trong watchlist từ API
-        try {
-          // Get auth token from cookies
-          const token = Cookies.get("auth_token");
-          if (!token) {
-            toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
-            return;
-          }
-          
-          // Gọi API lấy watchlist
-          const response = await axios.get(
-            `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'accept': '*/*'
-              }
-            }
-          );
-          
-          console.log("Watchlist API complete response:", response);
-          console.log("Watchlist API data:", response.data);
-          
-          // Xử lý API theo cấu trúc đã xác nhận: value.data.stocks
-          if (response.data && response.data.value && response.data.value.data && response.data.value.data.stocks) {
-            const stocks = response.data.value.data.stocks;
-            console.log("Extracted stocks from API:", stocks);
-            
-            if (stocks.length > 0) {
-              processStocks(stocks);
-            } else {
-              console.log("Watchlist is empty");
-              toast.info("Không có cổ phiếu nào trong danh sách theo dõi");
-            }
-          } else {
-            console.error("Invalid API structure:", response.data);
-            toast.error("Cấu trúc dữ liệu API không đúng");
-          }
-        } catch (error) {
-          console.error("Error fetching watchlist:", error);
-          if (error.response) {
-            console.error("Error response:", error.response.data);
-            console.error("Error status:", error.response.status);
-          }
-          toast.error("Không thể tải danh sách cổ phiếu theo dõi");
-        }
-      } catch (error) {
-        console.error("Error in fetchIndustryStocks:", error);
-        toast.error("Có lỗi xảy ra khi tải dữ liệu ngành");
-      }
-    };
-    
-    fetchIndustryStocks();
   };
 
   const renderMiniChart = (data) => {
     // Kiểm tra dữ liệu trước khi render
     if (!data || !Array.isArray(data) || data.length === 0) {
-      // Chỉ hiển thị đường cơ bản khi không có dữ liệu
       return (
         <div className="w-20 h-8 relative flex items-center justify-center">
           <div className="w-full h-px bg-[#4A72FF]/30"></div>
@@ -679,38 +586,34 @@ const WatchlistPage = () => {
         </div>
       );
     }
+
+    // Tìm giá trị max và min để normalize dữ liệu
+    const maxValue = Math.max(...validData);
+    const minValue = Math.min(...validData);
+    const range = Math.max(Math.abs(maxValue), Math.abs(minValue));
+
+    // Tính toán điểm cho đường chart
+    const points = validData.map((value, index) => {
+      const x = (index * 100) / (validData.length - 1);
+      // Normalize giá trị để nằm trong khoảng 0-30 (chiều cao SVG)
+      // 15 là điểm giữa, giá trị âm sẽ đi lên trên, dương đi xuống dưới
+      const y = 15 - ((value / range) * 12); // Scale factor 12 để chart không quá cao/thấp
+      return `${x},${y}`;
+    }).join(' ');
+
+    // Xác định màu dựa trên xu hướng (trend)
+    const trend = validData[validData.length - 1] - validData[0];
+    const chartColor = trend >= 0 ? "#00FF00" : "#FF4A4A";
     
-    // Mở rộng mảng dữ liệu để có hình dạng sóng đẹp hơn 
-    // nhưng vẫn dựa vào dữ liệu gốc, không tạo dữ liệu mẫu
-    let extendedData = [...validData];
-    if (validData.length < 5) {
-      // Tạo thêm điểm để có đường cong đẹp hơn bằng cách nội suy từ dữ liệu gốc
-      const interpolatedData = [];
-      for (let i = 0; i < validData.length; i++) {
-        interpolatedData.push(validData[i]);
-        if (i < validData.length - 1) {
-          interpolatedData.push((validData[i] + validData[i+1]) / 2); // Điểm trung gian
-        }
-      }
-      extendedData = interpolatedData;
-    }
-    
-    // Giả lập mini chart bằng SVG polyline (biểu đồ dạng đường)
     return (
       <div className="w-20 h-8 relative">
         <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full">
+          {/* Thêm đường cơ sở ở giữa */}
+          <line x1="0" y1="15" x2="100" y2="15" stroke="#333" strokeWidth="0.5" />
           <polyline
-            points={extendedData.map((value, index) => {
-              const maxValue = Math.max(...extendedData);
-              const minValue = Math.min(...extendedData);
-              const range = maxValue - minValue;
-              const normalizedValue = range > 0 
-                ? 30 - ((value - minValue) / range) * 25 
-                : 15; // Giá trị mặc định nếu tất cả các điểm đều bằng nhau
-              return `${index * (100 / (extendedData.length - 1))},${normalizedValue}`;
-            }).join(' ')}
+            points={points}
             fill="none"
-            stroke="#4A72FF"
+            stroke={chartColor}
             strokeWidth="2"
           />
         </svg>
@@ -726,6 +629,7 @@ const WatchlistPage = () => {
 
   const confirmDeleteSector = async () => {
     try {
+      setIsDeletingSector(true);
       const userId = getUserId();
       
       if (!userId) {
@@ -733,16 +637,31 @@ const WatchlistPage = () => {
         return;
       }
       
-      await stockService.deleteSectorFromWatchlist(userId, sectorToDelete.id);
+      // Update API call to use query parameters
+      await axios.delete(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-sector',
+        {
+          params: {
+            userId: userId,
+            sectorId: sectorToDelete.id
+          },
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
       
-      // Cập nhật state UI
-      setIndustries(industries.filter(industry => industry.id !== sectorToDelete.id));
+      // Refresh industries data
+      refreshIndustries();
       
       toast.success(`Đã xóa ngành "${sectorToDelete.name}" khỏi danh sách theo dõi`);
       setIsDeleteSectorDialogOpen(false);
     } catch (error) {
       console.error("Error deleting sector:", error);
       toast.error("Không thể xóa ngành khỏi danh sách theo dõi. Vui lòng thử lại sau.");
+    } finally {
+      setIsDeletingSector(false);
     }
   };
 
@@ -841,30 +760,218 @@ const WatchlistPage = () => {
     }
   }
 
-  return (
-    <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
-      {/* Add CSS for flash animations */}
-      <style jsx global>{`
-        @keyframes flashGreen {
-          0%, 100% { background-color: transparent; }
-          50% { background-color: rgba(0, 255, 0, 0.15); }
-        }
-        
-        @keyframes flashRed {
-          0%, 100% { background-color: transparent; }
-          50% { background-color: rgba(255, 0, 0, 0.15); }
-        }
-        
-        .price-cell-transition {
-          transition: color 0.3s ease;
-        }
-      `}</style>
+  // Add sectors to watchlist
+  const addSectorsToWatchlist = async (userId, sectorIds) => {
+    try {
+      console.log(`Adding sectors to watchlist for user ${userId}:`, sectorIds);
       
+      // Đảm bảo sectorIds là mảng
+      const sectorIdArray = Array.isArray(sectorIds) ? sectorIds : [sectorIds];
+      
+      const response = await axiosInstance.post(`/api/watchlist-sector/${userId}`, sectorIdArray, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log("Add sectors to watchlist response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Add sectors to watchlist error:", error);
+      throw error;
+    }
+  };
+
+  // Lấy danh sách ngành theo dõi của một user
+  const getUserSectors = async (userId) => {
+    try {
+      console.log(`Getting user sectors for userId: ${userId}`);
+      
+      const response = await axiosInstance.get(`/api/watchlist-sector/${userId}`, {
+        timeout: 15000
+      });
+      
+      console.log("User sectors response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user sectors:', error);
+      throw error;
+    }
+  };
+
+  // Xóa sector khỏi watchlist
+  const deleteSectorFromWatchlist = async (userId, sectorId) => {
+    try {
+      console.log(`Deleting sector ${sectorId} for user ${userId}`);
+      
+      const response = await axiosInstance.delete(`/api/watchlist-sector/${userId}/${sectorId}`);
+      
+      console.log("Delete sector from watchlist response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Delete sector from watchlist error:", error);
+      throw error;
+    }
+  };
+
+  // Xóa sector khỏi watchlist sử dụng query parameter
+  const deleteSectorWithQuery = async (userId, sectorId) => {
+    try {
+      console.log(`Deleting sector ${sectorId} for user ${userId} using query parameters`);
+      
+      const response = await axiosInstance.delete('/api/watchlist-sector', {
+        params: {
+          userId: userId,
+          sectorId: sectorId
+        }
+      });
+      
+      console.log("Delete sector with query params response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Delete sector with query params error:", error);
+      throw error;
+    }
+  };
+
+  // Add stocks to watchlist (multiple)
+  const addStocksToWatchlist = async (userId, stockCodes) => {
+    try {
+      const requests = stockCodes.map(code => 
+        stockService.addToWatchlist(userId, code)
+      );
+      
+      const responses = await Promise.all(requests);
+      console.log("Add stocks to watchlist responses:", responses);
+      return responses;
+    } catch (error) {
+      console.error("Add stocks to watchlist error:", error);
+      throw error;
+    }
+  };
+
+  // Add useEffect to refetch data when activeTab changes
+  useEffect(() => {
+    fetchStockData();
+  }, [activeTab]);
+
+  // Fetch available stocks
+  const fetchAvailableStocks = async () => {
+    try {
+      setIsLoadingStocks(true);
+      const response = await axios.get(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          params: {
+            pageIndex: 0,
+            pageSize: 2000
+          },
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setAvailableStocks(response.data.value.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stocks:', error);
+      toast.error('Không thể tải danh sách cổ phiếu');
+    } finally {
+      setIsLoadingStocks(false);
+    }
+  };
+
+  // Add selected stocks to watchlist
+  const addSelectedStocksToWatchlist = async () => {
+    try {
+      setIsAddingStocks(true);
+      const userId = getUserId();
+      if (!userId) {
+        toast.error('Bạn cần đăng nhập để sử dụng tính năng này');
+        return;
+      }
+
+      // Filter out stocks that are already in the watchlist
+      const newStocks = selectedStockIds
+        .map(id => {
+          const stock = availableStocks.find(s => s.id === id);
+          return stock ? stock.ticketSymbol.toLowerCase() : null;
+        })
+        .filter(Boolean)
+        .filter(ticker => !watchlist.some(w => w.stockCode.toLowerCase() === ticker));
+
+      if (newStocks.length === 0) {
+        toast.info('Tất cả cổ phiếu đã được chọn đã có trong danh sách theo dõi');
+        return;
+      }
+
+      await axios.post(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          userId: userId,
+          tickerSymbol: newStocks
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success('Đã thêm cổ phiếu vào danh sách theo dõi');
+      setIsAddStockDialogOpen(false);
+      setSelectedStockIds([]);
+      fetchStockData(); // Refresh watchlist
+    } catch (error) {
+      console.error('Error adding stocks:', error);
+      toast.error('Không thể thêm cổ phiếu vào danh sách theo dõi');
+    } finally {
+      setIsAddingStocks(false);
+    }
+  };
+
+  // Update addSectorsToWatchlist success handler
+  const handleAddSectors = async () => {
+    if (selectedIndustryIds.length > 0) {
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        return;
+      }
+      
+      setIsAddIndustryDialogOpen(false);
+      toast.promise(
+        stockService.addSectorsToWatchlist(userId, selectedIndustryIds),
+        {
+          loading: 'Đang thêm ngành...',
+          success: (response) => {
+            // Refresh industries data instead of manual state update
+            refreshIndustries();
+            setSelectedIndustryIds([]);
+            setNewIndustryName('');
+            return "Đã thêm ngành thành công!";
+          },
+          error: (err) => {
+            console.error("Error adding sectors:", err);
+            return "Không thể thêm ngành. Vui lòng thử lại sau.";
+          }
+        }
+      );
+    }
+  };
+
+  return (
+    <div className="bg-[#0a0a14] min-h-screen">
       {/* Page Header */}
-      <div className="px-4 py-6 border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-50 bg-[#0a0a14] border-b border-[#1a1a1a] px-4 py-4 md:px-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Danh mục theo dõi</h1>
+            <h1 className="text-2xl font-bold text-white">Danh mục theo dõi</h1>
             <p className="text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
           <div className="flex items-center gap-4">
@@ -875,51 +982,88 @@ const WatchlistPage = () => {
               </span>
             </div>
             <Button
-              onClick={() => setIsAddIndustryDialogOpen(true)}
+              onClick={() => {
+                fetchAvailableStocks();
+                setIsAddStockDialogOpen(true);
+              }}
+              className="bg-[#09D1C7] hover:bg-[#3a5ad9] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden md:inline">Thêm cổ phiếu</span>
+            </Button>
+            <Button
+              onClick={() => {
+                fetchAvailableIndustries();
+                setIsAddIndustryDialogOpen(true);
+              }}
               className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
-              <span>Thêm ngành</span>
+              <span className="hidden md:inline">Thêm ngành</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="flex gap-6">
-          {/* Left section - Stock Table (70%) */}
-          <div className="w-[70%]">
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left section - Stock Table */}
+          <div className="w-full lg:w-[70%] space-y-4">
+            {/* Exchange Tabs */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('hsx')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === 'hsx'
+                    ? 'bg-[#09D1C7] text-white'
+                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                }`}
+              >
+                HOSE
+              </button>
+              <button
+                onClick={() => setActiveTab('hnx')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === 'hnx'
+                    ? 'bg-[#09D1C7] text-white'
+                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                }`}
+              >
+                HNX
+              </button>
+            </div>
+
             {/* Stock Table */}
             <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <colgroup>
-                    <col className="w-[60px]" />{/* Mã CK */}
-                    <col className="w-[60px]" />{/* Trần */}
-                    <col className="w-[60px]" />{/* Sàn */}
-                    <col className="w-[60px]" />{/* TC */}
-                    <col className="w-[60px]" />{/* Giá 3 */}
-                    <col className="w-[80px]" />{/* KL 3 */}
-                    <col className="w-[60px]" />{/* Giá 2 */}
-                    <col className="w-[80px]" />{/* KL 2 */}
-                    <col className="w-[60px]" />{/* Giá 1 */}
-                    <col className="w-[80px]" />{/* KL 1 */}
-                    <col className="w-[60px]" />{/* Giá */}
-                    <col className="w-[80px]" />{/* KL */}
-                    <col className="w-[70px]" />{/* +/- */}
-                    <col className="w-[60px]" />{/* Giá 1 */}
-                    <col className="w-[80px]" />{/* KL 1 */}
-                    <col className="w-[60px]" />{/* Giá 2 */}
-                    <col className="w-[80px]" />{/* KL 2 */}
-                    <col className="w-[60px]" />{/* Giá 3 */}
-                    <col className="w-[80px]" />{/* KL 3 */}
-                    <col className="w-[60px]" />{/* Cao */}
-                    <col className="w-[60px]" />{/* Thấp */}
-                    <col className="w-[60px]" />{/* TB */}
-                    <col className="w-[100px]" />{/* Tổng KL */}
-                    <col className="w-[80px]" />{/* Mua */}
-                    <col className="w-[80px]" />{/* Bán */}
-                    <col className="w-[80px]" />{/* Thao tác */}
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[100px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[80px]" />
                   </colgroup>
                   <thead className="sticky top-0 bg-[#1a1a1a] z-50">
                     <tr>
@@ -982,45 +1126,45 @@ const WatchlistPage = () => {
                       </tr>
                     ) : (
                       watchlist.map((stock) => (
-                        <tr key={stock.code} className="hover:bg-[#1a1a1a]">
+                        <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
                           <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
+                            priceChangeColors[stock.stockCode] || 'text-white'
                           }`} onClick={() => handleStockClick(stock)}>
-                            {stock.code}
+                            {stock.stockCode}
                           </td>
-                          <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-                          <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1 || '--'}</td>
+                          <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceilPrice}</td>
+                          <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floorPrice}</td>
+                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.priorClosePrice}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price3Buy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume3Buy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price2Buy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume2Buy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price1Buy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume1Buy}</td>
                           <td 
                             className={`border-r border-[#333] text-center whitespace-nowrap price-cell-transition py-2 ${
-                            priceChangeColors[stock.code] || 'text-white'
+                            priceChangeColors[stock.stockCode] || 'text-white'
                             }`}
-                            style={getFlashStyle(stock.code)}
+                            style={getFlashStyle(stock.stockCode)}
                           >
                             {stock.matchPrice}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
-                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                            {stock.matchChange}
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchedOrderVolume}</td>
+                          <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                            {stock.plusMinus !== '--' ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--'}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3 || '--'}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3 || '--'}</td>
-                          <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high}</td>
-                          <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price1Sell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume1Sell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price2Sell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume2Sell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.price3Sell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volume3Sell}</td>
+                          <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.highPrice || '--'}</td>
+                          <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.lowPrice || '--'}</td>
                           <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volumeAccumulation}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuyVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSellVolume}</td>
                           <td className="text-center py-2">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
@@ -1041,8 +1185,8 @@ const WatchlistPage = () => {
             </div>
           </div>
 
-          {/* Right section - Industries (30%) */}
-          <div className="w-[30%] space-y-6">
+          {/* Right section - Industries */}
+          <div className="w-full lg:w-[30%] space-y-6">
             {/* Industries List */}
             <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
               <div className="p-4 border-b border-[#333]">
@@ -1050,7 +1194,7 @@ const WatchlistPage = () => {
               </div>
 
               <div className="p-4">
-                {/* Header - Fix column widths and alignment */}
+                {/* Header */}
                 <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[#999] text-sm font-medium">
                   <div className="col-span-4">Tên ngành</div>
                   <div className="col-span-2 text-center">SMG</div>
@@ -1059,31 +1203,17 @@ const WatchlistPage = () => {
                     <span>%W</span>
                     <span>%M</span>
                   </div>
-                  {/* Add empty column for delete button alignment */}
                   <div className="col-span-1"></div>
                 </div>
 
                 {/* Industry Items */}
-                {isLoadingIndustries ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full border-2 border-[#09D1C7] border-t-transparent animate-spin"></div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 rounded-full border-2 border-[#0a8f88] border-t-transparent animate-spin"></div>
-                        </div>
-                      </div>
-                      <span className="text-[#666] text-sm">Đang tải dữ liệu...</span>
-                    </div>
-                  </div>
-                ) : (
+                {!isLoadingIndustries && industries && industries.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {industries.map((industry) => (
                       <div
                         key={industry.id}
                         className="bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
                       >
-                        {/* Match the grid structure with header exactly */}
                         <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center">
                           <div className="col-span-4 flex items-center gap-2 min-w-0">
                             <button
@@ -1108,25 +1238,25 @@ const WatchlistPage = () => {
                           </div>
                           <div className="col-span-5 grid grid-cols-3 gap-2 text-center text-xs">
                             <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.dayChange > 0 
+                              industry.percentD > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                             }`}>
-                              {industry.dayChange > 0 ? '+' : ''}{industry.dayChange}%
+                              {industry.percentD > 0 ? '+' : ''}{industry.percentD.toFixed(2)}%
                             </span>
                             <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.weekChange > 0 
+                              industry.percentW > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                             }`}>
-                              {industry.weekChange > 0 ? '+' : ''}{industry.weekChange}%
+                              {industry.percentW > 0 ? '+' : ''}{industry.percentW.toFixed(2)}%
                             </span>
                             <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.monthChange > 0 
+                              industry.percentM > 0 
                                 ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                                 : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                             }`}>
-                              {industry.monthChange > 0 ? '+' : ''}{industry.monthChange}%
+                              {industry.percentM > 0 ? '+' : ''}{industry.percentM.toFixed(2)}%
                             </span>
                           </div>
                           <div className="col-span-1 flex justify-end">
@@ -1146,8 +1276,15 @@ const WatchlistPage = () => {
                   </div>
                 )}
 
+                {/* Loading State */}
+                {isLoadingIndustries && (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+
                 {/* Empty State */}
-                {!isLoadingIndustries && industries.length === 0 && (
+                {!isLoadingIndustries && (!industries || industries.length === 0) && (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <div className="w-12 h-12 bg-[#252525] rounded-full flex items-center justify-center mb-3">
                       <svg className="w-6 h-6 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1165,11 +1302,11 @@ const WatchlistPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
                 <h3 className="text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-2xl font-bold text-white">{watchlist.length}</p>
+                <p className="text-xl font-semibold text-white">{watchlist.length}</p>
               </div>
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
                 <h3 className="text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-2xl font-bold text-white">{industries.length}</p>
+                <p className="text-xl font-semibold text-white">{industries.length}</p>
               </div>
             </div>
           </div>
@@ -1200,11 +1337,10 @@ const WatchlistPage = () => {
           {/* Stocks Table */}
           <div className="space-y-1">
             {/* Header */}
-            <div className="grid grid-cols-7 gap-2 px-3 py-2 text-[#999] text-sm font-medium border-b border-[#333]">
+            <div className="grid grid-cols-6 gap-2 px-3 py-2 text-[#999] text-sm font-medium border-b border-[#333]">
               <div className="col-span-1">Mã</div>
               <div className="col-span-1">Chart</div>
               <div className="col-span-1 text-center">SMG</div>
-              <div className="col-span-1 text-right">Giá</div>
               <div className="col-span-3 grid grid-cols-3 gap-1 text-center">
                 <span>%D</span>
                 <span>%W</span>
@@ -1214,17 +1350,17 @@ const WatchlistPage = () => {
 
             {/* Stock Items */}
             <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
-              {industryStocks.map((stock) => (
+              {selectedIndustry?.stocks.map((stock) => (
                 <div
-                  key={stock.code}
-                  className="grid grid-cols-7 gap-2 px-3 py-2.5 items-center hover:bg-[#252525] rounded-lg transition-colors"
+                  key={stock.id}
+                  className="grid grid-cols-6 gap-2 px-3 py-2.5 items-center hover:bg-[#252525] rounded-lg transition-colors"
                 >
                   <div className="col-span-1 flex items-center gap-1.5">
                     <ChevronRight className="h-4 w-4 text-[#4A72FF]" />
-                    <span className="text-white font-medium">{stock.code}</span>
+                    <span className="text-white font-medium">{stock.ticketSymbol}</span>
                   </div>
                   <div className="col-span-1">
-                    {renderMiniChart(stock.chart)}
+                    {renderMiniChart([stock.percentD, stock.percentW, stock.percentM])}
                   </div>
                   <div className="col-span-1 flex justify-center">
                     <span className={`rounded-full w-7 h-7 flex items-center justify-center font-medium text-sm
@@ -1234,32 +1370,27 @@ const WatchlistPage = () => {
                       {stock.smg}
                     </span>
                   </div>
-                  <div className="col-span-1 text-right font-medium text-[#09D1C7]">
-                    {typeof stock.price === 'number' 
-                      ? stock.price.toLocaleString('vi-VN')
-                      : stock.price}
-                  </div>
                   <div className="col-span-3 grid grid-cols-3 gap-1 text-center text-sm">
                     <span className={`rounded px-1 py-0.5 ${
-                      stock.dayChange > 0 
+                      stock.percentD > 0 
                         ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.dayChange > 0 ? '+' : ''}{typeof stock.dayChange === 'number' ? stock.dayChange.toFixed(1) : stock.dayChange}%
+                      {stock.percentD > 0 ? '+' : ''}{stock.percentD.toFixed(2)}%
                     </span>
                     <span className={`rounded px-1 py-0.5 ${
-                      stock.weekChange > 0 
+                      stock.percentW > 0 
                         ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.weekChange > 0 ? '+' : ''}{typeof stock.weekChange === 'number' ? stock.weekChange.toFixed(1) : stock.weekChange}%
+                      {stock.percentW > 0 ? '+' : ''}{stock.percentW.toFixed(2)}%
                     </span>
                     <span className={`rounded px-1 py-0.5 ${
-                      stock.monthChange > 0 
+                      stock.percentM > 0 
                         ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
-                      {stock.monthChange > 0 ? '+' : ''}{typeof stock.monthChange === 'number' ? stock.monthChange.toFixed(1) : stock.monthChange}%
+                      {stock.percentM > 0 ? '+' : ''}{stock.percentM.toFixed(2)}%
                     </span>
                   </div>
                 </div>
@@ -1297,7 +1428,7 @@ const WatchlistPage = () => {
 
           {/* Industries List */}
           <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
-            {isLoadingSectors ? (
+            {isLoadingAvailableIndustries ? (
               <div className="flex justify-center items-center py-4">
                 <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
               </div>
@@ -1306,7 +1437,6 @@ const WatchlistPage = () => {
                 .filter(industry => 
                   (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
                   industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
-                  // Lọc ra các ngành chưa được theo dõi
                   !industries.some(existingIndustry => existingIndustry.id === industry.id)
                 )
                 .map(industry => (
@@ -1352,7 +1482,7 @@ const WatchlistPage = () => {
             )}
             
             {/* Hiển thị thông báo nếu tất cả ngành đều đã được theo dõi */}
-            {!isLoadingSectors && availableIndustries.length > 0 && 
+            {!isLoadingAvailableIndustries && availableIndustries.length > 0 && 
              availableIndustries.filter(industry => 
                (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
                industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
@@ -1390,39 +1520,7 @@ const WatchlistPage = () => {
                 Hủy
               </Button>
               <Button
-                onClick={() => {
-                  if (selectedIndustryIds.length > 0) {
-                    // Lấy userId từ getUserId
-                    const userId = getUserId();
-                    
-                    if (!userId) {
-                      toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
-                      return;
-                    }
-                    
-                    // Gọi API để thêm ngành
-                    setIsAddIndustryDialogOpen(false); // Đóng dialog trước khi gọi API
-                    toast.promise(
-                      stockService.addSectorsToWatchlist(userId, selectedIndustryIds),
-                      {
-                        loading: 'Đang thêm ngành...',
-                        success: (response) => {
-                          // Thêm ngành đã chọn vào state
-                          const newIndustries = availableIndustries
-                            .filter(industry => selectedIndustryIds.includes(industry.id));
-                          setIndustries([...industries, ...newIndustries]);
-                          setSelectedIndustryIds([]);
-                          setNewIndustryName('');
-                          return "Đã thêm ngành thành công!";
-                        },
-                        error: (err) => {
-                          console.error("Error adding sectors:", err);
-                          return "Không thể thêm ngành. Vui lòng thử lại sau.";
-                        }
-                      }
-                    );
-                  }
-                }}
+                onClick={handleAddSectors}
                 className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
                 disabled={selectedIndustryIds.length === 0}
               >
@@ -1548,6 +1646,123 @@ const WatchlistPage = () => {
             >
               Xóa cổ phiếu
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
+        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <DialogTitle className="text-xl font-semibold mb-1">Thêm cổ phiếu theo dõi</DialogTitle>
+              <DialogDescription className="text-[#666]">
+                Chọn những cổ phiếu bạn muốn theo dõi
+              </DialogDescription>
+            </div>
+          </div>
+          
+          {/* Search Box */}
+          <div className="relative mb-4">
+            <input
+              type="text"
+              value={stockSearchQuery}
+              onChange={(e) => setStockSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm mã cổ phiếu..."
+              className="w-full bg-[#252525] border border-[#333] rounded-lg pl-10 pr-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Stocks List */}
+          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+            {isLoadingStocks ? (
+              <div className="flex justify-center items-center py-4">
+                <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : availableStocks.length > 0 ? (
+              availableStocks
+                .filter(stock => 
+                  stock.ticketSymbol.toLowerCase().includes(stockSearchQuery.toLowerCase()) &&
+                  !watchlist.some(w => w.stockCode.toLowerCase() === stock.ticketSymbol.toLowerCase())
+                )
+                .map(stock => (
+                  <div
+                    key={stock.id}
+                    className="flex items-center gap-3 p-3 bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      id={`stock-${stock.id}`}
+                      checked={selectedStockIds.includes(stock.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStockIds([...selectedStockIds, stock.id]);
+                        } else {
+                          setSelectedStockIds(selectedStockIds.filter(id => id !== stock.id));
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-[#333] bg-[#1a1a1a] checked:bg-[#4A72FF] focus:ring-[#4A72FF] focus:ring-offset-0"
+                    />
+                    <label
+                      htmlFor={`stock-${stock.id}`}
+                      className="flex-1 flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="text-white font-medium">{stock.ticketSymbol}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm px-2 py-0.5 rounded ${
+                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
+                          'bg-red-500/10 text-red-500'
+                        }`}>
+                          SMG: {stock.smg}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                ))
+            ) : (
+              <div className="text-center py-4 text-[#666]">
+                {stockSearchQuery ? 
+                  `Không tìm thấy mã "${stockSearchQuery}"` : 
+                  'Không có cổ phiếu nào để thêm'}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-[#333]">
+            <div className="text-[#666] text-sm">
+              Đã chọn: {selectedStockIds.length} cổ phiếu
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setSelectedStockIds([]);
+                  setStockSearchQuery('');
+                  setIsAddStockDialogOpen(false);
+                }}
+                variant="outline"
+                className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={addSelectedStocksToWatchlist}
+                className="bg-[#4A72FF] hover:bg-[#3a5ad9] text-white"
+                disabled={selectedStockIds.length === 0 || isAddingStocks}
+              >
+                {isAddingStocks ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Đang thêm...</span>
+                  </div>
+                ) : (
+                  `Thêm (${selectedStockIds.length})`
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
