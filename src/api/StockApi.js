@@ -161,11 +161,19 @@ export const stockService = {
   },
 
   // Lấy danh sách mã chứng khoán trong watchlist của user
-  getWatchlistByUser: async (userId) => {
+  getWatchlistByUser: async (userId, exchange = 'hsx', timestamp = null) => {
     try {
       console.log("Trying to get watchlist for user ID:", userId);
       
-      const response = await axiosInstance.get(`/api/watchlist-stock/${userId}`, {
+      const params = new URLSearchParams();
+      if (exchange) {
+        params.append('exchange', exchange.toLowerCase());
+      }
+      if (timestamp) {
+        params.append('timestamps', timestamp.toString());
+      }
+      
+      const response = await axiosInstance.get(`/api/watchlist-stock/${userId}?${params.toString()}`, {
         timeout: 15000
       });
       
@@ -267,10 +275,10 @@ export const stockService = {
     try {
       console.log("Adding sectors to watchlist:", { userId, sectorIds });
       
-      // Đảm bảo sectorIds là mảng
-      const sectorIdArray = Array.isArray(sectorIds) ? sectorIds : [sectorIds];
-      
-      const response = await axiosInstance.post(`/api/watchlist-sector/${userId}`, sectorIdArray, {
+      const response = await axiosInstance.post('/api/watchlist-sector', {
+        userId: userId,
+        sectorIds: Array.isArray(sectorIds) ? sectorIds : [sectorIds]
+      }, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -290,11 +298,44 @@ export const stockService = {
       console.log(`Getting user sectors for userId: ${userId}`);
       
       const response = await axiosInstance.get(`/api/watchlist-sector/${userId}`, {
-        timeout: 15000
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${Cookies.get("auth_token")}`
+        }
       });
       
-      console.log("User sectors response:", response.data);
-      return response.data;
+      // Kiểm tra cấu trúc response
+      if (response?.data?.value?.data) {
+        const sectorsData = response.data.value.data;
+        
+        if (sectorsData === "Watch list is empty") {
+          console.log("Watchlist is empty");
+          return [];
+        }
+        
+        if (sectorsData.sectors && Array.isArray(sectorsData.sectors)) {
+          return sectorsData.sectors.map(sector => ({
+            id: sector.id,
+            name: sector.name,
+            code: sector.code,
+            stocks: sector.stocks.map(stock => ({
+              id: stock.id,
+              ticketSymbol: stock.ticketSymbol,
+              percentD: stock.percentD,
+              percentW: stock.percentW,
+              percentM: stock.percentM,
+              smg: stock.smg
+            })),
+            percentD: sector.percentD,
+            percentW: sector.percentW,
+            percentM: sector.percentM,
+            smg: sector.smg
+          }));
+        }
+      }
+      
+      console.warn("Invalid response format:", response);
+      return [];
     } catch (error) {
       console.error('Error fetching user sectors:', error);
       throw error;
@@ -379,12 +420,12 @@ export const stockService = {
   },
   
   // Xóa một mã chứng khoán khỏi watchlist
-  deleteStockFromWatchlist: async (userId, tickerSymbol) => {
+  deleteStockFromWatchlist: async (userId, stockCode) => {
     try {
-      const response = await axiosInstance.delete('/api/WatchListStock', {
+      const response = await axiosInstance.delete('/api/watchlist-stock', {
         params: {
           userId: userId,
-          tickerSymbol: tickerSymbol.toLowerCase()
+          stockCode: stockCode
         }
       });
       console.log("Delete stock from watchlist response:", response.data);
@@ -401,7 +442,7 @@ export const stockService = {
       console.log(`=== Getting heatmap data for ${exchange} ===`);
       
       const response = await axiosInstance.get(
-        'https://stockmonitoring-api-stock-service.onrender.com/api/heatmap',
+        '/api/heatmap',
         {
           params: { 
             exchange: exchange === 'hsx' ? 'hsx' : 'hnx',  // Convert exchange to numeric format (1 for HSX, 2 for HNX)
@@ -430,7 +471,7 @@ export const stockService = {
   createNotification: async (data) => {
     try {
       const response = await axiosInstance.post(
-        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications',
+        '/api/notifications',
         {
           tickerSymbol: data.tickerSymbol,
           userId: data.userId,
@@ -449,7 +490,7 @@ export const stockService = {
   getNotifications: async (userId) => {
     try {
       const response = await axiosInstance.get(
-        `https://stockmonitoring-api-stock-service.onrender.com/api/notifications/${userId}`
+        `/api/notifications/${userId}`
       );
       console.log("Get notifications response:", response.data);
       return response.data;
@@ -463,7 +504,7 @@ export const stockService = {
   getWatchlistStocks: async () => {
     try {
       const response = await axiosInstance.get(
-        'https://stockmonitoring-api-stock-service.onrender.com/api/watchlist-stock'
+        '/api/watchlist-stock'
       );
       console.log("Get watchlist stocks response:", response.data);
       return response.data;
@@ -476,7 +517,7 @@ export const stockService = {
   updateNotificationPrice: async (notificationId, data) => {
     try {
       const response = await axiosInstance.put(
-        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications/price',
+        '/api/notifications/price',
         {
           ...data,
           id: notificationId
@@ -492,7 +533,7 @@ export const stockService = {
   deleteNotification: async (data) => {
     try {
       const response = await axiosInstance.delete(
-        'https://stockmonitoring-api-stock-service.onrender.com/api/notifications',
+        '/api/notifications',
         {
           params: {
             tickerSymbol: data.tickerSymbol,
@@ -512,7 +553,7 @@ export const stockService = {
   getNotificationMessages: async (userId) => {
     try {
       const response = await axiosInstance.get(
-        `https://stockmonitoring-api-stock-service.onrender.com/api/notifications/${userId}/messages`
+        `/api/notifications/${userId}/messages`
       );
       console.log("Get notification messages response:", response.data);
       return response.data;
