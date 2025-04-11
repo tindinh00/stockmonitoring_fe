@@ -377,7 +377,7 @@ const NotificationsPage = () => {
                   {notification.tickerSymbol.toUpperCase()}
                 </TableCell>
                 <TableCell className="text-white text-left">
-                  {notification.price.toLocaleString()} VNĐ
+                  {notification.price.toLocaleString()}
                 </TableCell>
                 <TableCell className="text-white text-left">
                   {notification.type === 'increase' ? 'Khi giá tăng' : 'Khi giá giảm'}

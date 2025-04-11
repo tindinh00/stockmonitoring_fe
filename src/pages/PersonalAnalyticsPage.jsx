@@ -12,6 +12,12 @@ const PersonalAnalyticsPage = () => {
   const [sortField, setSortField] = useState('ticketSymbol');
   const [sortDirection, setSortDirection] = useState('asc');
   
+  // Add new state for date range
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), 0, 1), // January 1st of current year
+    endDate: new Date() // Current date
+  });
+
   useEffect(() => {
     fetchStocksData();
   }, []);
@@ -34,10 +40,24 @@ const PersonalAnalyticsPage = () => {
         return;
       }
 
-      // Gọi API phân tích cá nhân
+      // Format dates to DD-MM-YYYY
+      const formatDate = (date) => {
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      // Gọi API phân tích cá nhân với các tham số mới
       const response = await axios.get(
         `https://stockmonitoring-api-gateway.onrender.com/api/personal-analysis/${userId}`,
         {
+          params: {
+            startDate: formatDate(dateRange.startDate),
+            endDate: formatDate(dateRange.endDate),
+            isAsc: sortDirection === 'asc'
+          },
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
@@ -61,9 +81,9 @@ const PersonalAnalyticsPage = () => {
         toast.error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       } else {
         toast.error("Không thể tải dữ liệu phân tích", {
-        description: error.message || "Vui lòng thử lại sau",
-        duration: 5000
-      });
+          description: error.message || "Vui lòng thử lại sau",
+          duration: 5000
+        });
       }
       setStocks([]);
     } finally {
@@ -130,6 +150,12 @@ const PersonalAnalyticsPage = () => {
       case 'percentage':
         formattedValue = value ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%` : '--';
         color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        break;
+      case 'beta':
+        formattedValue = value ? `${value.toFixed(2)}%` : '--';
+        break;
+      case 'betaWeight':
+        formattedValue = value ? `${value.toFixed(2)}%` : '--';
         break;
       case 'returnLevel':
         switch (value) {
@@ -242,8 +268,8 @@ const PersonalAnalyticsPage = () => {
                     {renderValueCell(stock.weight, 'number')}
                     {renderValueCell(stock.stockReturn, 'percentage')}
                     {renderValueCell(stock.returnWeight, 'percentage')}
-                    {renderValueCell(stock.beta, 'number')}
-                    {renderValueCell(stock.betaWeight, 'number')}
+                    {renderValueCell(stock.beta, 'beta')}
+                    {renderValueCell(stock.betaWeight, 'betaWeight')}
                     {renderValueCell(stock.returnLevel, 'returnLevel')}
                     {renderValueCell(stock.riskLevel, 'riskLevel')}
                     {renderValueCell(stock.recommendation, 'recommendation')}
