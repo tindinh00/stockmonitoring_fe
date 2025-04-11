@@ -888,25 +888,44 @@ const StockDerivatives = () => {
 
   // Add sample chart data
   useEffect(() => {
-    if (selectedStock) {
-      // Generate sample data for the last 30 days
-      const data = Array.from({ length: 30 }).map((_, index) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (30 - index));
-        const basePrice = parseFloat(selectedStock.ref);
-        const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
-        
-        return {
-          time: Math.floor(date.getTime() / 1000),
-          open: basePrice + randomChange,
-          high: basePrice + randomChange + Math.random() * 0.5,
-          low: basePrice + randomChange - Math.random() * 0.5,
-          close: basePrice + randomChange + (Math.random() - 0.5),
-          volume: Math.floor(Math.random() * 100000)
-        };
-      });
-      setChartData(data);
-    }
+    const fetchChartData = async () => {
+      if (!selectedStock) return;
+
+      try {
+        const token = Cookies.get('auth_token');
+      
+      if (!token) {
+        toast.error('Vui lòng đăng nhập để xem dữ liệu');
+        return;
+      }
+        const response = await axios.get(
+          `https://stockmonitoring-api-gateway.onrender.com/api/stock-price-history?ticketSymbol=${selectedStock.code}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': 'text/plain'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          setChartData(formattedData);
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      }
+    };
+
+    fetchChartData();
   }, [selectedStock]);
 
   // CSS Animations
@@ -1019,7 +1038,7 @@ const StockDerivatives = () => {
           {
             params: {
               userId: userId,
-              tickerSymbol: stock.code
+              tickerSymbol: [stock.code]
             },
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -1031,12 +1050,12 @@ const StockDerivatives = () => {
         setWatchlist(watchlist.filter(item => item.code !== stock.code));
         toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
       } else {
-        // Add to watchlist with new API format
+        // Add to watchlist with correct request format
         await axios.post(
           `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
           {
             userId: userId,
-            tickerSymbol: stock.code
+            tickerSymbol: [stock.code]
           },
           {
             headers: {

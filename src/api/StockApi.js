@@ -449,15 +449,22 @@ export const stockService = {
   // Get heatmap data
   getHeatmapData: async (exchange = 'hsx', timestamp = null) => {
     try {
-      console.log(`=== Getting heatmap data for ${exchange} ===`);
+      console.log(`=== Getting heatmap data for ${exchange} with timestamp: ${timestamp || 'latest'} ===`);
+      
+      // Chuẩn bị tham số cho request
+      const params = { 
+        exchange: exchange.toLowerCase(), // Chuyển đổi thành chữ thường để đảm bảo tính nhất quán
+      };
+      
+      // Chỉ thêm timestamp vào params nếu có giá trị
+      if (timestamp) {
+        params.timestamp = timestamp;
+      }
       
       const response = await axiosInstance.get(
         '/api/heatmap',
         {
-          params: { 
-            exchange: exchange === 'hsx' ? 'hsx' : 'hnx',  // Convert exchange to numeric format (1 for HSX, 2 for HNX)
-            timestamp: timestamp || '1'  // Default to '1' if no timestamp provided
-          },
+          params: params,
           headers: {
             'accept': 'text/plain'
           },

@@ -64,10 +64,10 @@ const ForgotPassword = () => {
     try {
       console.log("Requesting password reset for:", data.email);
       
-      const result = await apiService.resendOtp(data.email);
+      const result = await apiService.forgotPassword(data.email);
       console.log("Password reset request result:", result);
       
-      if (result.success) {
+      if (result.value?.status === 200 || result.status === 200) {
         setEmailSent(true);
         setTimeoutSeconds(60); // 1 phút chờ trước khi gửi lại
         setTimeoutActive(true);
@@ -75,7 +75,7 @@ const ForgotPassword = () => {
         // Lưu email để sử dụng trong trang OTP
         localStorage.setItem("resetPasswordEmail", data.email);
         
-        toast.success("Mã OTP đã được gửi đến email của bạn!", {
+        toast.success(result.value?.message || "Mã OTP đã được gửi đến email của bạn!", {
           position: "top-right",
           duration: 5000,
         });
@@ -85,14 +85,14 @@ const ForgotPassword = () => {
           navigate("/otp");
         }, 2000);
       } else {
-        toast.error(result.message || "Không thể gửi mã OTP. Vui lòng thử lại sau.", {
+        toast.error(result.value?.message || "Không thể gửi mã OTP. Vui lòng thử lại sau.", {
           position: "top-right",
           duration: 5000,
         });
       }
     } catch (error) {
       console.error("Password reset request error:", error);
-      const errorMsg = error.message || "Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau.";
+      const errorMsg = error.response?.data?.message || error.message || "Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau.";
       toast.error(errorMsg, {
         position: "top-right",
         duration: 5000,
@@ -110,25 +110,26 @@ const ForgotPassword = () => {
       const email = getValues("email");
       console.log("Resending OTP to:", email);
       
-      const result = await apiService.resendOtp(email);
+      const result = await apiService.forgotPassword(email);
       console.log("Resend OTP result:", result);
       
-      if (result.success) {
+      if (result.value?.status === 200 || result.status === 200) {
         setTimeoutSeconds(60); // 1 phút chờ trước khi gửi lại
         setTimeoutActive(true);
-        toast.success("Mã OTP đã được gửi lại!", {
+        toast.success(result.value?.message || "Mã OTP đã được gửi lại!", {
           position: "top-right",
           duration: 5000,
         });
       } else {
-        toast.error(result.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.", {
+        toast.error(result.value?.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.", {
           position: "top-right",
           duration: 5000,
         });
       }
     } catch (error) {
       console.error("Resend OTP error:", error);
-      toast.error("Không thể gửi lại mã OTP. Vui lòng thử lại sau.", {
+      const errorMsg = error.response?.data?.message || error.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.";
+      toast.error(errorMsg, {
         position: "top-right",
         duration: 5000,
       });
