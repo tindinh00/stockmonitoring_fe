@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getUserId } from '@/api/Api';
-import { stockService } from '@/api/StockApi';
+import axios from 'axios';
 import { toast } from "sonner";
 import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2 } from 'lucide-react';
+import Cookies from 'js-cookie';
 
 const PersonalAnalyticsPage = () => {
   const [stocks, setStocks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [sortField, setSortField] = useState('code');
+  const [sortField, setSortField] = useState('ticketSymbol');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [activeTab, setActiveTab] = useState('technical'); // 'technical', 'fundamental', 'risk'
   
   useEffect(() => {
     fetchStocksData();
@@ -20,93 +20,55 @@ const PersonalAnalyticsPage = () => {
     try {
       setIsLoading(true);
       
-      const userId = getUserId();
-      if (!userId) {
+      const token = Cookies.get('auth_token');
+      if (!token) {
         toast.error("Vui lòng đăng nhập để xem danh sách theo dõi");
         setIsLoading(false);
         return;
       }
+      
+      const userId = getUserId();
+      if (!userId) {
+        toast.error("Không tìm thấy thông tin người dùng");
+        setIsLoading(false);
+        return;
+      }
 
-      // Gọi API lấy danh sách watchlist
-      const response = await stockService.getWatchlistByUser(userId);
-      console.log("Watchlist response:", response);
+      // Gọi API phân tích cá nhân
+      const response = await axios.get(
+        `https://stockmonitoring-api-gateway.onrender.com/api/personal-analysis/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-      if (response?.value?.data?.stocks && Array.isArray(response.value.data.stocks)) {
-        const watchlistData = response.value.data.stocks.map(stock => ({
-          code: stock.ticketSymbol,
-          name: stock.company?.name || `Cổ phiếu ${stock.ticketSymbol}`,
-          weight: stock.weight || 0,
-          beta: stock.beta || 0,
-          stockReturn: stock.stockReturn || 0,
-          returnWeight: stock.returnWeight || 0,
-          betaWeight: stock.betaWeight || 0,
-          // Thêm các chỉ số phân tích giả lập
-          currentPrice: calculateRandomMetric(10000, 100000).toFixed(2),
-          change: stock.stockReturn || calculateRandomMetric(-5, 5),
-          changeFormatted: `${stock.stockReturn > 0 ? '+' : ''}${stock.stockReturn?.toFixed(2)}%` || '--',
-          volume: Math.floor(calculateRandomMetric(100000, 1000000)),
-          volumeFormatted: Math.floor(calculateRandomMetric(100000, 1000000)).toLocaleString(),
-          pe: calculateRandomMetric(5, 25),
-          pb: calculateRandomMetric(0.5, 5),
-          eps: calculateRandomMetric(1000, 10000),
-          roe: calculateRandomMetric(5, 30),
-          roa: calculateRandomMetric(2, 20),
-          dividend: calculateRandomMetric(0, 10),
-          rsi: calculateRandomMetric(0, 100),
-          macd: calculateRandomMetric(-2, 2),
-          signal: calculateRandomMetric(-2, 2),
-          ma20: calculateRandomMetric(10000, 100000),
-          ma50: calculateRandomMetric(10000, 100000),
-          ma200: calculateRandomMetric(10000, 100000),
-          volatility: calculateRandomMetric(10, 50),
-          sharpe: calculateRandomMetric(-1, 3),
-          targetPrice: calculateRandomMetric(10000, 100000),
-          stopLoss: calculateRandomMetric(10000, 100000),
-          risk: calculateRiskRating(),
-          recommendation: calculateRecommendation()
-        }));
-
-        setStocks(watchlistData);
-        
-        // Hiển thị thông tin tổng hợp danh mục
-        toast.info("Thông tin danh mục đầu tư", {
-          description: `Tổng trọng số lợi nhuận: ${response.value.data.totalReturnWeight?.toFixed(2)}%, Tổng trọng số Beta: ${response.value.data.totalBetaWeight?.toFixed(2)}`,
-          duration: 5000
-        });
+      if (response.data?.value?.data?.stocks) {
+        setStocks(response.data.value.data.stocks);
       } else {
         setStocks([]);
-        toast.info("Danh sách theo dõi trống", {
+        toast.info("Danh sách phân tích trống", {
           description: "Hãy thêm cổ phiếu vào danh sách theo dõi để xem phân tích",
           duration: 5000
         });
       }
     } catch (error) {
-      console.error("Error fetching watchlist:", error);
-      toast.error("Không thể tải dữ liệu danh sách theo dõi", {
+      console.error("Error fetching analysis data:", error);
+      if (error.response?.status === 401) {
+        toast.error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      } else {
+        toast.error("Không thể tải dữ liệu phân tích", {
         description: error.message || "Vui lòng thử lại sau",
         duration: 5000
       });
+      }
       setStocks([]);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Hàm tạo số ngẫu nhiên trong khoảng
-  const calculateRandomMetric = (min, max) => {
-    return Math.random() * (max - min) + min;
-  };
-
-  // Hàm tạo xếp hạng rủi ro
-  const calculateRiskRating = () => {
-    const ratings = ['Thấp', 'Trung bình', 'Cao'];
-    return ratings[Math.floor(Math.random() * ratings.length)];
-  };
-
-  // Hàm tạo khuyến nghị
-  const calculateRecommendation = () => {
-    const recommendations = ['Mua', 'Nắm giữ', 'Bán'];
-    return recommendations[Math.floor(Math.random() * recommendations.length)];
   };
 
   // Hàm sắp xếp dữ liệu
@@ -119,15 +81,9 @@ const PersonalAnalyticsPage = () => {
       let valA = a[field];
       let valB = b[field];
       
-      // Chuyển đổi string sang số nếu cần thiết
-      if (typeof valA === 'string' && !isNaN(parseFloat(valA))) {
-        valA = parseFloat(valA);
-      }
-      if (typeof valB === 'string' && !isNaN(parseFloat(valB))) {
-        valB = parseFloat(valB);
-      }
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
       
-      // So sánh
       if (valA < valB) return newDirection === 'asc' ? -1 : 1;
       if (valA > valB) return newDirection === 'asc' ? 1 : -1;
       return 0;
@@ -143,255 +99,7 @@ const PersonalAnalyticsPage = () => {
       : <ArrowDown className="h-4 w-4 text-[#09D1C7]" />;
   };
 
-  // Render các tabs
-  const renderTabs = () => (
-    <div className="flex border-b border-[#333] mb-4">
-      <button
-        className={`px-4 py-2 text-sm font-medium ${
-          activeTab === 'technical' 
-            ? 'text-[#09D1C7] border-b-2 border-[#09D1C7]' 
-            : 'text-[#999] hover:text-white'
-        }`}
-        onClick={() => setActiveTab('technical')}
-      >
-        Phân tích kỹ thuật
-      </button>
-      <button
-        className={`px-4 py-2 text-sm font-medium ${
-          activeTab === 'fundamental' 
-            ? 'text-[#09D1C7] border-b-2 border-[#09D1C7]' 
-            : 'text-[#999] hover:text-white'
-        }`}
-        onClick={() => setActiveTab('fundamental')}
-      >
-        Phân tích cơ bản
-      </button>
-      <button
-        className={`px-4 py-2 text-sm font-medium ${
-          activeTab === 'risk' 
-            ? 'text-[#09D1C7] border-b-2 border-[#09D1C7]' 
-            : 'text-[#999] hover:text-white'
-        }`}
-        onClick={() => setActiveTab('risk')}
-      >
-        Phân tích rủi ro
-      </button>
-    </div>
-  );
-
-  // Render table dựa vào active tab
-  const renderTable = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
-          <p className="text-[#999]">Đang tải dữ liệu phân tích...</p>
-        </div>
-      );
-    }
-    
-    if (stocks.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-4">
-            <Info className="h-8 w-8 text-[#666]" />
-          </div>
-          <h3 className="text-white font-medium mb-2">Không có dữ liệu</h3>
-          <p className="text-[#666] max-w-md">
-            Bạn chưa có cổ phiếu nào trong danh sách theo dõi. Vui lòng thêm cổ phiếu vào danh sách theo dõi để xem phân tích.
-          </p>
-        </div>
-      );
-    }
-    
-    switch (activeTab) {
-      case 'technical':
-        return (
-          <div className="w-full">
-            <table className="w-full border-collapse min-w-full">
-              <thead className="bg-[#1a1a1a] sticky top-0">
-                <tr>
-                  {renderHeaderCell('code', 'Mã')}
-                  {renderHeaderCell('currentPrice', 'Giá')}
-                  {renderHeaderCell('change', 'Thay đổi')}
-                  {renderHeaderCell('volume', 'Khối lượng')}
-                  {renderHeaderCell('rsi', 'RSI', 'Relative Strength Index - Chỉ báo sức mạnh tương đối. <30: quá bán, >70: quá mua')}
-                  {renderHeaderCell('macd', 'MACD', 'Moving Average Convergence Divergence - Chỉ báo xu hướng dựa trên đường trung bình động')}
-                  {renderHeaderCell('signal', 'Signal', 'Đường tín hiệu của MACD, làm cơ sở để đưa ra quyết định mua/bán')}
-                  {renderHeaderCell('ma20', 'MA20', 'Đường trung bình động 20 phiên')}
-                  {renderHeaderCell('ma50', 'MA50', 'Đường trung bình động 50 phiên')}
-                  {renderHeaderCell('ma200', 'MA200', 'Đường trung bình động 200 phiên')}
-                  {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên các chỉ báo kỹ thuật')}
-                </tr>
-              </thead>
-              <tbody className="bg-[#0a0a14]">
-                {stocks.map((stock) => (
-                  <tr key={stock.code} className="hover:bg-[#1a1a1a] border-b border-[#333]">
-                    <td className="px-3 py-3 font-medium text-white w-[10%] text-center">{stock.code}</td>
-                    {renderValueCell(parseFloat(stock.currentPrice), 'price', 'w-[8%]')}
-                    {renderValueCell(stock.change, 'change', 'w-[9%]')}
-                    {renderValueCell(stock.volume, 'volume', 'w-[11%]')}
-                    {renderValueCell(stock.rsi, 'rsi', 'w-[7%]')}
-                    {renderValueCell(stock.macd, 'macd', 'w-[8%]')}
-                    {renderValueCell(stock.signal, 'macd', 'w-[8%]')}
-                    {renderValueCell(stock.ma20, 'price', 'w-[8%]')}
-                    {renderValueCell(stock.ma50, 'price', 'w-[8%]')}
-                    {renderValueCell(stock.ma200, 'price', 'w-[8%]')}
-                    {renderValueCell(stock.recommendation, 'recommendation', 'w-[15%]')}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-        
-      case 'fundamental':
-        return (
-          <div className="w-full">
-            <table className="w-full border-collapse min-w-full">
-              <thead className="bg-[#1a1a1a] sticky top-0">
-                <tr>
-                  {renderHeaderCell('code', 'Mã')}
-                  {renderHeaderCell('currentPrice', 'Giá')}
-                  {renderHeaderCell('change', 'Thay đổi')}
-                  {renderHeaderCell('pe', 'P/E', 'Price to Earnings Ratio - Tỷ lệ giá trên thu nhập')}
-                  {renderHeaderCell('pb', 'P/B', 'Price to Book Ratio - Tỷ lệ giá trên giá trị sổ sách')}
-                  {renderHeaderCell('eps', 'EPS', 'Earnings Per Share - Thu nhập trên mỗi cổ phiếu')}
-                  {renderHeaderCell('roe', 'ROE', 'Return on Equity - Tỷ suất sinh lợi trên vốn chủ sở hữu')}
-                  {renderHeaderCell('roa', 'ROA', 'Return on Assets - Tỷ suất sinh lợi trên tài sản')}
-                  {renderHeaderCell('dividend', 'Cổ tức %', 'Tỷ lệ cổ tức hàng năm')}
-                  {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên các chỉ số tài chính')}
-                </tr>
-              </thead>
-              <tbody className="bg-[#0a0a14]">
-                {stocks.map((stock) => (
-                  <tr key={stock.code} className="hover:bg-[#1a1a1a] border-b border-[#333]">
-                    <td className="px-3 py-3 font-medium text-white w-[10%] text-center">{stock.code}</td>
-                    {renderValueCell(parseFloat(stock.currentPrice), 'price', 'w-[9%]')}
-                    {renderValueCell(stock.change, 'change', 'w-[10%]')}
-                    {renderValueCell(stock.pe, 'pe', 'w-[9%]')}
-                    {renderValueCell(stock.pb, 'pb', 'w-[9%]')}
-                    {renderValueCell(stock.eps, 'default', 'w-[12%]')}
-                    {renderValueCell(stock.roe, 'percentage', 'w-[9%]')}
-                    {renderValueCell(stock.roa, 'percentage', 'w-[9%]')}
-                    {renderValueCell(stock.dividend, 'percentage', 'w-[10%]')}
-                    {renderValueCell(stock.recommendation, 'recommendation', 'w-[13%]')}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-        
-      case 'risk':
-        return (
-          <div className="w-full">
-            <table className="w-full border-collapse min-w-full">
-              <thead className="bg-[#1a1a1a] sticky top-0">
-                <tr>
-                  {renderHeaderCell('code', 'Mã')}
-                  {renderHeaderCell('currentPrice', 'Giá')}
-                  {renderHeaderCell('change', 'Thay đổi')}
-                  {renderHeaderCell('beta', 'Beta', 'Đo lường mức độ biến động của cổ phiếu so với thị trường chung')}
-                  {renderHeaderCell('volatility', 'Biến động', 'Độ biến động của giá cổ phiếu')}
-                  {renderHeaderCell('sharpe', 'Sharpe Ratio', 'Chỉ số đo lường hiệu suất sinh lời đã điều chỉnh theo rủi ro')}
-                  {renderHeaderCell('targetPrice', 'Giá mục tiêu', 'Giá dự báo trong tương lai')}
-                  {renderHeaderCell('stopLoss', 'Stop Loss', 'Mức giá nên bán để hạn chế lỗ')}
-                  {renderHeaderCell('risk', 'Mức độ rủi ro', 'Đánh giá mức độ rủi ro tổng thể')}
-                  {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên mức độ rủi ro')}
-                </tr>
-              </thead>
-              <tbody className="bg-[#0a0a14]">
-                {stocks.map((stock) => (
-                  <tr key={stock.code} className="hover:bg-[#1a1a1a] border-b border-[#333]">
-                    <td className="px-3 py-3 font-medium text-white w-[10%] text-center">{stock.code}</td>
-                    {renderValueCell(parseFloat(stock.currentPrice), 'price', 'w-[8%]')}
-                    {renderValueCell(stock.change, 'change', 'w-[9%]')}
-                    {renderValueCell(stock.beta, 'default', 'w-[7%]')}
-                    {renderValueCell(stock.volatility, 'percentage', 'w-[10%]')}
-                    {renderValueCell(stock.sharpe, 'default', 'w-[12%]')}
-                    {renderValueCell(stock.targetPrice, 'price', 'w-[10%]')}
-                    {renderValueCell(stock.stopLoss, 'price', 'w-[10%]')}
-                    {renderValueCell(stock.risk, 'risk', 'w-[12%]')}
-                    {renderValueCell(stock.recommendation, 'recommendation', 'w-[12%]')}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-        
-      default:
-        return null;
-    }
-  };
-
-  // Render color-coded cell dựa trên giá trị
-  const renderValueCell = (value, type, widthClass = '') => {
-    let color = 'text-white';
-    let formattedValue = value;
-    
-    // Format số và xác định màu sắc
-    if (typeof value === 'number') {
-      switch (type) {
-        case 'percentage':
-          formattedValue = value.toFixed(2) + '%';
-          color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
-          break;
-        case 'price':
-          formattedValue = value.toFixed(2);
-          break;
-        case 'change':
-          formattedValue = (value > 0 ? '+' : '') + value.toFixed(2) + '%';
-          color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
-          break;
-        case 'rsi':
-          formattedValue = value.toFixed(1);
-          if (value >= 70) color = 'text-[#FF4A4A]'; // Overbought
-          else if (value <= 30) color = 'text-[#00FF00]'; // Oversold
-          break;
-        case 'macd':
-          formattedValue = value.toFixed(3);
-          color = value > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]';
-          break;
-        case 'pe':
-          formattedValue = value.toFixed(2);
-          color = value < 15 ? 'text-[#00FF00]' : value > 25 ? 'text-[#FF4A4A]' : 'text-[#F4BE37]';
-          break;
-        case 'pb':
-          formattedValue = value.toFixed(2);
-          color = value < 1 ? 'text-[#00FF00]' : value > 3 ? 'text-[#FF4A4A]' : 'text-[#F4BE37]';
-          break;
-        case 'recommendation':
-          switch (value) {
-            case 'Mua': color = 'text-[#00FF00]'; break;
-            case 'Bán': color = 'text-[#FF4A4A]'; break;
-            default: color = 'text-[#F4BE37]'; // Nắm giữ
-          }
-          break;
-        case 'risk':
-          switch (value) {
-            case 'Thấp': color = 'text-[#00FF00]'; break;
-            case 'Cao': color = 'text-[#FF4A4A]'; break;
-            default: color = 'text-[#F4BE37]'; // Trung bình
-          }
-          break;
-        case 'volume':
-          formattedValue = value.toLocaleString();
-          break;
-        default:
-          formattedValue = value.toLocaleString();
-      }
-    }
-    
-    return (
-      <td className={`px-3 py-3 ${color} ${widthClass} text-center`}>
-        {formattedValue}
-      </td>
-    );
-  };
-
-  // Render header cell
+  // Render table header cell
   const renderHeaderCell = (field, label, tooltip = null) => (
     <th 
       className="px-3 py-3 text-sm font-medium text-[#999] cursor-pointer hover:bg-[#252525] transition-colors whitespace-nowrap"
@@ -412,6 +120,60 @@ const PersonalAnalyticsPage = () => {
       </div>
     </th>
   );
+
+  // Render value cell
+  const renderValueCell = (value, type) => {
+    let color = 'text-white';
+    let formattedValue = value;
+    
+    switch (type) {
+      case 'percentage':
+        formattedValue = value ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%` : '--';
+        color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        break;
+      case 'returnLevel':
+        switch (value) {
+          case 'Sinh lời cao': color = 'text-[#00FF00]'; break;
+          case 'Sinh lời thấp': color = 'text-[#FF4A4A]'; break;
+          default: color = 'text-[#F4BE37]';
+        }
+        break;
+      case 'riskLevel':
+        switch (value) {
+          case 'Rủi ro thấp': color = 'text-[#00FF00]'; break;
+          case 'Rủi ro cao': color = 'text-[#FF4A4A]'; break;
+          default: color = 'text-[#F4BE37]';
+        }
+        break;
+      case 'recommendation':
+        switch (value) {
+          case 'Nên mua': color = 'text-[#00FF00]'; break;
+          case 'Nên bán': color = 'text-[#FF4A4A]'; break;
+          default: color = 'text-[#F4BE37]';
+        }
+        break;
+      case 'number':
+        formattedValue = value?.toFixed(2) || '--';
+        break;
+      default:
+        formattedValue = value || '--';
+    }
+    
+    return (
+      <td className={`px-3 py-3 ${color} text-center`}>
+        {formattedValue}
+      </td>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
+        <p className="text-[#999]">Đang tải dữ liệu phân tích...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
@@ -458,9 +220,37 @@ const PersonalAnalyticsPage = () => {
             </div>
           </div>
           
-          <div className="p-4">
-            {renderTabs()}
-            {renderTable()}
+          <div className="p-4 overflow-x-auto">
+            <table className="w-full border-collapse min-w-full">
+              <thead className="bg-[#1a1a1a] sticky top-0">
+                <tr>
+                  {renderHeaderCell('ticketSymbol', 'Mã CK')}
+                  {renderHeaderCell('weight', 'Trọng số', 'Trọng số của cổ phiếu trong danh mục')}
+                  {renderHeaderCell('stockReturn', 'Lợi nhuận', 'Tỷ suất sinh lời của cổ phiếu')}
+                  {renderHeaderCell('returnWeight', 'TS Lợi nhuận', 'Trọng số lợi nhuận')}
+                  {renderHeaderCell('beta', 'Beta', 'Hệ số Beta - Đo lường độ biến động so với thị trường')}
+                  {renderHeaderCell('betaWeight', 'TS Beta', 'Trọng số Beta')}
+                  {renderHeaderCell('returnLevel', 'Mức sinh lời', 'Đánh giá mức độ sinh lời')}
+                  {renderHeaderCell('riskLevel', 'Mức độ rủi ro', 'Đánh giá mức độ rủi ro')}
+                  {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên phân tích')}
+                </tr>
+              </thead>
+              <tbody className="bg-[#0a0a14]">
+                {stocks.map((stock) => (
+                  <tr key={stock.id} className="hover:bg-[#1a1a1a] border-b border-[#333]">
+                    <td className="px-3 py-3 font-medium text-white text-center">{stock.ticketSymbol}</td>
+                    {renderValueCell(stock.weight, 'number')}
+                    {renderValueCell(stock.stockReturn, 'percentage')}
+                    {renderValueCell(stock.returnWeight, 'percentage')}
+                    {renderValueCell(stock.beta, 'number')}
+                    {renderValueCell(stock.betaWeight, 'number')}
+                    {renderValueCell(stock.returnLevel, 'returnLevel')}
+                    {renderValueCell(stock.riskLevel, 'riskLevel')}
+                    {renderValueCell(stock.recommendation, 'recommendation')}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
         
