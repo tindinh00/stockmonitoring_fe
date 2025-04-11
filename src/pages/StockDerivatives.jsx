@@ -306,16 +306,299 @@ const StockDerivatives = () => {
     setIsDialogOpen(true);
   };
 
+  // CSS Animation cho thay đổi giá và khối lượng
+  const priceChangeAnimation = `
+    @keyframes priceUp {
+      0% { 
+        background-color: rgba(0, 255, 0, 0.3);
+        transform: scale(1.1);
+      }
+      50% {
+        background-color: rgba(0, 255, 0, 0.2);
+        transform: scale(1.05);
+      }
+      100% { 
+        background-color: transparent;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes priceDown {
+      0% { 
+        background-color: rgba(255, 0, 0, 0.3);
+        transform: scale(1.1);
+      }
+      50% {
+        background-color: rgba(255, 0, 0, 0.2);
+        transform: scale(1.05);
+      }
+      100% { 
+        background-color: transparent;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes priceEqual {
+      0% { 
+        background-color: rgba(244, 190, 55, 0.3);
+        transform: scale(1.1);
+      }
+      50% {
+        background-color: rgba(244, 190, 55, 0.2);
+        transform: scale(1.05);
+      }
+      100% { 
+        background-color: transparent;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes volumeChange {
+      0% { 
+        opacity: 0.5;
+        transform: scale(1.1);
+      }
+      50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+      }
+      100% { 
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    
+    .price-up {
+      animation: priceUp 0.5s ease-out;
+    }
+    
+    .price-down {
+      animation: priceDown 0.5s ease-out;
+    }
+
+    .price-equal {
+      animation: priceEqual 0.5s ease-out;
+    }
+
+    .volume-change {
+      animation: volumeChange 0.5s ease-out;
+    }
+  `;
+
+  // Hàm xác định màu sắc dựa trên giá
+  const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
+    // Xử lý trường hợp giá trị là "--" (chuỗi đại diện cho giá trị null)
+    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--') {
+      return 'text-white';
+    }
+    
+    // Xử lý trường hợp null, undefined hoặc giá trị không phải số
+    if (price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
+      return 'text-white';
+    }
+    
+    // Chuyển đổi sang số để so sánh, nhưng không làm tròn
+    let numPrice = parseFloat(price);
+    let numRefPrice = parseFloat(refPrice);
+    let numCeilPrice = parseFloat(ceilPrice);
+    let numFloorPrice = parseFloat(floorPrice);
+
+    if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
+      return 'text-white';
+    }
+
+    // So sánh với sai số
+    const epsilon = 0.001; // Sai số cho phép 0.001
+    const equals = (a, b) => Math.abs(a - b) < epsilon;
+
+    if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
+    if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]'; // Tím - Bằng giá trần
+    if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
+    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
+    if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
+    
+    return 'text-white';
+  };
+
+  // Hàm xác định animation class
+  const getChangeAnimation = (currentValue, previousValue, type = 'price') => {
+    if (!currentValue || !previousValue) return '';
+    
+    currentValue = parseFloat(currentValue.toString().replace(/,/g, ''));
+    previousValue = parseFloat(previousValue.toString().replace(/,/g, ''));
+    
+    if (isNaN(currentValue) || isNaN(previousValue)) return '';
+    
+    if (type === 'price') {
+      if (currentValue > previousValue) return 'price-up';
+      if (currentValue < previousValue) return 'price-down';
+      return 'price-equal';
+    }
+    
+    if (type === 'volume' && currentValue !== previousValue) {
+      return 'volume-change';
+    }
+    
+    return '';
+  };
+
+  // Hàm kết hợp màu sắc và animation
+  const getCellClass = (stock, field, type = 'price') => {
+    // Kiểm tra stock và field tồn tại
+    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    
+    // Kiểm tra trường đặc biệt (tổng khối lượng luôn màu trắng)
+    if (field === 'totalVolume') {
+      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    }
+    
+    // Kiểm tra giá trị field
+    const fieldValue = stock[field];
+    
+    // Xử lý trường hợp giá trị rỗng
+    if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
+      if (type === 'volume') {
+        // Đối với khối lượng, nếu giá trị rỗng, sử dụng màu của giá tương ứng
+        const priceField = getPriceFieldForVolume(field);
+        if (stock[priceField] && stock[priceField] !== '--') {
+          const colorClass = getPriceColor(
+            stock[priceField],
+            stock.ref,
+            stock.ceiling,
+            stock.floor
+          );
+          return `${colorClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+        }
+      }
+      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    }
+
+    // Xác định màu sắc
+    let colorClass = 'text-white';
+    
+    if (type === 'price') {
+      colorClass = getPriceColor(
+        stock[field],
+        stock.ref,
+        stock.ceiling,
+        stock.floor
+      );
+    } else if (type === 'volume') {
+      // Xác định trường giá tương ứng với trường khối lượng
+      const priceField = getPriceFieldForVolume(field);
+      
+      // Sử dụng màu sắc của giá tương ứng cho khối lượng
+      if (stock[priceField]) {
+        colorClass = getPriceColor(
+          stock[priceField],
+          stock.ref,
+          stock.ceiling,
+          stock.floor
+        );
+      }
+    }
+
+    // Xác định animation
+    const animationClass = getChangeAnimation(
+      stock[field],
+      type === 'price' ? priceHistory[stock.code] : volumeHistory[stock.code],
+      type
+    );
+
+    return `${colorClass} ${animationClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+  };
+
+  // Hàm ánh xạ từ trường khối lượng sang trường giá
+  const getPriceFieldForVolume = (volumeField) => {
+    const fieldMapping = {
+      'buyVolume3': 'buyPrice3',
+      'buyVolume2': 'buyPrice2',
+      'buyVolume1': 'buyPrice1',
+      'matchVolume': 'matchPrice',
+      'sellVolume1': 'sellPrice1',
+      'sellVolume2': 'sellPrice2',
+      'sellVolume3': 'sellPrice3',
+      'totalVolume': 'matchPrice',
+      'foreignBuy': 'matchPrice',
+      'foreignSell': 'matchPrice'
+    };
+    
+    return fieldMapping[volumeField] || volumeField.replace('Volume', 'Price');
+  };
+
   // Theo dõi thay đổi giá và cập nhật màu sắc
   const updatePriceColors = (stockCode, currentPrice, previousPrice) => {
     if (!previousPrice || isNaN(currentPrice) || isNaN(previousPrice)) return 'text-white';
     
-    if (currentPrice > previousPrice) {
-      return 'text-[#00FF00] price-up'; // Tăng giá - màu xanh + animation
-    } else if (currentPrice < previousPrice) {
-      return 'text-[#FF4A4A] price-down'; // Giảm giá - màu đỏ + animation
+    const stock = realTimeStockData.find(s => s.code === stockCode);
+    if (!stock) return 'text-white';
+
+    const matchPrice = parseFloat(stock.matchPrice);
+    const refPrice = parseFloat(stock.ref);
+    const ceilPrice = parseFloat(stock.ceiling);
+    const floorPrice = parseFloat(stock.floor);
+
+    // So sánh với các mức giá
+    let colorClass = '';
+    if (matchPrice === refPrice) {
+      colorClass = 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
+    } else if (matchPrice === ceilPrice) {
+      colorClass = 'text-[#B388FF]'; // Tím - Bằng giá trần
+    } else if (matchPrice === floorPrice) {
+      colorClass = 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
+    } else if (matchPrice > refPrice && matchPrice < ceilPrice) {
+      colorClass = 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
+    } else if (matchPrice < refPrice && matchPrice > floorPrice) {
+      colorClass = 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
     }
-    return 'text-white'; // Giữ nguyên - màu trắng
+
+    // Thêm animation dựa trên sự thay đổi
+    if (currentPrice > previousPrice) {
+      return `${colorClass} price-up`;
+    } else if (currentPrice < previousPrice) {
+      return `${colorClass} price-down`;
+    } else if (currentPrice === previousPrice) {
+      return `${colorClass} price-equal`;
+    }
+    
+    return colorClass;
+  };
+
+  // Theo dõi thay đổi khối lượng
+  const [volumeHistory, setVolumeHistory] = useState({});
+
+  useEffect(() => {
+    if (realTimeStockData.length > 0) {
+      const newVolumeHistory = { ...volumeHistory };
+      
+      realTimeStockData.forEach(stock => {
+        const oldStock = volumeHistory[stock.code];
+        if (oldStock) {
+          const currentVolume = parseFloat(stock.totalVolume.replace(/,/g, ''));
+          const previousVolume = parseFloat(oldStock.replace(/,/g, ''));
+          
+          if (currentVolume !== previousVolume) {
+            newVolumeHistory[stock.code] = stock.totalVolume;
+          }
+        } else {
+          newVolumeHistory[stock.code] = stock.totalVolume;
+        }
+      });
+      
+      setVolumeHistory(newVolumeHistory);
+    }
+  }, [realTimeStockData]);
+
+  // Hàm kiểm tra thay đổi khối lượng
+  const getVolumeChangeClass = (stock, volumeField) => {
+    const oldVolume = volumeHistory[stock.code];
+    if (!oldVolume) return '';
+
+    const currentVolume = stock[volumeField];
+    if (currentVolume !== oldVolume) {
+      return 'volume-change';
+    }
+    return '';
   };
 
   // Add state for timestamp
@@ -503,121 +786,147 @@ const StockDerivatives = () => {
   // Add helper function to handle successful stock data response
   const handleStockDataResponse = (responseData) => {
     if (!responseData) {
-      handleStockDataError();
+      console.error('No response data received');
       return;
     }
 
-    // Check if data is in the new format (nested in value.data)
-    const stockData = responseData.value?.data || responseData;
-    
-    if (!Array.isArray(stockData)) {
-      handleStockDataError();
-      return;
-    }
-
-    console.log('Processing stock data:', stockData);
-
-    const formattedData = stockData.map(stock => ({
-      code: stock.stockCode,
-      ceiling: stock.ceilPrice?.toFixed(2) || '--',
-      floor: stock.floorPrice?.toFixed(2) || '--',
-      ref: stock.priorClosePrice?.toFixed(2) || '--',
-      buyPrice3: stock.price3Buy?.toFixed(2) || '--',
-      buyVolume3: stock.volume3Buy?.toLocaleString() || '--',
-      buyPrice2: stock.price2Buy?.toFixed(2) || '--',
-      buyVolume2: stock.volume2Buy?.toLocaleString() || '--',
-      buyPrice1: stock.price1Buy?.toFixed(2) || '--',
-      buyVolume1: stock.volume1Buy?.toLocaleString() || '--',
-      matchPrice: stock.matchPrice?.toFixed(2) || '--',
-      matchVolume: stock.matchedOrderVolume?.toLocaleString() || '--',
-      matchChange: stock.plusMinus ? `${stock.plusMinus > 0 ? '+' : ''}${stock.plusMinus.toFixed(2)}%` : '--',
-      sellPrice1: stock.price1Sell || '--',
-      sellVolume1: stock.volume1Sell?.toLocaleString() || '--',
-      sellPrice2: stock.price2Sell || '--',
-      sellVolume2: stock.volume2Sell?.toLocaleString() || '--',
-      sellPrice3: stock.price3Sell || '--',
-      sellVolume3: stock.volume3Sell?.toLocaleString() || '--',
-      totalVolume: stock.volumeAccumulation?.toLocaleString() || '--',
-      high: stock.highPrice?.toFixed(2) || '--',
-      low: stock.lowPrice?.toFixed(2) || '--',
-      foreignBuy: stock.foreignBuyVolume?.toLocaleString() || '--',
-      foreignSell: stock.foreignSellVolume?.toLocaleString() || '--'
-    }));
-
-    if (formattedData.length > 0) {
-      setRealTimeStockData(formattedData);
+    try {
+      // Check if data is in the new format (nested in value.data)
+      const stockData = responseData.value?.data || responseData;
       
-      // Update price history and colors
-      const newPriceHistory = { ...priceHistory };
-      const newPriceChangeColors = { ...priceChangeColors };
-      
-      formattedData.forEach(newStock => {
-        const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
-        const currentPrice = parseFloat(newStock.matchPrice);
-        
-        if (oldStock) {
-          const previousPrice = parseFloat(oldStock.matchPrice);
-          newPriceHistory[newStock.code] = previousPrice;
-          newPriceChangeColors[newStock.code] = updatePriceColors(
-            newStock.code,
-            currentPrice,
-            previousPrice
-          );
-        } else {
-          newPriceHistory[newStock.code] = currentPrice;
-          newPriceChangeColors[newStock.code] = 'text-white';
-        }
+      if (!Array.isArray(stockData)) {
+        console.error('Response data is not an array');
+        return;
+      }
+
+      console.log('Processing stock data:', stockData);
+
+      const formattedData = stockData.map(stock => {
+        // Hàm helper để kiểm tra giá trị không tồn tại
+        const formatValue = (value) => {
+          if (value === null || value === undefined || value === '' || value === 0) {
+            return '--';
+          }
+          return String(value);
+        };
+
+        // Chuyển đổi giá trị nhưng giữ nguyên số thập phân từ JSON
+        return {
+          code: stock.stockCode,
+          ceiling: formatValue(stock.ceilPrice),
+          floor: formatValue(stock.floorPrice),
+          ref: formatValue(stock.priorClosePrice),
+          buyPrice3: formatValue(stock.price3Buy),
+          buyVolume3: formatValue(stock.volume3Buy),
+          buyPrice2: formatValue(stock.price2Buy),
+          buyVolume2: formatValue(stock.volume2Buy),
+          buyPrice1: formatValue(stock.price1Buy),
+          buyVolume1: formatValue(stock.volume1Buy),
+          matchPrice: formatValue(stock.matchPrice),
+          matchVolume: formatValue(stock.matchedOrderVolume),
+          matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+          sellPrice1: formatValue(stock.price1Sell),
+          sellVolume1: formatValue(stock.volume1Sell),
+          sellPrice2: formatValue(stock.price2Sell),
+          sellVolume2: formatValue(stock.volume2Sell),
+          sellPrice3: formatValue(stock.price3Sell),
+          sellVolume3: formatValue(stock.volume3Sell),
+          totalVolume: formatValue(stock.volumeAccumulation),
+          high: formatValue(stock.highPrice),
+          low: formatValue(stock.lowPrice),
+          foreignBuy: formatValue(stock.foreignBuyVolume),
+          foreignSell: formatValue(stock.foreignSellVolume)
+        };
       });
-      
-      setPriceHistory(newPriceHistory);
-      setPriceChangeColors(newPriceChangeColors);
-    } else {
+
+      if (formattedData.length > 0) {
+        // Thay đổi để giữ lại dữ liệu cũ và chỉ cập nhật các dữ liệu mới
+        setRealTimeStockData(prevData => {
+          // Tạo một bản đồ để tra cứu nhanh
+          const prevDataMap = new Map();
+          prevData.forEach(stock => prevDataMap.set(stock.code, stock));
+          
+          return formattedData.map(newStock => {
+            const oldStock = prevDataMap.get(newStock.code);
+            
+            // Hợp nhất dữ liệu mới với dữ liệu cũ
+            return oldStock ? { ...oldStock, ...newStock } : newStock;
+          });
+        });
+        
+        // Cập nhật lịch sử giá và màu sắc
+        const newPriceHistory = { ...priceHistory };
+        const newPriceChangeColors = { ...priceChangeColors };
+        
+        formattedData.forEach(newStock => {
+          const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
+          if (oldStock) {
+            const currentPrice = parseFloat(newStock.matchPrice);
+            const previousPrice = parseFloat(oldStock.matchPrice);
+            
+            if (!isNaN(previousPrice)) {
+              newPriceHistory[newStock.code] = previousPrice;
+              newPriceChangeColors[newStock.code] = updatePriceColors(
+                newStock.code,
+                currentPrice,
+                previousPrice
+              );
+            }
+          }
+        });
+        
+        setPriceHistory(newPriceHistory);
+        setPriceChangeColors(newPriceChangeColors);
+      } else {
+        console.warn('No formatted data available');
+      }
+    } catch (error) {
+      console.error('Error processing stock data:', error);
       handleStockDataError();
     }
   };
 
   // Add sample chart data
   useEffect(() => {
-    if (selectedStock) {
-      // Generate sample data for the last 30 days
-      const data = Array.from({ length: 30 }).map((_, index) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (30 - index));
-        const basePrice = parseFloat(selectedStock.ref);
-        const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
-        
-        return {
-          time: Math.floor(date.getTime() / 1000),
-          open: basePrice + randomChange,
-          high: basePrice + randomChange + Math.random() * 0.5,
-          low: basePrice + randomChange - Math.random() * 0.5,
-          close: basePrice + randomChange + (Math.random() - 0.5),
-          volume: Math.floor(Math.random() * 100000)
-        };
-      });
-      setChartData(data);
-    }
-  }, [selectedStock]);
+    const fetchChartData = async () => {
+      if (!selectedStock) return;
 
-  // CSS Animation cho thay đổi giá
-  const priceChangeAnimation = `
-    @keyframes priceUp {
-      0% { background-color: rgba(0, 255, 0, 0.3); }
-      100% { background-color: transparent; }
-    }
-    @keyframes priceDown {
-      0% { background-color: rgba(255, 0, 0, 0.3); }
-      100% { background-color: transparent; }
-    }
-    
-    .price-up {
-      animation: priceUp 2s ease-out;
-    }
-    
-    .price-down {
-      animation: priceDown 2s ease-out;
-    }
-  `;
+      try {
+        const token = Cookies.get('auth_token');
+      
+      if (!token) {
+        toast.error('Vui lòng đăng nhập để xem dữ liệu');
+        return;
+      }
+        const response = await axios.get(
+          `https://stockmonitoring-api-gateway.onrender.com/api/stock-price-history?ticketSymbol=${selectedStock.code}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': 'text/plain'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          setChartData(formattedData);
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      }
+    };
+
+    fetchChartData();
+  }, [selectedStock]);
 
   // CSS Animations
   const animations = `
@@ -725,10 +1034,11 @@ const StockDerivatives = () => {
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
         await axios.delete(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
           {
             params: {
-              tickerSymbol: stock.code.toLowerCase()
+              userId: userId,
+              tickerSymbol: [stock.code]
             },
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -740,11 +1050,12 @@ const StockDerivatives = () => {
         setWatchlist(watchlist.filter(item => item.code !== stock.code));
         toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
       } else {
-        // Add to watchlist
+        // Add to watchlist with correct request format
         await axios.post(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
           {
-            tickerSymbol: stock.code.toLowerCase()
+            userId: userId,
+            tickerSymbol: [stock.code]
           },
           {
             headers: {
@@ -1296,36 +1607,30 @@ const StockDerivatives = () => {
                             >
                               {stock.code}
                             </td>
-                            <td className="text-[#FF424E] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-                            <td className="text-[#00C9FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
+                            <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
+                            <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
                             <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice3}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume3}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice2}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume2}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyPrice1}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.buyVolume1}</td>
-                            <td className={`border-r border-[#333] text-center whitespace-nowrap transition-colors duration-300 py-2 ${
-                              priceChangeColors[stock.code] || 'text-white'
-                            }`}>
-                              {stock.matchPrice}
-                            </td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchVolume}</td>
-                            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                              {stock.matchChange}
-                            </td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice1}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume1}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice2}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume2}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellPrice3}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.sellVolume3}</td>
-                            <td className="text-[#00FF00] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.high || '--'}</td>
-                            <td className="text-[#FF4A4A] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.low || '--'}</td>
+                            <td className={getCellClass(stock, 'buyPrice3', 'price')}>{stock.buyPrice3}</td>
+                            <td className={getCellClass(stock, 'buyVolume3', 'volume')}>{stock.buyVolume3}</td>
+                            <td className={getCellClass(stock, 'buyPrice2', 'price')}>{stock.buyPrice2}</td>
+                            <td className={getCellClass(stock, 'buyVolume2', 'volume')}>{stock.buyVolume2}</td>
+                            <td className={getCellClass(stock, 'buyPrice1', 'price')}>{stock.buyPrice1}</td>
+                            <td className={getCellClass(stock, 'buyVolume1', 'volume')}>{stock.buyVolume1}</td>
+                            <td className={getCellClass(stock, 'matchPrice', 'price')}>{stock.matchPrice}</td>
+                            <td className={getCellClass(stock, 'matchVolume', 'volume')}>{stock.matchVolume}</td>
+                            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>{stock.matchChange}</td>
+                            <td className={getCellClass(stock, 'sellPrice1', 'price')}>{stock.sellPrice1}</td>
+                            <td className={getCellClass(stock, 'sellVolume1', 'volume')}>{stock.sellVolume1}</td>
+                            <td className={getCellClass(stock, 'sellPrice2', 'price')}>{stock.sellPrice2}</td>
+                            <td className={getCellClass(stock, 'sellVolume2', 'volume')}>{stock.sellVolume2}</td>
+                            <td className={getCellClass(stock, 'sellPrice3', 'price')}>{stock.sellPrice3}</td>
+                            <td className={getCellClass(stock, 'sellVolume3', 'volume')}>{stock.sellVolume3}</td>
+                            <td className={getCellClass(stock, 'high', 'price')}>{stock.high || '--'}</td>
+                            <td className={getCellClass(stock, 'low', 'price')}>{stock.low || '--'}</td>
                             <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.totalVolume}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuy}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSell}</td>
+                            <td className={getCellClass(stock, 'totalVolume', 'volume')}>{stock.totalVolume}</td>
+                            <td className={getCellClass(stock, 'foreignBuy', 'volume')}>{stock.foreignBuy}</td>
+                            <td className={getCellClass(stock, 'foreignSell', 'volume')}>{stock.foreignSell}</td>
                             <td className="text-center py-2">
                               <div className="flex items-center justify-center gap-2">
                                 <button
