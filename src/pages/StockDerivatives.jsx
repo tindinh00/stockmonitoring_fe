@@ -621,20 +621,29 @@ const StockDerivatives = () => {
       // Map exchange based on selected tab
       let exchange = selectedExchange === 'HOSE' ? 'hsx' : 'hnx';
       
-      console.log(`Fetching ${exchange} stock data${timestamp ? ' with timestamp: ' + timestamp : ''}`);
-      
       let response;
       if (timestamp) {
-        // If we have timestamp, use getStockInSession
-        response = await stockService.getStockInSession(exchange, timestamp);
+        // If we have timestamp, use session API
+        console.log(`Fetching ${exchange} stock data with timestamp:`, timestamp);
+        response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/session`, {
+          params: {
+            exchange: exchange,
+            timestamp: timestamp
+          }
+        });
       } else {
-        // For initial load, use getLatestStockData
-        response = await stockService.getLatestStockData(exchange);
+        // For initial load or when no timestamp, use latest API
+        console.log(`Fetching latest ${exchange} stock data`);
+        response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/latest`, {
+          params: {
+            exchange: exchange
+          }
+        });
       }
       
-      if (response?.value?.data) {
-        console.log(`Successfully fetched ${response.value.data.length} stocks`);
-        handleStockDataResponse(response.value.data);
+      if (response?.data?.value?.data) {
+        console.log(`Successfully fetched ${response.data.value.data.length} stocks`);
+        handleStockDataResponse(response.data.value.data);
       } else {
         handleStockDataError();
       }
@@ -674,18 +683,20 @@ const StockDerivatives = () => {
               return;
             }
 
-            // Normalize data
-            let messageData = data;
+            // Get timestamp from message
+            let timestamp;
             if (typeof data === 'string') {
               try {
-                messageData = JSON.parse(data);
+                const messageData = JSON.parse(data);
+                timestamp = messageData.Timestamp || messageData.timestamp;
               } catch (error) {
                 console.warn("Failed to parse HSX update as JSON:", error);
+                return;
               }
+            } else {
+              timestamp = data.Timestamp || data.timestamp;
             }
             
-            // Get timestamp from message
-            const timestamp = messageData.Timestamp || messageData.timestamp;
             console.log("HSX update timestamp:", timestamp);
             
             if (timestamp) {
@@ -708,18 +719,20 @@ const StockDerivatives = () => {
               return;
             }
 
-            // Normalize data
-            let messageData = data;
+            // Get timestamp from message
+            let timestamp;
             if (typeof data === 'string') {
               try {
-                messageData = JSON.parse(data);
+                const messageData = JSON.parse(data);
+                timestamp = messageData.Timestamp || messageData.timestamp;
               } catch (error) {
                 console.warn("Failed to parse HNX update as JSON:", error);
+                return;
               }
+            } else {
+              timestamp = data.Timestamp || data.timestamp;
             }
             
-            // Get timestamp from message
-            const timestamp = messageData.Timestamp || messageData.timestamp;
             console.log("HNX update timestamp:", timestamp);
             
             if (timestamp) {
@@ -1202,6 +1215,49 @@ const StockDerivatives = () => {
       return false;
     }
   };
+
+  // Add SignalR event listeners
+  useEffect(() => {
+    const handleStockUpdate = (event) => {
+      const { exchange, timestamp, data } = event.detail;
+      
+      // Only process if current tab matches the update's exchange
+      if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
+          (exchange === 'hnx' && selectedExchange === 'HNX')) {
+        console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
+        fetchStockData(timestamp);
+      }
+    };
+
+    // Setup SignalR connection and listeners
+    const setupSignalR = async () => {
+      try {
+        // Start SignalR connection if not already connected
+        await signalRService.startStockConnection();
+        
+        // Setup stock update listeners
+        const result = await signalRService.setupStockListeners();
+        if (result.success) {
+          console.log('SignalR listeners setup successfully');
+        } else {
+          console.error('Failed to setup SignalR listeners:', result.message);
+        }
+
+        // Add event listener for stock updates
+        window.addEventListener('stockUpdate', handleStockUpdate);
+      } catch (error) {
+        console.error('Error setting up SignalR:', error);
+      }
+    };
+
+    setupSignalR();
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('stockUpdate', handleStockUpdate);
+      signalRService.stop();
+    };
+  }, [selectedExchange]); // Re-run when exchange changes
 
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
