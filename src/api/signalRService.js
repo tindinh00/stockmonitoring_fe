@@ -24,104 +24,124 @@ class SignalRService {
       failed: false,
       lastError: null,
       retryDelay: 5000,
+      reconnectTimer: null
     };
   }
 
   async startStockConnection() {
-    const { connection, isConnecting, attempts, maxAttempts, retryDelay } = this.state;
-
-    if (isConnecting) return this.state.connectionPromise;
-    if (connection?.state === 'Connected') return connection;
-    if (attempts >= maxAttempts) {
+    if (this.state.isConnecting) return this.state.connectionPromise;
+    if (this.state.connection?.state === 'Connected') return this.state.connection;
+    
+    this.state.isConnecting = true;
+    this.state.attempts++;
+    
+    if (this.state.attempts > this.state.maxAttempts) {
       this.state.failed = true;
+      this.state.isConnecting = false;
       throw new Error('Max connection attempts exceeded');
     }
 
-    this.state.attempts++;
-    this.state.isConnecting = true;
-    console.log(`[SignalR-Stock] Attempt ${this.state.attempts}/${maxAttempts}`);
+    console.log(`[SignalR-Stock] Connection attempt ${this.state.attempts}/${this.state.maxAttempts}`);
 
-    this.state.connectionPromise = this.state.connectionPromise || new Promise((resolve, reject) => {
-      let timeoutId;
-      
-      const connectToHub = async () => {
-        try {
-          timeoutId = setTimeout(() => {
-            this.state.isConnecting = false;
-            this.state.failed = true;
-            reject(new Error('Connection timeout'));
-          }, 15000);
+    try {
+      const token = Cookies.get('access_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-          console.log("[SignalR-Stock] Connecting to hub URL:", `${BASE_URL}/stockDataHub`);
-          
-          // Lấy token từ cookie
-          const token = Cookies.get('access_token');
-          
-          const connectionConfig = {
-            transport: HttpTransportType.WebSockets,
-            skipNegotiation: false,
-            withCredentials: false,
-            accessTokenFactory: () => token,
-            headers: { 
-              'Accept': 'application/json', 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          };
-
-          this.state.connection = new HubConnectionBuilder()
-            .withUrl(`${BASE_URL}/stockDataHub`, connectionConfig)
-            .configureLogging(LogLevel.Debug)
-            .withAutomaticReconnect([0, 2000, 5000, 10000])
-            .build();
-
-          this.state.connection.onclose((error) => {
-            console.error('[SignalR-Stock] Connection Closed:', error);
-            this.state.lastError = error;
-            this.resetConnection();
-            if (error && !error.isClean) {
-              setTimeout(() => this.startStockConnection(), retryDelay);
-            }
-          });
-
-          this.state.connection.onreconnected((id) => {
-            console.log('[SignalR-Stock] Reconnected:', id);
-          });
-          
-          this.state.connection.onreconnecting((err) => {
-            console.log('[SignalR-Stock] Reconnecting:', err);
-          });
-
-          await this.state.connection.start();
-          console.log('[SignalR-Stock] Connected Successfully');
-          clearTimeout(timeoutId);
-          this.state.isConnecting = false;
-          this.state.failed = false;
-          this.state.attempts = 0;
-          resolve(this.state.connection);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          console.error('[SignalR-Stock] Error starting connection:', error);
-          this.state.lastError = error;
-          this.state.isConnecting = false;
-          this.state.connectionPromise = null;
-          if (this.state.attempts < maxAttempts) {
-            console.log(`[SignalR-Stock] Will retry in ${retryDelay}ms`);
-            setTimeout(() => this.startStockConnection(), retryDelay);
-          } else {
-            this.state.failed = true;
-            reject(error);
-          }
-        }
+      const connectionConfig = {
+        transport: HttpTransportType.WebSockets,
+        skipNegotiation: false,
+        withCredentials: false,
+        accessTokenFactory: () => token
       };
 
-      connectToHub();
+      this.state.connection = new HubConnectionBuilder()
+        .withUrl(`${BASE_URL}/stockDataHub`, connectionConfig)
+        .configureLogging(LogLevel.Information)
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: retryContext => {
+            if (retryContext.previousRetryCount === 0) {
+              return 0;
+            } else if (retryContext.previousRetryCount < 3) {
+              return 2000;
+            } else {
+              return 5000;
+            }
+          }
+        })
+        .build();
+
+      this.setupConnectionHandlers();
+      await this.state.connection.start();
+      
+      console.log('[SignalR-Stock] Connected successfully');
+      this.state.isConnecting = false;
+      this.state.failed = false;
+      this.state.attempts = 0;
+      
+      return this.state.connection;
+    } catch (error) {
+      console.error('[SignalR-Stock] Connection error:', error);
+      this.state.lastError = error;
+      this.state.isConnecting = false;
+      
+      if (this.state.attempts < this.state.maxAttempts) {
+        console.log(`[SignalR-Stock] Retrying in ${this.state.retryDelay}ms`);
+        await new Promise(resolve => setTimeout(resolve, this.state.retryDelay));
+        return this.startStockConnection();
+      }
+      
+      this.state.failed = true;
+      throw error;
+    }
+  }
+
+  setupConnectionHandlers() {
+    if (!this.state.connection) return;
+
+    this.state.connection.onclose(error => {
+      console.error('[SignalR-Stock] Connection closed:', error);
+      this.state.lastError = error;
+      
+      if (error) {
+        this.resetConnection();
+        if (!this.state.reconnectTimer) {
+          this.state.reconnectTimer = setTimeout(() => {
+            this.state.reconnectTimer = null;
+            this.startStockConnection();
+          }, this.state.retryDelay);
+        }
+      }
     });
 
-    return this.state.connectionPromise;
+    this.state.connection.onreconnecting(error => {
+      console.log('[SignalR-Stock] Attempting to reconnect:', error);
+      this.state.isConnecting = true;
+    });
+
+    this.state.connection.onreconnected(connectionId => {
+      console.log('[SignalR-Stock] Reconnected. ConnectionId:', connectionId);
+      this.state.isConnecting = false;
+      this.state.failed = false;
+      this.resubscribeToEvents();
+    });
+  }
+
+  async resubscribeToEvents() {
+    const handlers = Array.from(this.state.eventHandlers.entries());
+    for (const [eventName, callbacks] of handlers) {
+      for (const callback of callbacks) {
+        await this.onStock(eventName, callback);
+      }
+    }
   }
 
   resetConnection() {
+    if (this.state.reconnectTimer) {
+      clearTimeout(this.state.reconnectTimer);
+      this.state.reconnectTimer = null;
+    }
     this.state.connection = null;
     this.state.connectionPromise = null;
   }

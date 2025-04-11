@@ -556,7 +556,20 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await axiosInstance.post("/api/package", packageData);
+      // Tạo body request đúng format với duration là 30 ngày
+      const requestBody = {
+        id: packageData.id,
+        name: packageData.name,
+        description: packageData.description,
+        price: parseFloat(packageData.price),
+        discountedPrice: parseFloat(packageData.discountedPrice),
+        duration: 30,
+        isActive: true,
+        isDiscounted: parseFloat(packageData.price) > parseFloat(packageData.discountedPrice),
+        featureIds: packageData.featureIds
+      };
+
+      const response = await axiosInstance.post("/api/package", requestBody);
 
       console.log("Create package response:", response.data);
       
@@ -578,7 +591,20 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
 
-      const response = await axiosInstance.put(`/api/package/${id}`, packageData);
+      // Tạo body request đúng format với duration là 30 ngày
+      const requestBody = {
+        id: packageData.id,
+        name: packageData.name,
+        description: packageData.description,
+        price: parseFloat(packageData.price),
+        discountedPrice: parseFloat(packageData.discountedPrice),
+        duration: 30,
+        isActive: true,
+        isDiscounted: parseFloat(packageData.price) > parseFloat(packageData.discountedPrice),
+        featureIds: packageData.featureIds
+      };
+
+      const response = await axiosInstance.put(`/api/package/${id}`, requestBody);
 
       console.log("Update package response:", response.data);
       
@@ -1351,6 +1377,127 @@ export const apiService = {
         data: [],
         message: error.response?.data?.message || error.message
       };
+    }
+  },
+
+  // Revenue APIs
+  getCurrentMonthRevenue: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/current-month`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data.value;
+    } catch (error) {
+      console.error("Get current month revenue error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getPackagesByPurchases: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/packages/by-purchases`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data.value;
+    } catch (error) {
+      console.error("Get packages by purchases error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getPackagesByRevenue: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/packages/by-revenue`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data.value;
+    } catch (error) {
+      console.error("Get packages by revenue error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getMonthlyRevenue: async (year) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/monthly-revenue/${year}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data.value;
+    } catch (error) {
+      console.error("Get monthly revenue error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getDashboardData: async (year) => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/dashboard/${year}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data.value;
+    } catch (error) {
+      console.error("Get dashboard data error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
     }
   },
 };
