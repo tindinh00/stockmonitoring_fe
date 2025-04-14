@@ -1130,9 +1130,9 @@ const StockDerivatives = () => {
       }
 
       // Cài đặt thông báo
-      setSelectedStock(stock);
+      setSelectedAlertStock(stock);
       setAlertPrice(stock.price || stock.priorClosePrice || '');
-      setShowPriceAlertDialog(true);
+      setIsPriceAlertOpen(true);
     } catch (error) {
       console.error("Set price alert error:", error);
       toast.error("Có lỗi xảy ra. Vui lòng thử lại sau", {

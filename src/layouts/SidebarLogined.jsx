@@ -145,13 +145,6 @@ export function CustomSidebarTrigger() {
   return null;
 }
 
-// SVG for Workspace Premium icon from Material Symbols Outlined
-const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" height={size} viewBox="0 -960 960 960" width={size} className={className} fill="currentColor">
-    <path d="M190-100v-60h60v-324q0-82 48.5-148.5T420-722v-68q0-24 18-42t42-42q24 0 42 18t18 42v68q74 29 122 95.5T710-484v324h60v60H190Zm290-360q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Z"/>
-  </svg>
-);
-
 // Add state for feature message
 export default function SidebarLogined() {
   const { state, isMobile } = useSidebar();
@@ -228,24 +221,30 @@ export default function SidebarLogined() {
           onClick={handleNavItemClick}
         >
           {userHasFeature ? (
-            <a href={item.url}>
-              <Icon className={isActiveLink ? 'text-[#09D1C7]' : ''} />
-              <span>{item.title}</span>
+            <a href={item.url} className="flex items-center gap-3 w-full sidebar-link">
+              <span className="icon-wrapper flex-shrink-0">
+                <Icon className={`size-5 ${isActiveLink ? 'text-[#09D1C7]' : ''}`} />
+              </span>
+              <span className="link-text">{item.title}</span>
             </a>
           ) : (
             <div 
-              className="flex items-center justify-between w-full cursor-pointer"
+              className="flex items-center justify-between w-full cursor-pointer sidebar-link"
               onClick={handleNavItemClick}
             >
-              <div className="flex items-center">
-                <Icon className="text-gray-500" />
-                <span className="text-gray-500">{item.title}</span>
+              <div className="flex items-center gap-3">
+                <span className="icon-wrapper flex-shrink-0">
+                  <Icon className="size-5 text-gray-500" />
+                </span>
+                <span className="link-text text-gray-500">{item.title}</span>
               </div>
-              <img 
-                src="/icons/workspace_premium.svg" 
-                alt="Premium" 
-                className="w-5 h-5 ml-auto" 
-              />
+              <span className="icon-wrapper flex-shrink-0">
+                <img 
+                  src="/icons/workspace_premium.svg" 
+                  alt="Premium" 
+                  className="size-5" 
+                />
+              </span>
             </div>
           )}
         </SidebarMenuButton>
@@ -253,8 +252,54 @@ export default function SidebarLogined() {
     );
   };
 
+  // Expand the sidebar styles
+  const sidebarStyles = `
+    /* Ensure all icons are the same size in collapsed state */
+    .group-data-[collapsible=icon] .icon-wrapper svg,
+    .group-data-[collapsible=icon] .icon-wrapper img {
+      width: 1.5rem !important;
+      height: 1.5rem !important;
+      min-width: 1.5rem !important;
+      min-height: 1.5rem !important;
+    }
+
+    /* Make all sidebar menu buttons display icons consistently */
+    [data-sidebar="menu-button"] {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Force consistent sizing in collapsed state */
+    .group-data-[collapsible=icon] [data-sidebar="menu-button"] .icon-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Force text to hide in collapsed state */
+    .group-data-[collapsible=icon] .link-text {
+      display: none;
+    }
+
+    /* Ensure icons are centered in collapsed state */
+    .group-data-[collapsible=icon] .sidebar-link {
+      justify-content: center;
+      width: 100%;
+    }
+
+    /* Set fixed size for all icons regardless of sidebar state */
+    .icon-wrapper svg,
+    .icon-wrapper img {
+      width: 1.25rem;
+      height: 1.25rem;
+      min-width: 1.25rem;
+      min-height: 1.25rem;
+    }
+  `;
+
   return (
     <>
+      <style>{sidebarStyles}</style>
       <Sidebar collapsible='icon'>
         <SidebarHeader>
           <div className='flex gap-2 py-2 text-white'>
@@ -291,8 +336,12 @@ export default function SidebarLogined() {
                               : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
                           }
                         >
-                          {item.icon && <ItemIcon className={item.isActive ? 'text-[#09D1C7]' : ''} />}
-                          <span>{item.title}</span>
+                          <div className="flex items-center gap-3 w-full sidebar-link">
+                            <span className="icon-wrapper flex-shrink-0">
+                              {item.icon && <ItemIcon className={`size-5 ${item.isActive ? 'text-[#09D1C7]' : ''}`} />}
+                            </span>
+                            <span className="link-text">{item.title}</span>
+                          </div>
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
@@ -310,8 +359,8 @@ export default function SidebarLogined() {
                                       : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
                                   }
                                 >
-                                  <a href={subItem.url}>
-                                    <span>{subItem.title}</span>
+                                  <a href={subItem.url} className="flex items-center gap-3 sidebar-link">
+                                    <span className="link-text">{subItem.title}</span>
                                   </a>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>

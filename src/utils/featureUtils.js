@@ -50,8 +50,8 @@ export const hasFeature = (featureName) => {
   const features = getUserFeatures();
   const hasAccess = features.includes(featureName);
   
-  console.log(`Feature access check: "${featureName}" - Access: ${hasAccess}`, 
-              `Available features:`, features);
+  // console.log(`Feature access check: "${featureName}" - Access: ${hasAccess}`, 
+  //             `Available features:`, features);
   
   return hasAccess;
 };
