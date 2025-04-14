@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
+import { saveUserFeatures, clearUserFeatures } from '@/utils/featureUtils';
 
 const API_URL = "https://stockmonitoring-api-gateway.onrender.com";
 const TOKEN_KEY = "auth_token";
@@ -119,7 +120,8 @@ export const AuthProvider = ({ children }) => {
         isVerified: userData.isVerified || false,
         isActive: userData.isActive !== false, // Mặc định là true nếu không có
         isOAuth: userData.isOAuth || false,
-        tier: userData.tier || "Free"
+        tier: userData.tier || "Free",
+        features: userData.features || [] // Save features received from API
       };
       
       // Lưu thông tin người dùng
@@ -130,6 +132,41 @@ export const AuthProvider = ({ children }) => {
       Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
       Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
       Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+      
+      // Lưu features vào cookie để điều khiển quyền truy cập
+      if (userData.features && Array.isArray(userData.features)) {
+        // Đảm bảo thêm các tính năng miễn phí
+        const freeFeatures = [
+          "Các tính năng của gói miễn phí",
+          "Hiển thị dữ liệu thị trường chứng khoán",
+          "Tìm kiếm và bộ lọc cổ phiếu",
+          "Xem tin tức thị trường",
+          "Bản đồ nhiệt",
+          "Hộp thoại hỗ trợ người dùng (Chatbox)"
+        ];
+        
+        // Thêm các tính năng miễn phí chưa có vào danh sách
+        freeFeatures.forEach(feature => {
+          if (!userData.features.includes(feature)) {
+            userData.features.push(feature);
+          }
+        });
+        
+        saveUserFeatures(userData.features);
+        console.log("User features saved:", userData.features);
+      } else {
+        // Nếu không có features nào từ API, thêm tính năng miễn phí mặc định
+        const defaultFeatures = [
+          "Các tính năng của gói miễn phí",
+          "Hiển thị dữ liệu thị trường chứng khoán",
+          "Tìm kiếm và bộ lọc cổ phiếu", 
+          "Xem tin tức thị trường",
+          "Bản đồ nhiệt",
+          "Hộp thoại hỗ trợ người dùng (Chatbox)"
+        ];
+        saveUserFeatures(defaultFeatures);
+        console.log("Default free features saved:", defaultFeatures);
+      }
       
       // Cập nhật state
       setUser(userInfo);
@@ -149,8 +186,8 @@ export const AuthProvider = ({ children }) => {
           // Lấy thông báo lỗi từ phản hồi API nếu có
           const responseData = error.response.data;
           errorMessage = responseData?.value?.message || 
-                       responseData?.message || 
-                       `Lỗi: ${error.response.statusText}`;
+                     responseData?.message || 
+                     `Lỗi: ${error.response.statusText}`;
         }
       } else if (error.request) {
         // Không nhận được phản hồi
@@ -492,6 +529,10 @@ export const AuthProvider = ({ children }) => {
       Cookies.remove(USER_ROLE_KEY);
       Cookies.remove(USER_NAME_KEY);
       Cookies.remove(USER_TIER_KEY);
+      
+      // Clear feature cookies
+      clearUserFeatures();
+      
       localStorage.removeItem(USER_KEY);
       setUser(null);
       setIsAuthenticated(false);

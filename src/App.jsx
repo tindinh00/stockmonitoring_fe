@@ -44,6 +44,9 @@ import PersonalAnalyticsPage from './pages/PersonalAnalyticsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import signalRService from './api/signalRService';  // Import signalRService
 import AIChatPage from './pages/AIChatPage';
+import FeatureGuard from './components/FeatureGuard';
+import UnauthorizedFeatureMessage from './components/UnauthorizedFeatureMessage.jsx';
+import { ensureFreeFeatures } from './utils/featureUtils';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -71,6 +74,11 @@ const RootRoute = () => {
 };
 
 function App() {
+  // Đảm bảo người dùng luôn có quyền truy cập vào tính năng miễn phí
+  useEffect(() => {
+    ensureFreeFeatures();
+  }, []);
+
   // Dọn dẹp kết nối khi ứng dụng đóng
   useEffect(() => {
     // Dọn dẹp kết nối khi component unmount
@@ -174,22 +182,32 @@ function App() {
           path="/stock" 
           element={
             <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán" 
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Bảng giá theo thời gian thực" 
+                    returnPath="/"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <StockDerivatives />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <StockDerivatives />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -198,22 +216,33 @@ function App() {
           path="/watchlist" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Quản lý danh mục theo dõi cổ phiếu" 
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Danh sách theo dõi" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <WatchlistPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <WatchlistPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -222,22 +251,33 @@ function App() {
           path="/news" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Xem tin tức thị trường" 
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Tin tức" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <NewsPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <NewsPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -246,22 +286,33 @@ function App() {
           path="/heatmap" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Bản đồ nhiệt" 
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Bản đồ nhiệt" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <HeatmapPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <HeatmapPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -270,22 +321,33 @@ function App() {
           path="/notifications" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Quản lý thông báo theo nhu cầu"
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Quản lý thông báo" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <NotificationsPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <NotificationsPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -294,22 +356,33 @@ function App() {
           path="/chat" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán"
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Chat với hỗ trợ" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <ChatPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <ChatPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -348,22 +421,33 @@ function App() {
           path="/analytics" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Phân tích cá nhân" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <PersonalAnalyticsPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <PersonalAnalyticsPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />
@@ -396,22 +480,33 @@ function App() {
           path="/ai-chat" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
+              <FeatureGuard 
+                requiredFeature="Trợ lý AI"
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Chat với AI" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <AIChatPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <AIChatPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+                </SidebarProvider>
+              </FeatureGuard>
             </ProtectedRoute>
           } 
         />

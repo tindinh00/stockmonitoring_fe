@@ -2058,4 +2058,4 @@ const WatchlistPage = () => {
   );
 };
 
-export default WatchlistPage; 
+export default WatchlistPage;
