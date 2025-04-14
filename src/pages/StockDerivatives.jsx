@@ -42,12 +42,22 @@ import {
   Bell,
   AlertTriangle,
   Info,
-  Loader2
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
+import { hasFeature } from '@/utils/featureUtils'; // Import hàm hasFeature
+import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage'; // Import UnauthorizedFeatureMessage
+
+// SVG for Workspace Premium icon from Material Symbols Outlined
+const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" height={size} viewBox="0 -960 960 960" width={size} className={className} fill="currentColor">
+    <path d="M190-100v-60h60v-324q0-82 48.5-148.5T420-722v-68q0-24 18-42t42-42q24 0 42 18t18 42v68q74 29 122 95.5T710-484v324h60v60H190Zm290-360q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Z"/>
+  </svg>
+);
 
 const StockDerivatives = () => {
   const [activeTab, setActiveTab] = useState('price');
@@ -67,6 +77,8 @@ const StockDerivatives = () => {
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
+  const [userWatchlist, setUserWatchlist] = useState([]);
+  const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -1025,7 +1037,9 @@ const StockDerivatives = () => {
     }
   }, [realTimeStockData]);
 
-  // Update handleAddToWatchlist to handle the new API response format
+
+  // Xử lý hành động thêm vào danh sách theo dõi
+
   const handleAddToWatchlist = async (stock) => {
     try {
       const userId = getUserId();
@@ -1088,12 +1102,44 @@ const StockDerivatives = () => {
     }
   };
 
-  // Thêm hàm xử lý cài đặt thông báo giá
+    
+
+  // Xử lý cài đặt thông báo giá
   const handleSetPriceAlert = (stock) => {
-    setSelectedAlertStock(stock);
-    setAlertPrice('');
-    setAlertType('above');
-    setIsPriceAlertOpen(true);
+    try {
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Vui lòng đăng nhập để sử dụng tính năng này", {
+          position: "top-right",
+          duration: 3000,
+        });
+        return;
+      }
+      
+      // Kiểm tra quyền truy cập tính năng
+      const hasNotificationFeature = hasFeature("Quản lý thông báo theo nhu cầu");
+      if (!hasNotificationFeature) {
+        // Show the feature message dialog instead of toast
+        setFeatureMessageInfo({
+          name: 'Thông báo giá',
+          returnPath: '/stock'
+        });
+        setShowFeatureMessage(true);
+        return;
+      }
+
+      // Cài đặt thông báo
+      setSelectedAlertStock(stock);
+      setAlertPrice(stock.price || stock.priorClosePrice || '');
+      setIsPriceAlertOpen(true);
+    } catch (error) {
+      console.error("Set price alert error:", error);
+      toast.error("Có lỗi xảy ra. Vui lòng thử lại sau", {
+        position: "top-right",
+        duration: 3000,
+      });
+    }
   };
 
   // Thêm hàm xử lý lưu cài đặt thông báo giá
@@ -1259,9 +1305,23 @@ const StockDerivatives = () => {
     };
   }, [selectedExchange]); // Re-run when exchange changes
 
+  // State for showing feature message dialog
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '/stock' });
+
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
+      
+      {/* Feature Message Dialog */}
+      {showFeatureMessage && (
+        <UnauthorizedFeatureMessage
+          featureName={featureMessageInfo.name}
+          returnPath={featureMessageInfo.returnPath}
+          showUpgradeOption={true}
+          onClose={() => setShowFeatureMessage(false)}
+        />
+      )}
       
       {/* Navigation Tabs */}
       <div className="border-b border-[#333] flex-shrink-0">
@@ -1532,32 +1592,7 @@ const StockDerivatives = () => {
                 <div className="flex-grow">
                   <table className="w-full border-collapse">
                     <colgroup>
-                      <col className="w-[60px]" /> {/* Mã CK */}
-                      <col className="w-[60px]" /> {/* Trần */}
-                      <col className="w-[60px]" /> {/* Sàn */}
-                      <col className="w-[60px]" /> {/* TC */}
-                      <col className="w-[60px]" /> {/* Giá 3 */}
-                      <col className="w-[80px]" /> {/* KL 3 */}
-                      <col className="w-[60px]" /> {/* Giá 2 */}
-                      <col className="w-[80px]" /> {/* KL 2 */}
-                      <col className="w-[60px]" /> {/* Giá 1 */}
-                      <col className="w-[80px]" /> {/* KL 1 */}
-                      <col className="w-[60px]" /> {/* Giá */}
-                      <col className="w-[80px]" /> {/* KL */}
-                      <col className="w-[70px]" /> {/* +/- */}
-                      <col className="w-[60px]" /> {/* Giá 1 */}
-                      <col className="w-[80px]" /> {/* KL 1 */}
-                      <col className="w-[60px]" /> {/* Giá 2 */}
-                      <col className="w-[80px]" /> {/* KL 2 */}
-                      <col className="w-[60px]" /> {/* Giá 3 */}
-                      <col className="w-[80px]" /> {/* KL 3 */}
-                      <col className="w-[60px]" /> {/* Cao */}
-                      <col className="w-[60px]" /> {/* Thấp */}
-                      <col className="w-[60px]" /> {/* TB */}
-                      <col className="w-[100px]" /> {/* Tổng KL */}
-                      <col className="w-[80px]" /> {/* Mua */}
-                      <col className="w-[80px]" /> {/* Bán */}
-                      <col className="w-[100px]" /> {/* Thao tác */}
+                      <col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[70px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[80px]" /><col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[60px]" /><col className="w-[100px]" /><col className="w-[80px]" /><col className="w-[80px]" /><col className="w-[100px]" />
                     </colgroup>
                     <thead className="sticky top-0 bg-[#1a1a1a] z-50">
                       <tr>
@@ -1692,26 +1727,59 @@ const StockDerivatives = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAddToWatchlist(stock);
+                                    
+                                    // Kiểm tra quyền truy cập tính năng
+                                    if (hasFeature("Quản lý danh mục theo dõi cổ phiếu")) {
+                                      handleAddToWatchlist(stock);
+                                    } else {
+                                      // Hiển thị thông báo tính năng cao cấp
+                                      setFeatureMessageInfo({
+                                        name: 'Danh sách theo dõi',
+                                        returnPath: '/stock'
+                                      });
+                                      setShowFeatureMessage(true);
+                                    }
                                   }}
-                                  className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
-                                  title="Thêm vào danh sách theo dõi"
+                                  className={`p-1.5 rounded relative ${hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                    ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-500" 
+                                    : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                  title={hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                    ? "Thêm vào danh sách theo dõi" 
+                                    : "Tính năng của gói nâng cao"}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                                   </svg>
+                                  {!hasFeature("Quản lý danh mục theo dõi cổ phiếu") && (
+                                    <img 
+                                      src="/icons/workspace_premium.svg" 
+                                      alt="Premium" 
+                                      className="w-4 h-4 absolute -top-2 -right-2" 
+                                    />
+                                  )}
                                 </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleSetPriceAlert(stock);
                                   }}
-                                  className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
-                                  title="Cài đặt thông báo giá"
+                                  className={`p-1.5 rounded relative ${hasFeature("Quản lý thông báo theo nhu cầu") 
+                                    ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500" 
+                                    : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                  title={hasFeature("Quản lý thông báo theo nhu cầu") 
+                                    ? "Cài đặt thông báo giá" 
+                                    : "Tính năng của gói nâng cao"}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                   </svg>
+                                  {!hasFeature("Quản lý thông báo theo nhu cầu") && (
+                                    <img 
+                                      src="/icons/workspace_premium.svg" 
+                                      alt="Premium" 
+                                      className="w-4 h-4 absolute -top-2 -right-2" 
+                                    />
+                                  )}
                                 </button>
                               </div>
                             </td>
