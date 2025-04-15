@@ -627,16 +627,18 @@ const StockDerivatives = () => {
   // Fetch stock data first, then set up SignalR
   const fetchStockData = async (timestamp = null) => {
     try {
-      console.log("=== Fetching stock data ===");
-      setIsLoading(true);
-      
       // Map exchange based on selected tab
       let exchange = selectedExchange === 'HOSE' ? 'hsx' : 'hnx';
       
+      // Chỉ hiển thị loading khi chuyển sàn và chưa có dữ liệu
+      if (!timestamp && !realTimeStockData.length) {
+        setIsLoading(true);
+      }
+      
       let response;
       if (timestamp) {
-        // If we have timestamp, use session API
-        console.log(`Fetching ${exchange} stock data with timestamp:`, timestamp);
+        // Nếu có timestamp, sử dụng session API và không hiển thị loading
+        console.log(`Updating ${exchange} stock data with timestamp:`, timestamp);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/session`, {
           params: {
             exchange: exchange,
@@ -644,8 +646,8 @@ const StockDerivatives = () => {
           }
         });
       } else {
-        // For initial load or when no timestamp, use latest API
-        console.log(`Fetching latest ${exchange} stock data`);
+        // Cho lần tải đầu tiên hoặc khi chuyển sàn
+        console.log(`Fetching initial ${exchange} stock data`);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/latest`, {
           params: {
             exchange: exchange
@@ -654,11 +656,119 @@ const StockDerivatives = () => {
       }
       
       if (response?.data?.value?.data) {
-        console.log(`Successfully fetched ${response.data.value.data.length} stocks`);
-        handleStockDataResponse(response.data.value.data);
-      } else {
-        handleStockDataError();
+        const stockData = response.data.value.data;
+        
+        // Cập nhật dữ liệu theo cách mới
+        setRealTimeStockData(prevData => {
+          // Nếu đang chuyển sàn, tạo mảng mới
+          if (!timestamp && !prevData.length) {
+            return stockData.map(stock => {
+              const formatValue = (value) => {
+                if (value === null || value === undefined || value === '' || value === 0) {
+                  return '--';
+                }
+                return String(value);
+              };
+
+              return {
+                code: stock.stockCode,
+                ceiling: formatValue(stock.ceilPrice),
+                floor: formatValue(stock.floorPrice),
+                ref: formatValue(stock.priorClosePrice),
+                buyPrice3: formatValue(stock.price3Buy),
+                buyVolume3: formatValue(stock.volume3Buy),
+                buyPrice2: formatValue(stock.price2Buy),
+                buyVolume2: formatValue(stock.volume2Buy),
+                buyPrice1: formatValue(stock.price1Buy),
+                buyVolume1: formatValue(stock.volume1Buy),
+                matchPrice: formatValue(stock.matchPrice),
+                matchVolume: formatValue(stock.matchedOrderVolume),
+                matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+                sellPrice1: formatValue(stock.price1Sell),
+                sellVolume1: formatValue(stock.volume1Sell),
+                sellPrice2: formatValue(stock.price2Sell),
+                sellVolume2: formatValue(stock.volume2Sell),
+                sellPrice3: formatValue(stock.price3Sell),
+                sellVolume3: formatValue(stock.volume3Sell),
+                totalVolume: formatValue(stock.volumeAccumulation),
+                high: formatValue(stock.highPrice),
+                low: formatValue(stock.lowPrice),
+                foreignBuy: formatValue(stock.foreignBuyVolume),
+                foreignSell: formatValue(stock.foreignSellVolume)
+              };
+            });
+          }
+
+          // Nếu là cập nhật realtime, chỉ cập nhật các giá trị thay đổi
+          const newData = [...prevData];
+          const newPriceHistory = { ...priceHistory };
+          const newPriceChangeColors = { ...priceChangeColors };
+          let hasChanges = false;
+
+          stockData.forEach(stock => {
+            const existingIndex = newData.findIndex(item => item.code === stock.stockCode);
+            if (existingIndex === -1) return;
+
+            const formatValue = (value) => {
+              if (value === null || value === undefined || value === '' || value === 0) {
+                return '--';
+              }
+              return String(value);
+            };
+
+            const newValues = {
+              matchPrice: formatValue(stock.matchPrice),
+              matchVolume: formatValue(stock.matchedOrderVolume),
+              matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+              buyPrice1: formatValue(stock.price1Buy),
+              buyVolume1: formatValue(stock.volume1Buy),
+              buyPrice2: formatValue(stock.price2Buy),
+              buyVolume2: formatValue(stock.volume2Buy),
+              buyPrice3: formatValue(stock.price3Buy),
+              buyVolume3: formatValue(stock.volume3Buy),
+              sellPrice1: formatValue(stock.price1Sell),
+              sellVolume1: formatValue(stock.volume1Sell),
+              sellPrice2: formatValue(stock.price2Sell),
+              sellVolume2: formatValue(stock.volume2Sell),
+              sellPrice3: formatValue(stock.price3Sell),
+              sellVolume3: formatValue(stock.volume3Sell),
+              totalVolume: formatValue(stock.volumeAccumulation),
+              high: formatValue(stock.highPrice),
+              low: formatValue(stock.lowPrice),
+              foreignBuy: formatValue(stock.foreignBuyVolume),
+              foreignSell: formatValue(stock.foreignSellVolume)
+            };
+
+            const currentPrice = parseFloat(newValues.matchPrice);
+            const previousPrice = parseFloat(newData[existingIndex].matchPrice);
+
+            if (!isNaN(previousPrice) && currentPrice !== previousPrice) {
+              hasChanges = true;
+              newPriceHistory[stock.stockCode] = previousPrice;
+              newPriceChangeColors[stock.stockCode] = updatePriceColors(
+                stock.stockCode,
+                currentPrice,
+                previousPrice
+              );
+            }
+
+            // Cập nhật giá trị mới
+            newData[existingIndex] = {
+              ...newData[existingIndex],
+              ...newValues
+            };
+          });
+
+          // Chỉ cập nhật state nếu có thay đổi
+          if (hasChanges) {
+            setPriceHistory(newPriceHistory);
+            setPriceChangeColors(newPriceChangeColors);
+          }
+
+          return newData;
+        });
       }
+      
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -667,124 +777,6 @@ const StockDerivatives = () => {
       return false;
     }
   };
-
-  // Updated SignalR connection function that only sets up event listeners
-  const setupSignalR = async () => {
-    try {
-      console.log("=== Setting up SignalR for stock data ===");
-      
-      // Initialize SignalR connection
-      await signalRService.startStockConnection();
-      
-      // Check connection status
-      const connectionStatus = signalRService.isConnected();
-      console.log("SignalR Connection Status:", connectionStatus);
-      
-      if (connectionStatus.stockHub) {
-        console.log("SignalR Stock Connection successful, setting up event listeners");
-        
-        // Register for HSX stock updates
-        console.log("Registering for HSX stock updates");
-        signalRService.onStock("ReceiveHSXStockUpdate", (data) => {
-          console.log("Received HSX stock update:", data);
-          
-          try {
-            // Only process if current tab is HOSE
-            if (selectedExchange !== 'HOSE') {
-              console.log("Ignoring HSX update as current tab is", selectedExchange);
-              return;
-            }
-
-            // Get timestamp from message
-            let timestamp;
-            if (typeof data === 'string') {
-              try {
-                const messageData = JSON.parse(data);
-                timestamp = messageData.Timestamp || messageData.timestamp;
-              } catch (error) {
-                console.warn("Failed to parse HSX update as JSON:", error);
-                return;
-              }
-            } else {
-              timestamp = data.Timestamp || data.timestamp;
-            }
-            
-            console.log("HSX update timestamp:", timestamp);
-            
-            if (timestamp) {
-              fetchStockData(timestamp);
-            }
-          } catch (error) {
-            console.error("Error processing HSX update:", error);
-          }
-        });
-        
-        // Register for HNX stock updates
-        console.log("Registering for HNX stock updates");
-        signalRService.onStock("ReceiveHNXStockUpdate", (data) => {
-          console.log("Received HNX stock update:", data);
-          
-          try {
-            // Only process if current tab is HNX
-            if (selectedExchange !== 'HNX') {
-              console.log("Ignoring HNX update as current tab is", selectedExchange);
-              return;
-            }
-
-            // Get timestamp from message
-            let timestamp;
-            if (typeof data === 'string') {
-              try {
-                const messageData = JSON.parse(data);
-                timestamp = messageData.Timestamp || messageData.timestamp;
-              } catch (error) {
-                console.warn("Failed to parse HNX update as JSON:", error);
-                return;
-              }
-            } else {
-              timestamp = data.Timestamp || data.timestamp;
-            }
-            
-            console.log("HNX update timestamp:", timestamp);
-            
-            if (timestamp) {
-              fetchStockData(timestamp);
-            }
-          } catch (error) {
-            console.error("Error processing HNX update:", error);
-          }
-        });
-        
-        console.log("SignalR event listeners set up successfully");
-      } else {
-        console.warn("SignalR connection not ready. Status:", connectionStatus);
-      }
-    } catch (error) {
-      console.error("Failed to setup SignalR connection:", error);
-    }
-  };
-
-  // Fetch initial data and setup SignalR
-  useEffect(() => {
-    const initializeStockData = async () => {
-      console.log("=== Initializing Stock Derivatives Page ===");
-      
-      try {
-        // Step 1: Fetch latest data first to show immediately
-        console.log("Fetching initial stock data");
-        await fetchStockData();
-      } catch (error) {
-        console.error("Error initializing stock data:", error);
-      }
-    };
-    
-    initializeStockData();
-    
-    // Cleanup when component unmounts
-    return () => {
-      console.log("=== Cleaning up Stock Derivatives Page ===");
-    };
-  }, []);
 
   // Add useEffect to refetch data when exchange changes
   useEffect(() => {
@@ -806,6 +798,7 @@ const StockDerivatives = () => {
       if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
           (exchange === 'hnx' && selectedExchange === 'HNX')) {
         console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
+        // Gọi fetchStockData với timestamp nhưng không hiển thị loading
         fetchStockData(timestamp);
       }
     };
@@ -818,109 +811,6 @@ const StockDerivatives = () => {
       window.removeEventListener('stockUpdate', handleStockUpdate);
     };
   }, [selectedExchange]); // Re-run when exchange changes
-
-  // Add helper function to handle successful stock data response
-  const handleStockDataResponse = (responseData) => {
-    if (!responseData) {
-      console.error('No response data received');
-      return;
-    }
-
-    try {
-      // Check if data is in the new format (nested in value.data)
-      const stockData = responseData.value?.data || responseData;
-      
-      if (!Array.isArray(stockData)) {
-        console.error('Response data is not an array');
-        return;
-      }
-
-      console.log('Processing stock data:', stockData);
-
-      const formattedData = stockData.map(stock => {
-        // Hàm helper để kiểm tra giá trị không tồn tại
-        const formatValue = (value) => {
-          if (value === null || value === undefined || value === '' || value === 0) {
-            return '--';
-          }
-          return String(value);
-        };
-
-        // Chuyển đổi giá trị nhưng giữ nguyên số thập phân từ JSON
-        return {
-          code: stock.stockCode,
-          ceiling: formatValue(stock.ceilPrice),
-          floor: formatValue(stock.floorPrice),
-          ref: formatValue(stock.priorClosePrice),
-          buyPrice3: formatValue(stock.price3Buy),
-          buyVolume3: formatValue(stock.volume3Buy),
-          buyPrice2: formatValue(stock.price2Buy),
-          buyVolume2: formatValue(stock.volume2Buy),
-          buyPrice1: formatValue(stock.price1Buy),
-          buyVolume1: formatValue(stock.volume1Buy),
-          matchPrice: formatValue(stock.matchPrice),
-          matchVolume: formatValue(stock.matchedOrderVolume),
-          matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
-          sellPrice1: formatValue(stock.price1Sell),
-          sellVolume1: formatValue(stock.volume1Sell),
-          sellPrice2: formatValue(stock.price2Sell),
-          sellVolume2: formatValue(stock.volume2Sell),
-          sellPrice3: formatValue(stock.price3Sell),
-          sellVolume3: formatValue(stock.volume3Sell),
-          totalVolume: formatValue(stock.volumeAccumulation),
-          high: formatValue(stock.highPrice),
-          low: formatValue(stock.lowPrice),
-          foreignBuy: formatValue(stock.foreignBuyVolume),
-          foreignSell: formatValue(stock.foreignSellVolume)
-        };
-      });
-
-      if (formattedData.length > 0) {
-        // Thay đổi để giữ lại dữ liệu cũ và chỉ cập nhật các dữ liệu mới
-        setRealTimeStockData(prevData => {
-          // Tạo một bản đồ để tra cứu nhanh
-          const prevDataMap = new Map();
-          prevData.forEach(stock => prevDataMap.set(stock.code, stock));
-          
-          return formattedData.map(newStock => {
-            const oldStock = prevDataMap.get(newStock.code);
-            
-            // Hợp nhất dữ liệu mới với dữ liệu cũ
-            return oldStock ? { ...oldStock, ...newStock } : newStock;
-          });
-        });
-        
-        // Cập nhật lịch sử giá và màu sắc
-        const newPriceHistory = { ...priceHistory };
-        const newPriceChangeColors = { ...priceChangeColors };
-        
-        formattedData.forEach(newStock => {
-          const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
-          if (oldStock) {
-            const currentPrice = parseFloat(newStock.matchPrice);
-            const previousPrice = parseFloat(oldStock.matchPrice);
-            
-            if (!isNaN(previousPrice)) {
-              newPriceHistory[newStock.code] = previousPrice;
-              newPriceChangeColors[newStock.code] = updatePriceColors(
-                newStock.code,
-                currentPrice,
-                previousPrice
-              );
-            }
-          }
-        });
-        
-        setPriceHistory(newPriceHistory);
-        setPriceChangeColors(newPriceChangeColors);
-      } else {
-        console.warn('No formatted data available');
-      }
-    } catch (error) {
-      console.error('Error processing stock data:', error);
-      handleStockDataError();
-    }
-  };
 
   // Add sample chart data
   useEffect(() => {
