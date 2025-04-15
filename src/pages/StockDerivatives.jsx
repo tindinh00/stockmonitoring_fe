@@ -772,16 +772,7 @@ const StockDerivatives = () => {
       try {
         // Step 1: Fetch latest data first to show immediately
         console.log("Fetching initial stock data");
-        const fetchSuccess = await fetchStockData();
-        
-        // Step 2: Set up SignalR only after initial data fetch
-        if (fetchSuccess) {
-          console.log("Initial data fetched successfully, now setting up SignalR");
-          setupSignalR();
-        } else {
-          console.warn("Failed to fetch initial data, retrying in 5 seconds");
-          setTimeout(() => fetchStockData(), 5000);
-        }
+        await fetchStockData();
       } catch (error) {
         console.error("Error initializing stock data:", error);
       }
@@ -792,8 +783,6 @@ const StockDerivatives = () => {
     // Cleanup when component unmounts
     return () => {
       console.log("=== Cleaning up Stock Derivatives Page ===");
-      // Clean up SignalR connection if needed
-      signalRService.stop();
     };
   }, []);
 
@@ -807,6 +796,28 @@ const StockDerivatives = () => {
     // Fetch new data for selected exchange
     fetchStockData();
   }, [selectedExchange]);
+
+  // Add SignalR event listeners
+  useEffect(() => {
+    const handleStockUpdate = (event) => {
+      const { exchange, timestamp } = event.detail;
+      
+      // Only process if current tab matches the update's exchange
+      if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
+          (exchange === 'hnx' && selectedExchange === 'HNX')) {
+        console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
+        fetchStockData(timestamp);
+      }
+    };
+
+    // Add event listener for stock updates
+    window.addEventListener('stockUpdate', handleStockUpdate);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('stockUpdate', handleStockUpdate);
+    };
+  }, [selectedExchange]); // Re-run when exchange changes
 
   // Add helper function to handle successful stock data response
   const handleStockDataResponse = (responseData) => {
@@ -1003,32 +1014,41 @@ const StockDerivatives = () => {
           return;
         }
         
-        // Call the new watchlist API endpoint
+        // Call the watchlist API endpoint with proper headers
         const response = await axios.get(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+          `${BASE_URL}/api/watchlist-stock`,
           {
+            params: {
+              userId: userId
+            },
             headers: {
               'Authorization': `Bearer ${token}`,
-              'accept': '*/*'
-            }
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            withCredentials: true
           }
         );
         
         console.log("Fetched watchlist response:", response.data);
         
         if (response.data?.value?.data?.stocks) {
-          // Extract stock codes from the response
           const watchlistStockCodes = response.data.value.data.stocks.map(stock => stock.ticketSymbol);
-          
-          // Find stocks in realTimeStockData that match the watchlist
           const watchlistStocks = realTimeStockData.filter(stock => 
             watchlistStockCodes.includes(stock.code)
           );
-          
           setWatchlist(watchlistStocks);
         }
       } catch (error) {
-        console.error('Error fetching watchlist:', error);
+        if (error.response?.status === 400) {
+          console.log("Invalid request to watchlist API:", error.response.data);
+          // Handle specific error cases
+          if (error.response.data?.message) {
+            console.log("API Error message:", error.response.data.message);
+          }
+        } else {
+          console.error('Error fetching watchlist:', error);
+        }
       }
     };
     
@@ -1261,49 +1281,6 @@ const StockDerivatives = () => {
       return false;
     }
   };
-
-  // Add SignalR event listeners
-  useEffect(() => {
-    const handleStockUpdate = (event) => {
-      const { exchange, timestamp, data } = event.detail;
-      
-      // Only process if current tab matches the update's exchange
-      if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
-          (exchange === 'hnx' && selectedExchange === 'HNX')) {
-        console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
-        fetchStockData(timestamp);
-      }
-    };
-
-    // Setup SignalR connection and listeners
-    const setupSignalR = async () => {
-      try {
-        // Start SignalR connection if not already connected
-        await signalRService.startStockConnection();
-        
-        // Setup stock update listeners
-        const result = await signalRService.setupStockListeners();
-        if (result.success) {
-          console.log('SignalR listeners setup successfully');
-        } else {
-          console.error('Failed to setup SignalR listeners:', result.message);
-        }
-
-        // Add event listener for stock updates
-        window.addEventListener('stockUpdate', handleStockUpdate);
-      } catch (error) {
-        console.error('Error setting up SignalR:', error);
-      }
-    };
-
-    setupSignalR();
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('stockUpdate', handleStockUpdate);
-      signalRService.stop();
-    };
-  }, [selectedExchange]); // Re-run when exchange changes
 
   // State for showing feature message dialog
   const [showFeatureMessage, setShowFeatureMessage] = useState(false);
