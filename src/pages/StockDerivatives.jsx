@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Input } from "@/components/ui/input";
 import moment from 'moment';
 import axios from 'axios';
-import CandlestickChart from '@/components/CandlestickChart';
+import TradingViewChart from '@/components/TradingViewChart';
 import {
   LineChart,
   Line,
@@ -42,12 +42,23 @@ import {
   Bell,
   AlertTriangle,
   Info,
-  Loader2
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
+import { hasFeature } from '@/utils/featureUtils'; // Import hàm hasFeature
+import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage'; // Import UnauthorizedFeatureMessage
+import CandlestickChart from '@/components/CandlestickChart';
+
+// SVG for Workspace Premium icon from Material Symbols Outlined
+const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" height={size} viewBox="0 -960 960 960" width={size} className={className} fill="currentColor">
+    <path d="M190-100v-60h60v-324q0-82 48.5-148.5T420-722v-68q0-24 18-42t42-42q24 0 42 18t18 42v68q74 29 122 95.5T710-484v324h60v60H190Zm290-360q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Zm0-100q-12 0-21-9t-9-21q0-12 9-21t21-9q12 0 21 9t9 21q0 12-9 21t-21 9Z"/>
+  </svg>
+);
 
 const StockDerivatives = () => {
   const [activeTab, setActiveTab] = useState('price');
@@ -67,6 +78,8 @@ const StockDerivatives = () => {
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
+  const [userWatchlist, setUserWatchlist] = useState([]);
+  const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -313,9 +326,13 @@ const StockDerivatives = () => {
         background-color: rgba(0, 255, 0, 0.3);
         transform: scale(1.1);
       }
-      50% {
+      30% {
         background-color: rgba(0, 255, 0, 0.2);
         transform: scale(1.05);
+      }
+      70% {
+        background-color: rgba(0, 255, 0, 0.1);
+        transform: scale(1.02);
       }
       100% { 
         background-color: transparent;
@@ -328,9 +345,13 @@ const StockDerivatives = () => {
         background-color: rgba(255, 0, 0, 0.3);
         transform: scale(1.1);
       }
-      50% {
+      30% {
         background-color: rgba(255, 0, 0, 0.2);
         transform: scale(1.05);
+      }
+      70% {
+        background-color: rgba(255, 0, 0, 0.1);
+        transform: scale(1.02);
       }
       100% { 
         background-color: transparent;
@@ -343,9 +364,13 @@ const StockDerivatives = () => {
         background-color: rgba(244, 190, 55, 0.3);
         transform: scale(1.1);
       }
-      50% {
+      30% {
         background-color: rgba(244, 190, 55, 0.2);
         transform: scale(1.05);
+      }
+      70% {
+        background-color: rgba(244, 190, 55, 0.1);
+        transform: scale(1.02);
       }
       100% { 
         background-color: transparent;
@@ -358,9 +383,13 @@ const StockDerivatives = () => {
         opacity: 0.5;
         transform: scale(1.1);
       }
-      50% {
-        opacity: 0.8;
+      30% {
+        opacity: 0.7;
         transform: scale(1.05);
+      }
+      70% {
+        opacity: 0.9;
+        transform: scale(1.02);
       }
       100% { 
         opacity: 1;
@@ -369,19 +398,19 @@ const StockDerivatives = () => {
     }
     
     .price-up {
-      animation: priceUp 0.5s ease-out;
+      animation: priceUp 1s ease-out;
     }
     
     .price-down {
-      animation: priceDown 0.5s ease-out;
+      animation: priceDown 1s ease-out;
     }
 
     .price-equal {
-      animation: priceEqual 0.5s ease-out;
+      animation: priceEqual 1s ease-out;
     }
 
     .volume-change {
-      animation: volumeChange 0.5s ease-out;
+      animation: volumeChange 1s ease-out;
     }
   `;
 
@@ -615,16 +644,18 @@ const StockDerivatives = () => {
   // Fetch stock data first, then set up SignalR
   const fetchStockData = async (timestamp = null) => {
     try {
-      console.log("=== Fetching stock data ===");
-      setIsLoading(true);
-      
       // Map exchange based on selected tab
       let exchange = selectedExchange === 'HOSE' ? 'hsx' : 'hnx';
       
+      // Chỉ hiển thị loading khi chuyển sàn và chưa có dữ liệu
+      if (!timestamp && !realTimeStockData.length) {
+        setIsLoading(true);
+      }
+      
       let response;
       if (timestamp) {
-        // If we have timestamp, use session API
-        console.log(`Fetching ${exchange} stock data with timestamp:`, timestamp);
+        // Nếu có timestamp, sử dụng session API và không hiển thị loading
+        console.log(`Updating ${exchange} stock data with timestamp:`, timestamp);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/session`, {
           params: {
             exchange: exchange,
@@ -632,8 +663,8 @@ const StockDerivatives = () => {
           }
         });
       } else {
-        // For initial load or when no timestamp, use latest API
-        console.log(`Fetching latest ${exchange} stock data`);
+        // Cho lần tải đầu tiên hoặc khi chuyển sàn
+        console.log(`Fetching initial ${exchange} stock data`);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/latest`, {
           params: {
             exchange: exchange
@@ -642,11 +673,119 @@ const StockDerivatives = () => {
       }
       
       if (response?.data?.value?.data) {
-        console.log(`Successfully fetched ${response.data.value.data.length} stocks`);
-        handleStockDataResponse(response.data.value.data);
-      } else {
-        handleStockDataError();
+        const stockData = response.data.value.data;
+        
+        // Cập nhật dữ liệu theo cách mới
+        setRealTimeStockData(prevData => {
+          // Nếu đang chuyển sàn, tạo mảng mới
+          if (!timestamp && !prevData.length) {
+            return stockData.map(stock => {
+              const formatValue = (value) => {
+                if (value === null || value === undefined || value === '' || value === 0) {
+                  return '--';
+                }
+                return String(value);
+              };
+
+              return {
+                code: stock.stockCode,
+                ceiling: formatValue(stock.ceilPrice),
+                floor: formatValue(stock.floorPrice),
+                ref: formatValue(stock.priorClosePrice),
+                buyPrice3: formatValue(stock.price3Buy),
+                buyVolume3: formatValue(stock.volume3Buy),
+                buyPrice2: formatValue(stock.price2Buy),
+                buyVolume2: formatValue(stock.volume2Buy),
+                buyPrice1: formatValue(stock.price1Buy),
+                buyVolume1: formatValue(stock.volume1Buy),
+                matchPrice: formatValue(stock.matchPrice),
+                matchVolume: formatValue(stock.matchedOrderVolume),
+                matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+                sellPrice1: formatValue(stock.price1Sell),
+                sellVolume1: formatValue(stock.volume1Sell),
+                sellPrice2: formatValue(stock.price2Sell),
+                sellVolume2: formatValue(stock.volume2Sell),
+                sellPrice3: formatValue(stock.price3Sell),
+                sellVolume3: formatValue(stock.volume3Sell),
+                totalVolume: formatValue(stock.volumeAccumulation),
+                high: formatValue(stock.highPrice),
+                low: formatValue(stock.lowPrice),
+                foreignBuy: formatValue(stock.foreignBuyVolume),
+                foreignSell: formatValue(stock.foreignSellVolume)
+              };
+            });
+          }
+
+          // Nếu là cập nhật realtime, chỉ cập nhật các giá trị thay đổi
+          const newData = [...prevData];
+          const newPriceHistory = { ...priceHistory };
+          const newPriceChangeColors = { ...priceChangeColors };
+          let hasChanges = false;
+
+          stockData.forEach(stock => {
+            const existingIndex = newData.findIndex(item => item.code === stock.stockCode);
+            if (existingIndex === -1) return;
+
+            const formatValue = (value) => {
+              if (value === null || value === undefined || value === '' || value === 0) {
+                return '--';
+              }
+              return String(value);
+            };
+
+            const newValues = {
+              matchPrice: formatValue(stock.matchPrice),
+              matchVolume: formatValue(stock.matchedOrderVolume),
+              matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+              buyPrice1: formatValue(stock.price1Buy),
+              buyVolume1: formatValue(stock.volume1Buy),
+              buyPrice2: formatValue(stock.price2Buy),
+              buyVolume2: formatValue(stock.volume2Buy),
+              buyPrice3: formatValue(stock.price3Buy),
+              buyVolume3: formatValue(stock.volume3Buy),
+              sellPrice1: formatValue(stock.price1Sell),
+              sellVolume1: formatValue(stock.volume1Sell),
+              sellPrice2: formatValue(stock.price2Sell),
+              sellVolume2: formatValue(stock.volume2Sell),
+              sellPrice3: formatValue(stock.price3Sell),
+              sellVolume3: formatValue(stock.volume3Sell),
+              totalVolume: formatValue(stock.volumeAccumulation),
+              high: formatValue(stock.highPrice),
+              low: formatValue(stock.lowPrice),
+              foreignBuy: formatValue(stock.foreignBuyVolume),
+              foreignSell: formatValue(stock.foreignSellVolume)
+            };
+
+            const currentPrice = parseFloat(newValues.matchPrice);
+            const previousPrice = parseFloat(newData[existingIndex].matchPrice);
+
+            if (!isNaN(previousPrice) && currentPrice !== previousPrice) {
+              hasChanges = true;
+              newPriceHistory[stock.stockCode] = previousPrice;
+              newPriceChangeColors[stock.stockCode] = updatePriceColors(
+                stock.stockCode,
+                currentPrice,
+                previousPrice
+              );
+            }
+
+            // Cập nhật giá trị mới
+            newData[existingIndex] = {
+              ...newData[existingIndex],
+              ...newValues
+            };
+          });
+
+          // Chỉ cập nhật state nếu có thay đổi
+          if (hasChanges) {
+            setPriceHistory(newPriceHistory);
+            setPriceChangeColors(newPriceChangeColors);
+          }
+
+          return newData;
+        });
       }
+      
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -655,135 +794,6 @@ const StockDerivatives = () => {
       return false;
     }
   };
-
-  // Updated SignalR connection function that only sets up event listeners
-  const setupSignalR = async () => {
-    try {
-      console.log("=== Setting up SignalR for stock data ===");
-      
-      // Initialize SignalR connection
-      await signalRService.startStockConnection();
-      
-      // Check connection status
-      const connectionStatus = signalRService.isConnected();
-      console.log("SignalR Connection Status:", connectionStatus);
-      
-      if (connectionStatus.stockHub) {
-        console.log("SignalR Stock Connection successful, setting up event listeners");
-        
-        // Register for HSX stock updates
-        console.log("Registering for HSX stock updates");
-        signalRService.onStock("ReceiveHSXStockUpdate", (data) => {
-          console.log("Received HSX stock update:", data);
-          
-          try {
-            // Only process if current tab is HOSE
-            if (selectedExchange !== 'HOSE') {
-              console.log("Ignoring HSX update as current tab is", selectedExchange);
-              return;
-            }
-
-            // Get timestamp from message
-            let timestamp;
-            if (typeof data === 'string') {
-              try {
-                const messageData = JSON.parse(data);
-                timestamp = messageData.Timestamp || messageData.timestamp;
-              } catch (error) {
-                console.warn("Failed to parse HSX update as JSON:", error);
-                return;
-              }
-            } else {
-              timestamp = data.Timestamp || data.timestamp;
-            }
-            
-            console.log("HSX update timestamp:", timestamp);
-            
-            if (timestamp) {
-              fetchStockData(timestamp);
-            }
-          } catch (error) {
-            console.error("Error processing HSX update:", error);
-          }
-        });
-        
-        // Register for HNX stock updates
-        console.log("Registering for HNX stock updates");
-        signalRService.onStock("ReceiveHNXStockUpdate", (data) => {
-          console.log("Received HNX stock update:", data);
-          
-          try {
-            // Only process if current tab is HNX
-            if (selectedExchange !== 'HNX') {
-              console.log("Ignoring HNX update as current tab is", selectedExchange);
-              return;
-            }
-
-            // Get timestamp from message
-            let timestamp;
-            if (typeof data === 'string') {
-              try {
-                const messageData = JSON.parse(data);
-                timestamp = messageData.Timestamp || messageData.timestamp;
-              } catch (error) {
-                console.warn("Failed to parse HNX update as JSON:", error);
-                return;
-              }
-            } else {
-              timestamp = data.Timestamp || data.timestamp;
-            }
-            
-            console.log("HNX update timestamp:", timestamp);
-            
-            if (timestamp) {
-              fetchStockData(timestamp);
-            }
-          } catch (error) {
-            console.error("Error processing HNX update:", error);
-          }
-        });
-        
-        console.log("SignalR event listeners set up successfully");
-      } else {
-        console.warn("SignalR connection not ready. Status:", connectionStatus);
-      }
-    } catch (error) {
-      console.error("Failed to setup SignalR connection:", error);
-    }
-  };
-
-  // Fetch initial data and setup SignalR
-  useEffect(() => {
-    const initializeStockData = async () => {
-      console.log("=== Initializing Stock Derivatives Page ===");
-      
-      try {
-        // Step 1: Fetch latest data first to show immediately
-        console.log("Fetching initial stock data");
-        const fetchSuccess = await fetchStockData();
-        
-        // Step 2: Set up SignalR only after initial data fetch
-        if (fetchSuccess) {
-          console.log("Initial data fetched successfully, now setting up SignalR");
-          setupSignalR();
-        } else {
-          console.warn("Failed to fetch initial data, retrying in 5 seconds");
-          setTimeout(() => fetchStockData(), 5000);
-        }
-      } catch (error) {
-        console.error("Error initializing stock data:", error);
-      }
-    };
-    
-    initializeStockData();
-    
-    // Cleanup when component unmounts
-    return () => {
-      console.log("=== Cleaning up Stock Derivatives Page ===");
-      // Clean up SignalR connection if needed
-      signalRService.stop();
-    };
-  }, []);
 
   // Add useEffect to refetch data when exchange changes
   useEffect(() => {
@@ -796,121 +806,49 @@ const StockDerivatives = () => {
     fetchStockData();
   }, [selectedExchange]);
 
-  // Add helper function to handle successful stock data response
-  const handleStockDataResponse = (responseData) => {
-    if (!responseData) {
-      console.error('No response data received');
-      return;
-    }
-
-    try {
-      // Check if data is in the new format (nested in value.data)
-      const stockData = responseData.value?.data || responseData;
+  // Add SignalR event listeners
+  useEffect(() => {
+    const handleStockUpdate = (event) => {
+      const { exchange, timestamp } = event.detail;
       
-      if (!Array.isArray(stockData)) {
-        console.error('Response data is not an array');
-        return;
+      // Only process if current tab matches the update's exchange
+      if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
+          (exchange === 'hnx' && selectedExchange === 'HNX')) {
+        console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
+        // Gọi fetchStockData với timestamp nhưng không hiển thị loading
+        fetchStockData(timestamp);
       }
+    };
 
-      console.log('Processing stock data:', stockData);
+    // Add event listener for stock updates
+    window.addEventListener('stockUpdate', handleStockUpdate);
 
-      const formattedData = stockData.map(stock => {
-        // Hàm helper để kiểm tra giá trị không tồn tại
-        const formatValue = (value) => {
-          if (value === null || value === undefined || value === '' || value === 0) {
-            return '--';
-          }
-          return String(value);
-        };
-
-        // Chuyển đổi giá trị nhưng giữ nguyên số thập phân từ JSON
-        return {
-          code: stock.stockCode,
-          ceiling: formatValue(stock.ceilPrice),
-          floor: formatValue(stock.floorPrice),
-          ref: formatValue(stock.priorClosePrice),
-          buyPrice3: formatValue(stock.price3Buy),
-          buyVolume3: formatValue(stock.volume3Buy),
-          buyPrice2: formatValue(stock.price2Buy),
-          buyVolume2: formatValue(stock.volume2Buy),
-          buyPrice1: formatValue(stock.price1Buy),
-          buyVolume1: formatValue(stock.volume1Buy),
-          matchPrice: formatValue(stock.matchPrice),
-          matchVolume: formatValue(stock.matchedOrderVolume),
-          matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
-          sellPrice1: formatValue(stock.price1Sell),
-          sellVolume1: formatValue(stock.volume1Sell),
-          sellPrice2: formatValue(stock.price2Sell),
-          sellVolume2: formatValue(stock.volume2Sell),
-          sellPrice3: formatValue(stock.price3Sell),
-          sellVolume3: formatValue(stock.volume3Sell),
-          totalVolume: formatValue(stock.volumeAccumulation),
-          high: formatValue(stock.highPrice),
-          low: formatValue(stock.lowPrice),
-          foreignBuy: formatValue(stock.foreignBuyVolume),
-          foreignSell: formatValue(stock.foreignSellVolume)
-        };
-      });
-
-      if (formattedData.length > 0) {
-        // Thay đổi để giữ lại dữ liệu cũ và chỉ cập nhật các dữ liệu mới
-        setRealTimeStockData(prevData => {
-          // Tạo một bản đồ để tra cứu nhanh
-          const prevDataMap = new Map();
-          prevData.forEach(stock => prevDataMap.set(stock.code, stock));
-          
-          return formattedData.map(newStock => {
-            const oldStock = prevDataMap.get(newStock.code);
-            
-            // Hợp nhất dữ liệu mới với dữ liệu cũ
-            return oldStock ? { ...oldStock, ...newStock } : newStock;
-          });
-        });
-        
-        // Cập nhật lịch sử giá và màu sắc
-        const newPriceHistory = { ...priceHistory };
-        const newPriceChangeColors = { ...priceChangeColors };
-        
-        formattedData.forEach(newStock => {
-          const oldStock = realTimeStockData.find(stock => stock.code === newStock.code);
-          if (oldStock) {
-            const currentPrice = parseFloat(newStock.matchPrice);
-            const previousPrice = parseFloat(oldStock.matchPrice);
-            
-            if (!isNaN(previousPrice)) {
-              newPriceHistory[newStock.code] = previousPrice;
-              newPriceChangeColors[newStock.code] = updatePriceColors(
-                newStock.code,
-                currentPrice,
-                previousPrice
-              );
-            }
-          }
-        });
-        
-        setPriceHistory(newPriceHistory);
-        setPriceChangeColors(newPriceChangeColors);
-      } else {
-        console.warn('No formatted data available');
-      }
-    } catch (error) {
-      console.error('Error processing stock data:', error);
-      handleStockDataError();
-    }
-  };
+    // Cleanup function
+    return () => {
+      window.removeEventListener('stockUpdate', handleStockUpdate);
+    };
+  }, [selectedExchange]); // Re-run when exchange changes
 
   // Add sample chart data
+  const [isChartLoading, setIsChartLoading] = useState(false);
+  const [chartError, setChartError] = useState(null);
+
   useEffect(() => {
     const fetchChartData = async () => {
       if (!selectedStock) return;
 
+      setIsChartLoading(true);
+      setChartError(null);
+
       try {
         const token = Cookies.get('auth_token');
       
-      if (!token) {
-        toast.error('Vui lòng đăng nhập để xem dữ liệu');
-        return;
-      }
+        if (!token) {
+          setChartError('Vui lòng đăng nhập để xem dữ liệu');
+          toast.error('Vui lòng đăng nhập để xem dữ liệu');
+          return;
+        }
+
         const response = await axios.get(
           `https://stockmonitoring-api-gateway.onrender.com/api/stock-price-history?ticketSymbol=${selectedStock.code}`,
           {
@@ -931,10 +869,15 @@ const StockDerivatives = () => {
             volume: item.volume
           }));
           setChartData(formattedData);
+        } else {
+          setChartError('Không có dữ liệu cho mã này');
         }
       } catch (error) {
         console.error('Error fetching chart data:', error);
+        setChartError('Không thể tải dữ liệu biểu đồ');
         toast.error('Không thể tải dữ liệu biểu đồ');
+      } finally {
+        setIsChartLoading(false);
       }
     };
 
@@ -991,32 +934,41 @@ const StockDerivatives = () => {
           return;
         }
         
-        // Call the new watchlist API endpoint
+        // Call the watchlist API endpoint with proper headers
         const response = await axios.get(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+          `${BASE_URL}/api/watchlist-stock`,
           {
+            params: {
+              userId: userId
+            },
             headers: {
               'Authorization': `Bearer ${token}`,
-              'accept': '*/*'
-            }
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            withCredentials: true
           }
         );
         
         console.log("Fetched watchlist response:", response.data);
         
         if (response.data?.value?.data?.stocks) {
-          // Extract stock codes from the response
           const watchlistStockCodes = response.data.value.data.stocks.map(stock => stock.ticketSymbol);
-          
-          // Find stocks in realTimeStockData that match the watchlist
           const watchlistStocks = realTimeStockData.filter(stock => 
             watchlistStockCodes.includes(stock.code)
           );
-          
           setWatchlist(watchlistStocks);
         }
       } catch (error) {
-        console.error('Error fetching watchlist:', error);
+        if (error.response?.status === 400) {
+          console.log("Invalid request to watchlist API:", error.response.data);
+          // Handle specific error cases
+          if (error.response.data?.message) {
+            console.log("API Error message:", error.response.data.message);
+          }
+        } else {
+          console.error('Error fetching watchlist:', error);
+        }
       }
     };
     
@@ -1025,7 +977,9 @@ const StockDerivatives = () => {
     }
   }, [realTimeStockData]);
 
-  // Update handleAddToWatchlist to handle the new API response format
+
+  // Xử lý hành động thêm vào danh sách theo dõi
+
   const handleAddToWatchlist = async (stock) => {
     try {
       const userId = getUserId();
@@ -1088,12 +1042,44 @@ const StockDerivatives = () => {
     }
   };
 
-  // Thêm hàm xử lý cài đặt thông báo giá
+    
+
+  // Xử lý cài đặt thông báo giá
   const handleSetPriceAlert = (stock) => {
-    setSelectedAlertStock(stock);
-    setAlertPrice('');
-    setAlertType('above');
-    setIsPriceAlertOpen(true);
+    try {
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Vui lòng đăng nhập để sử dụng tính năng này", {
+          position: "top-right",
+          duration: 3000,
+        });
+        return;
+      }
+      
+      // Kiểm tra quyền truy cập tính năng
+      const hasNotificationFeature = hasFeature("Quản lý thông báo theo nhu cầu");
+      if (!hasNotificationFeature) {
+        // Show the feature message dialog instead of toast
+        setFeatureMessageInfo({
+          name: 'Thông báo giá',
+          returnPath: '/stock'
+        });
+        setShowFeatureMessage(true);
+        return;
+      }
+
+      // Cài đặt thông báo
+      setSelectedAlertStock(stock);
+      setAlertPrice(stock.price || stock.priorClosePrice || '');
+      setIsPriceAlertOpen(true);
+    } catch (error) {
+      console.error("Set price alert error:", error);
+      toast.error("Có lỗi xảy ra. Vui lòng thử lại sau", {
+        position: "top-right",
+        duration: 3000,
+      });
+    }
   };
 
   // Thêm hàm xử lý lưu cài đặt thông báo giá
@@ -1123,7 +1109,7 @@ const StockDerivatives = () => {
       const alertTypeApi = alertType === 'above' ? 'increase' : 'decrease';
       
       const result = await apiService.createPriceAlert(
-        selectedAlertStock.code,
+        selectedAlertStock.code.toUpperCase(),
         price,
         alertTypeApi
       );
@@ -1216,52 +1202,23 @@ const StockDerivatives = () => {
     }
   };
 
-  // Add SignalR event listeners
-  useEffect(() => {
-    const handleStockUpdate = (event) => {
-      const { exchange, timestamp, data } = event.detail;
-      
-      // Only process if current tab matches the update's exchange
-      if ((exchange === 'hsx' && selectedExchange === 'HOSE') ||
-          (exchange === 'hnx' && selectedExchange === 'HNX')) {
-        console.log(`Received ${exchange.toUpperCase()} update with timestamp:`, timestamp);
-        fetchStockData(timestamp);
-      }
-    };
-
-    // Setup SignalR connection and listeners
-    const setupSignalR = async () => {
-      try {
-        // Start SignalR connection if not already connected
-        await signalRService.startStockConnection();
-        
-        // Setup stock update listeners
-        const result = await signalRService.setupStockListeners();
-        if (result.success) {
-          console.log('SignalR listeners setup successfully');
-        } else {
-          console.error('Failed to setup SignalR listeners:', result.message);
-        }
-
-        // Add event listener for stock updates
-        window.addEventListener('stockUpdate', handleStockUpdate);
-      } catch (error) {
-        console.error('Error setting up SignalR:', error);
-      }
-    };
-
-    setupSignalR();
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('stockUpdate', handleStockUpdate);
-      signalRService.stop();
-    };
-  }, [selectedExchange]); // Re-run when exchange changes
+  // State for showing feature message dialog
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '/stock' });
 
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
+      
+      {/* Feature Message Dialog */}
+      {showFeatureMessage && (
+        <UnauthorizedFeatureMessage
+          featureName={featureMessageInfo.name}
+          returnPath={featureMessageInfo.returnPath}
+          showUpgradeOption={true}
+          onClose={() => setShowFeatureMessage(false)}
+        />
+      )}
       
       {/* Navigation Tabs */}
       <div className="border-b border-[#333] flex-shrink-0">
@@ -1434,10 +1391,33 @@ const StockDerivatives = () => {
 
             {/* Chart Area */}
             <div className="flex-1 bg-[#131722] min-h-[500px]">
-              <CandlestickChart 
-                stockCode={selectedStock?.code}
-                data={chartData}
-              />
+              {isChartLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <span className="text-[#888] text-sm">Đang tải dữ liệu biểu đồ...</span>
+                  </div>
+                </div>
+              ) : chartError ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center px-4">
+                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                    <span className="text-[#888] text-sm">{chartError}</span>
+                  </div>
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center px-4">
+                    <Info className="w-8 h-8 text-blue-500" />
+                    <span className="text-[#888] text-sm">Không có dữ liệu biểu đồ cho mã này</span>
+                  </div>
+                </div>
+              ) : (
+                <CandlestickChart 
+                  stockCode={selectedStock?.code}
+                  data={chartData}
+                />
+              )}
             </div>
 
             {/* Chart Footer */}
@@ -1529,201 +1509,229 @@ const StockDerivatives = () => {
           <div className="h-full relative">
             <div className="h-[calc(83vh-132px)] overflow-auto">
               <div className="min-h-full flex flex-col">
-                <div className="flex-grow">
-                  <table className="w-full border-collapse">
-                    <colgroup>
-                      <col className="w-[60px]" /> {/* Mã CK */}
-                      <col className="w-[60px]" /> {/* Trần */}
-                      <col className="w-[60px]" /> {/* Sàn */}
-                      <col className="w-[60px]" /> {/* TC */}
-                      <col className="w-[60px]" /> {/* Giá 3 */}
-                      <col className="w-[80px]" /> {/* KL 3 */}
-                      <col className="w-[60px]" /> {/* Giá 2 */}
-                      <col className="w-[80px]" /> {/* KL 2 */}
-                      <col className="w-[60px]" /> {/* Giá 1 */}
-                      <col className="w-[80px]" /> {/* KL 1 */}
-                      <col className="w-[60px]" /> {/* Giá */}
-                      <col className="w-[80px]" /> {/* KL */}
-                      <col className="w-[70px]" /> {/* +/- */}
-                      <col className="w-[60px]" /> {/* Giá 1 */}
-                      <col className="w-[80px]" /> {/* KL 1 */}
-                      <col className="w-[60px]" /> {/* Giá 2 */}
-                      <col className="w-[80px]" /> {/* KL 2 */}
-                      <col className="w-[60px]" /> {/* Giá 3 */}
-                      <col className="w-[80px]" /> {/* KL 3 */}
-                      <col className="w-[60px]" /> {/* Cao */}
-                      <col className="w-[60px]" /> {/* Thấp */}
-                      <col className="w-[60px]" /> {/* TB */}
-                      <col className="w-[100px]" /> {/* Tổng KL */}
-                      <col className="w-[80px]" /> {/* Mua */}
-                      <col className="w-[80px]" /> {/* Bán */}
-                      <col className="w-[100px]" /> {/* Thao tác */}
-                    </colgroup>
-                    <thead className="sticky top-0 bg-[#1a1a1a] z-50">
-                      <tr>
-                        <th 
-                          className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                          rowSpan={2}
-                          onClick={() => handleSort('code')}
-                        >
-                          Mã CK <SortIndicator columnKey="code" />
-                        </th>
-                        <th 
-                          className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                          rowSpan={2}
-                          onClick={() => handleSort('ceiling')}
-                        >
-                          Trần <SortIndicator columnKey="ceiling" />
-                        </th>
-                        <th 
-                          className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                          rowSpan={2}
-                          onClick={() => handleSort('floor')}
-                        >
-                          Sàn <SortIndicator columnKey="floor" />
-                        </th>
-                        <th 
-                          className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                          rowSpan={2}
-                          onClick={() => handleSort('ref')}
-                        >
-                          TC <SortIndicator columnKey="ref" />
-                        </th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Cao</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Thấp</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TB</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
-                        <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
-                      </tr>
-                      <tr>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                        <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-                        <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoading ? (
+                <div className="flex-grow overflow-x-auto">
+                  {/* Responsive table wrapper */}
+                  <div className="min-w-[1400px] w-full">
+                    <table className="w-full border-collapse">
+                      <colgroup>
+                        <col className="w-[80px]" /> {/* Mã CK - Slightly wider */}
+                        <col className="w-[60px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[70px]" /> {/* Giá khớp - Slightly wider */}
+                        <col className="w-[70px]" />
+                        <col className="w-[70px]" /> {/* +/- - Slightly wider */}
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[80px]" /> {/* Tổng KL - Wider */}
+                        <col className="w-[70px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[100px]" /> {/* Thao tác - Wider for buttons */}
+                      </colgroup>
+
+                      {/* Table header with sticky positioning */}
+                      <thead className="sticky top-0 bg-[#1a1a1a] z-50">
                         <tr>
-                          <td colSpan="26" className="text-center py-8">
-                            <div className="flex flex-col items-center gap-2">
-                              <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : realTimeStockData.length === 0 ? (
-                        <tr>
-                          <td colSpan="26" className="text-center py-8">
-                            <div className="flex flex-col items-center gap-4">
-                              <div className="w-16 h-16 text-gray-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                              <div className="text-center">
-                                <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                  Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        getFilteredData().map((stock) => (
-                          <tr 
-                            key={stock.code} 
-                            className="hover:bg-[#1a1a1a]"
+                          <th 
+                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                            rowSpan={2}
+                            onClick={() => handleSort('code')}
                           >
-                            <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                              priceChangeColors[stock.code] || 'text-white'
-                            }`}
-                              onClick={() => handleStockClick(stock)}
-                            >
-                              {stock.code}
-                            </td>
-                            <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceiling}</td>
-                            <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floor}</td>
-                            <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ref}</td>
-                            <td className={getCellClass(stock, 'buyPrice3', 'price')}>{stock.buyPrice3}</td>
-                            <td className={getCellClass(stock, 'buyVolume3', 'volume')}>{stock.buyVolume3}</td>
-                            <td className={getCellClass(stock, 'buyPrice2', 'price')}>{stock.buyPrice2}</td>
-                            <td className={getCellClass(stock, 'buyVolume2', 'volume')}>{stock.buyVolume2}</td>
-                            <td className={getCellClass(stock, 'buyPrice1', 'price')}>{stock.buyPrice1}</td>
-                            <td className={getCellClass(stock, 'buyVolume1', 'volume')}>{stock.buyVolume1}</td>
-                            <td className={getCellClass(stock, 'matchPrice', 'price')}>{stock.matchPrice}</td>
-                            <td className={getCellClass(stock, 'matchVolume', 'volume')}>{stock.matchVolume}</td>
-                            <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>{stock.matchChange}</td>
-                            <td className={getCellClass(stock, 'sellPrice1', 'price')}>{stock.sellPrice1}</td>
-                            <td className={getCellClass(stock, 'sellVolume1', 'volume')}>{stock.sellVolume1}</td>
-                            <td className={getCellClass(stock, 'sellPrice2', 'price')}>{stock.sellPrice2}</td>
-                            <td className={getCellClass(stock, 'sellVolume2', 'volume')}>{stock.sellVolume2}</td>
-                            <td className={getCellClass(stock, 'sellPrice3', 'price')}>{stock.sellPrice3}</td>
-                            <td className={getCellClass(stock, 'sellVolume3', 'volume')}>{stock.sellVolume3}</td>
-                            <td className={getCellClass(stock, 'high', 'price')}>{stock.high || '--'}</td>
-                            <td className={getCellClass(stock, 'low', 'price')}>{stock.low || '--'}</td>
-                            <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                            <td className={getCellClass(stock, 'totalVolume', 'volume')}>{stock.totalVolume}</td>
-                            <td className={getCellClass(stock, 'foreignBuy', 'volume')}>{stock.foreignBuy}</td>
-                            <td className={getCellClass(stock, 'foreignSell', 'volume')}>{stock.foreignSell}</td>
-                            <td className="text-center py-2">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToWatchlist(stock);
-                                  }}
-                                  className="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 transition-colors"
-                                  title="Thêm vào danh sách theo dõi"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSetPriceAlert(stock);
-                                  }}
-                                  className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
-                                  title="Cài đặt thông báo giá"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                  </svg>
-                                </button>
+                            Mã CK <SortIndicator columnKey="code" />
+                          </th>
+                          <th 
+                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                            rowSpan={2}
+                            onClick={() => handleSort('ceiling')}
+                          >
+                            Trần <SortIndicator columnKey="ceiling" />
+                          </th>
+                          <th 
+                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                            rowSpan={2}
+                            onClick={() => handleSort('floor')}
+                          >
+                            Sàn <SortIndicator columnKey="floor" />
+                          </th>
+                          <th 
+                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                            rowSpan={2}
+                            onClick={() => handleSort('ref')}
+                          >
+                            TC <SortIndicator columnKey="ref" />
+                          </th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
+                          <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
+                        </tr>
+                        <tr>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+                          <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {isLoading ? (
+                          <tr>
+                            <td colSpan="26" className="text-center py-8">
+                              <div className="flex flex-col items-center gap-2">
+                                <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
                               </div>
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : realTimeStockData.length === 0 ? (
+                          <tr>
+                            <td colSpan="26" className="text-center py-8">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="w-16 h-16 text-gray-400">
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </div>
+                                <div className="text-center">
+                                  <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          getFilteredData().map((stock) => (
+                            <tr 
+                              key={stock.code} 
+                              className="hover:bg-[#1a1a1a] transition-colors"
+                            >
+                              <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer px-2 py-1.5 ${getCellClass(stock, 'matchPrice', 'price')}`}
+                                onClick={() => handleStockClick(stock)}
+                              >
+                                {stock.code}
+                              </td>
+                              {/* Update padding for all cells */}
+                              <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
+                              <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
+                              <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
+                              <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
+                              <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
+                              <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td>
+                              <td className={`${getCellClass(stock, 'buyVolume2', 'volume')} px-2 py-1.5`}>{stock.buyVolume2}</td>
+                              <td className={`${getCellClass(stock, 'buyPrice1', 'price')} px-2 py-1.5`}>{stock.buyPrice1}</td>
+                              <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
+                              <td className={`${getCellClass(stock, 'matchPrice', 'price')} px-2 py-1.5`}>{stock.matchPrice}</td>
+                              <td className={`${getCellClass(stock, 'matchVolume', 'volume')} px-2 py-1.5`}>{stock.totalVolume}</td>
+                              <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
+                              <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
+                              <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
+                              <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td>
+                              <td className={`${getCellClass(stock, 'sellVolume2', 'volume')} px-2 py-1.5`}>{stock.sellVolume2}</td>
+                              <td className={`${getCellClass(stock, 'sellPrice3', 'price')} px-2 py-1.5`}>{stock.sellPrice3}</td>
+                              <td className={`${getCellClass(stock, 'sellVolume3', 'volume')} px-2 py-1.5`}>{stock.sellVolume3}</td>
+                              <td className={`${getCellClass(stock, 'totalVolume', 'volume')} px-2 py-1.5`}>{stock.matchVolume}</td>
+                              <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignBuy}</td>
+                              <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignSell}</td>
+                              <td className="text-center px-2 py-1.5">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      
+                                      // Kiểm tra quyền truy cập tính năng
+                                      if (hasFeature("Quản lý danh mục theo dõi cổ phiếu")) {
+                                        handleAddToWatchlist(stock);
+                                      } else {
+                                        // Hiển thị thông báo tính năng cao cấp
+                                        setFeatureMessageInfo({
+                                          name: 'Danh sách theo dõi',
+                                          returnPath: '/stock'
+                                        });
+                                        setShowFeatureMessage(true);
+                                      }
+                                    }}
+                                    className={`p-1.5 rounded relative ${hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                      ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-500" 
+                                      : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                    title={hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                      ? "Thêm vào danh sách theo dõi" 
+                                      : "Tính năng của gói nâng cao"}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg>
+                                    {!hasFeature("Quản lý danh mục theo dõi cổ phiếu") && (
+                                      <img 
+                                        src="/icons/workspace_premium.svg" 
+                                        alt="Premium" 
+                                        className="w-4 h-4 absolute -top-2 -right-2" 
+                                      />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSetPriceAlert(stock);
+                                    }}
+                                    className={`p-1.5 rounded relative ${hasFeature("Quản lý thông báo theo nhu cầu") 
+                                      ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500" 
+                                      : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                    title={hasFeature("Quản lý thông báo theo nhu cầu") 
+                                      ? "Cài đặt thông báo giá" 
+                                      : "Tính năng của gói nâng cao"}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    {!hasFeature("Quản lý thông báo theo nhu cầu") && (
+                                      <img 
+                                        src="/icons/workspace_premium.svg" 
+                                        alt="Premium" 
+                                        className="w-4 h-4 absolute -top-2 -right-2" 
+                                      />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Footer with exchange information - Now sticky */}
-                <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4">
+                <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4 mt-4">
                   <div className="text-xs text-[#999] text-right px-4">
                     {selectedExchange === 'HOSE' && (
                       <div className="flex items-center justify-end gap-2">

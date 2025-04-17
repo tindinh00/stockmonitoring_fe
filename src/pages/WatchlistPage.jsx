@@ -184,27 +184,15 @@ const WatchlistPage = () => {
   // CSS Animations cho thay đổi giá và khối lượng
   const priceChangeAnimations = `
     @keyframes priceUp {
-      0% { background-color: rgba(0, 255, 0, 0); transform: scale(1); }
-      50% { background-color: rgba(0, 255, 0, 0.15); transform: scale(1.05); }
-      100% { background-color: rgba(0, 255, 0, 0); transform: scale(1); }
+      0% { background-color: rgba(0, 255, 0, 0); }
+      50% { background-color: rgba(0, 255, 0, 0.2); }
+      100% { background-color: rgba(0, 255, 0, 0); }
     }
 
     @keyframes priceDown {
-      0% { background-color: rgba(255, 74, 74, 0); transform: scale(1); }
-      50% { background-color: rgba(255, 74, 74, 0.15); transform: scale(1.05); }
-      100% { background-color: rgba(255, 74, 74, 0); transform: scale(1); }
-    }
-    
-    @keyframes priceEqual {
-      0% { background-color: rgba(244, 190, 55, 0); transform: scale(1); }
-      50% { background-color: rgba(244, 190, 55, 0.15); transform: scale(1.05); }
-      100% { background-color: rgba(244, 190, 55, 0); transform: scale(1); }
-    }
-
-    @keyframes volumeChange {
-      0% { opacity: 0.7; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.05); }
-      100% { opacity: 1; transform: scale(1); }
+      0% { background-color: rgba(255, 74, 74, 0); }
+      50% { background-color: rgba(255, 74, 74, 0.2); }
+      100% { background-color: rgba(255, 74, 74, 0); }
     }
 
     .price-up-animation {
@@ -214,72 +202,29 @@ const WatchlistPage = () => {
     .price-down-animation {
       animation: priceDown 1s ease-out;
     }
-    
-    .price-equal-animation {
-      animation: priceEqual 1s ease-out;
-    }
-
-    .volume-change-animation {
-      animation: volumeChange 1s ease-out;
-    }
   `;
 
-  // Theo dõi thay đổi giá và cập nhật màu sắc
-  const updatePriceColors = (stockCode, currentPrice, previousPrice) => {
-    if (!previousPrice || !currentPrice) return null;
-    
-    const current = parseFloat(currentPrice);
-    const previous = parseFloat(previousPrice);
-    
-    if (current > previous) {
-      return 'text-[#00FF00] price-up-animation'; // Tăng giá - màu xanh + animation
-    } else if (current < previous) {
-      return 'text-[#FF4A4A] price-down-animation'; // Giảm giá - màu đỏ + animation
-    } else if (current === previous) {
-      return 'text-[#F4BE37] price-equal-animation'; // Giữ nguyên - màu vàng + animation
-    }
-    return 'text-white'; // Mặc định - màu trắng
-  };
-
   // Tạo hiệu ứng flash khi giá thay đổi
-  const createFlashEffect = (stockCode, field, currentValue, previousValue) => {
-    if (!previousValue || !currentValue) return;
+  const createFlashEffect = (stockCode, field, newValue, oldValue) => {
+    if (!newValue || !oldValue) return;
     
     try {
-      const current = parseFloat(currentValue);
-      const previous = parseFloat(previousValue);
+      const current = parseFloat(newValue);
+      const previous = parseFloat(oldValue);
       
       if (current !== previous) {
-        // Xác định loại flash dựa trên trường
-        if (field === 'matchPrice' || field.includes('Price')) {
-          // Tạo hiệu ứng flash cho giá
-          setFlashingCells(prev => ({
-            ...prev,
-            [`${stockCode}-${field}`]: current > previous ? 'increase' : 'decrease'
-          }));
-        } else if (field.includes('volume') || field.includes('Volume')) {
-          // Tạo hiệu ứng flash cho khối lượng
-          setVolumeHistory(prev => ({
-            ...prev,
-            [`${stockCode}-${field}`]: 'changed'
-          }));
-        }
+        setFlashingCells(prev => ({
+          ...prev,
+          [`${stockCode}-${field}`]: current > previous ? 'increase' : 'decrease'
+        }));
         
         // Xóa hiệu ứng flash sau 1 giây
         setTimeout(() => {
-          if (field === 'matchPrice' || field.includes('Price')) {
-            setFlashingCells(prev => {
-              const newState = {...prev};
-              delete newState[`${stockCode}-${field}`];
-              return newState;
-            });
-          } else {
-            setVolumeHistory(prev => {
-              const newState = {...prev};
-              delete newState[`${stockCode}-${field}`];
-              return newState;
-            });
-          }
+          setFlashingCells(prev => {
+            const newState = {...prev};
+            delete newState[`${stockCode}-${field}`];
+            return newState;
+          });
         }, 1000);
       }
     } catch (error) {
@@ -287,111 +232,113 @@ const WatchlistPage = () => {
     }
   };
 
-  // Hàm để lấy class cho animation volume
-  const getVolumeChangeClass = (stockCode, field) => {
-    return volumeHistory[`${stockCode}-${field}`] ? 'volume-change-animation' : '';
+  // Lấy class cho animation
+  const getFlashClass = (stockCode, field) => {
+    const flashType = flashingCells[`${stockCode}-${field}`];
+    return flashType ? `${flashType === 'increase' ? 'price-up-animation' : 'price-down-animation'}` : '';
+  };
+
+  // Hàm xác định màu sắc dựa trên giá
+  const getPriceColor = (stock, field) => {
+    if (!stock || !field) return 'text-white';
+
+    // Xác định giá tương ứng với khối lượng
+    let priceField = field;
+    if (field.startsWith('volume')) {
+      // Chuyển đổi tên trường volume thành price tương ứng
+      priceField = field.replace('volume', 'price');
+    }
+
+    if (field === 'volumeAccumulation') {
+      priceField = 'matchPrice';
+    }
+
+    if (priceField === 'matchPrice' || priceField.includes('price') || priceField.includes('Price')) {
+      if (stock[priceField] !== '--' && stock.priorClosePrice !== '--') {
+        const numPrice = parseFloat(stock[priceField]);
+        const numRefPrice = parseFloat(stock.priorClosePrice);
+        const numCeilPrice = parseFloat(stock.ceilPrice);
+        const numFloorPrice = parseFloat(stock.floorPrice);
+
+        if (!isNaN(numPrice) && !isNaN(numRefPrice) && !isNaN(numCeilPrice) && !isNaN(numFloorPrice)) {
+          const epsilon = 0.001;
+          const equals = (a, b) => Math.abs(a - b) < epsilon;
+
+          if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]';
+          if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]';
+          if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]';
+          if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]';
+          if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]';
+        }
+      }
+    }
+
+    return 'text-white';
+  };
+
+  // Hàm kết hợp màu sắc và animation cho cell
+  const getCellClasses = (stock, field) => {
+    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    
+    const colorClass = getPriceColor(stock, field);
+    const flashClass = getFlashClass(stock.stockCode, field);
+    
+    return `${colorClass} ${flashClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
   };
 
   // Update watchlist data khi có dữ liệu mới từ SignalR
   const updateWatchlistData = (newStockData) => {
-    // Chỉ cập nhật stocks đã có trong watchlist, không làm loading lại toàn bộ
+    if (!Array.isArray(newStockData) || newStockData.length === 0) {
+      console.warn("[SignalR] Invalid or empty stock data received");
+      return;
+    }
+
     setWatchlist(prevWatchlist => {
-      const updatedWatchlist = prevWatchlist.map(stock => {
-        // Tìm stock cập nhật trong dữ liệu mới
+      return prevWatchlist.map(stock => {
         const updatedStock = newStockData.find(s => 
           s.stockCode && stock.stockCode && s.stockCode.toLowerCase() === stock.stockCode.toLowerCase()
         );
         
         if (!updatedStock) return stock;
-        
-        // Xử lý animation cho giá và khối lượng
-        // Lưu giá cũ để so sánh (matchPrice)
-        if (stock.matchPrice !== '--' && updatedStock.matchPrice !== undefined) {
-          const oldPrice = stock.matchPrice;
-          const newPrice = String(updatedStock.matchPrice);
-          
-          if (oldPrice !== newPrice) {
-            // Tạo hiệu ứng flash khi giá khớp lệnh thay đổi
-            createFlashEffect(stock.stockCode, 'matchPrice', newPrice, oldPrice);
-            
-            // Cập nhật màu sắc cho ô giá
-            const newPriceColor = updatePriceColors(stock.stockCode, newPrice, oldPrice);
-            if (newPriceColor) {
-              setPriceChangeColors(prev => ({
-                ...prev,
-                [stock.stockCode]: newPriceColor
-              }));
-            }
-            
-            // Lưu lại giá mới để tham chiếu sau này
-            previousStockPrices.current[stock.stockCode] = newPrice;
+
+        // So sánh và tạo hiệu ứng cho các trường thay đổi
+        const fieldsToCheck = {
+          matchPrice: true,
+          matchedOrderVolume: true,
+          volumeAccumulation: true,
+          price3Buy: true,
+          price2Buy: true,
+          price1Buy: true,
+          price1Sell: true,
+          price2Sell: true,
+          price3Sell: true,
+          volume3Buy: true,
+          volume2Buy: true,
+          volume1Buy: true,
+          volume1Sell: true,
+          volume2Sell: true,
+          volume3Sell: true,
+          foreignBuyVolume: true,
+          foreignSellVolume: true
+        };
+
+        // Kiểm tra và tạo hiệu ứng cho các trường thay đổi
+        Object.keys(fieldsToCheck).forEach(field => {
+          if (stock[field] !== updatedStock[field]) {
+            createFlashEffect(stock.stockCode, field, updatedStock[field], stock[field]);
           }
-        }
-        
-        // Xử lý animation cho khối lượng khớp lệnh
-        if (stock.matchedOrderVolume !== '--' && updatedStock.matchedOrderVolume !== undefined) {
-          const oldVolume = stock.matchedOrderVolume;
-          const newVolume = String(updatedStock.matchedOrderVolume);
-          
-          if (oldVolume !== newVolume) {
-            createFlashEffect(stock.stockCode, 'matchedOrderVolume', newVolume, oldVolume);
-            previousStockVolumes.current[`${stock.stockCode}-matchedOrderVolume`] = newVolume;
-          }
-        }
-        
-        // Xử lý animation cho tổng khối lượng
-        if (stock.volumeAccumulation !== '--' && updatedStock.volumeAccumulation !== undefined) {
-          const oldVolume = stock.volumeAccumulation;
-          const newVolume = String(updatedStock.volumeAccumulation);
-          
-          if (oldVolume !== newVolume) {
-            createFlashEffect(stock.stockCode, 'volumeAccumulation', newVolume, oldVolume);
-            previousStockVolumes.current[`${stock.stockCode}-volumeAccumulation`] = newVolume;
-          }
-        }
-        
-        // Trả về stock với dữ liệu cập nhật
+        });
+
+        // Cập nhật dữ liệu mới
         return {
           ...stock,
-          matchPrice: updatedStock.matchPrice !== undefined ? String(updatedStock.matchPrice) : stock.matchPrice,
+          ...updatedStock,
           matchChange: updatedStock.plusMinus !== undefined ? 
             `${updatedStock.plusMinus > 0 ? '+' : ''}${updatedStock.plusMinus.toFixed(2)}%` : 
-            stock.matchChange,
-          totalVolume: updatedStock.volumeAccumulation !== undefined ? String(updatedStock.volumeAccumulation) : stock.totalVolume,
-          matchedOrderVolume: updatedStock.matchedOrderVolume !== undefined ? String(updatedStock.matchedOrderVolume) : stock.matchedOrderVolume,
-          highPrice: updatedStock.highPrice !== undefined ? String(updatedStock.highPrice) : stock.highPrice,
-          lowPrice: updatedStock.lowPrice !== undefined ? String(updatedStock.lowPrice) : stock.lowPrice,
-          foreignBuyVolume: updatedStock.foreignBuyVolume !== undefined ? String(updatedStock.foreignBuyVolume) : stock.foreignBuyVolume,
-          foreignSellVolume: updatedStock.foreignSellVolume !== undefined ? String(updatedStock.foreignSellVolume) : stock.foreignSellVolume,
-          price3Buy: updatedStock.price3Buy !== undefined ? String(updatedStock.price3Buy) : stock.price3Buy,
-          volume3Buy: updatedStock.volume3Buy !== undefined ? String(updatedStock.volume3Buy) : stock.volume3Buy,
-          price2Buy: updatedStock.price2Buy !== undefined ? String(updatedStock.price2Buy) : stock.price2Buy,
-          volume2Buy: updatedStock.volume2Buy !== undefined ? String(updatedStock.volume2Buy) : stock.volume2Buy,
-          price1Buy: updatedStock.price1Buy !== undefined ? String(updatedStock.price1Buy) : stock.price1Buy,
-          volume1Buy: updatedStock.volume1Buy !== undefined ? String(updatedStock.volume1Buy) : stock.volume1Buy,
-          price1Sell: updatedStock.price1Sell !== undefined ? String(updatedStock.price1Sell) : stock.price1Sell,
-          volume1Sell: updatedStock.volume1Sell !== undefined ? String(updatedStock.volume1Sell) : stock.volume1Sell,
-          price2Sell: updatedStock.price2Sell !== undefined ? String(updatedStock.price2Sell) : stock.price2Sell,
-          volume2Sell: updatedStock.volume2Sell !== undefined ? String(updatedStock.volume2Sell) : stock.volume2Sell,
-          price3Sell: updatedStock.price3Sell !== undefined ? String(updatedStock.price3Sell) : stock.price3Sell,
-          volume3Sell: updatedStock.volume3Sell !== undefined ? String(updatedStock.volume3Sell) : stock.volume3Sell
+            stock.matchChange
         };
       });
-      
-      return updatedWatchlist;
     });
-  };
-
-  // Thêm CSS cho hiệu ứng flash
-  const getFlashStyle = (stock, field) => {
-    const flashKey = `${stock.stockCode}-${field}`;
-    const flashType = flashingCells[flashKey];
-    
-    if (!flashType) return {};
-    
-    return {
-      animation: `${flashType === 'increase' ? 'priceUp' : 'priceDown'} 1s ease-out`,
-    };
   };
 
   // Fetch stock data from API
@@ -404,81 +351,35 @@ const WatchlistPage = () => {
       console.log("Current user ID:", userId);
     
       if (!userId) {
-        console.warn("No user ID found in cookie or localStorage");
+        console.warn("No user ID found");
         setWatchlist([]);
         setIsLoading(false);
         toast.error("Bạn cần đăng nhập để xem danh sách theo dõi");
         return false;
       }
 
-      // Lấy token từ cookies
-      const token = Cookies.get("auth_token");
-      if (!token) {
-        console.warn("No auth token found");
-        setWatchlist([]);
-        setIsLoading(false);
-        toast.error("Phiên đăng nhập đã hết hạn");
-        return false;
-      }
-
       // Gọi API watchlist với exchange parameter
-      const response = await stockService.getWatchlistByUser(userId, activeTab, lastTimestamp);
+      const response = await axios.get(
+        `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+        {
+          params: {
+            exchange: activeTab
+          },
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
       
       console.log("Watchlist API response:", response);
       
-      // Kiểm tra và xử lý dữ liệu từ API
-      if (response?.value?.data) {
-        console.log("API Response:", response.value.data);
-        
-        // Kiểm tra nếu data có chứa mảng stocks
-        const watchlistStocks = response.value.data.stocks || response.value.data;
-        console.log("Watchlist stocks:", watchlistStocks);
-        
-        // Chuyển đổi dữ liệu thành định dạng hiển thị
-        const formattedWatchlist = watchlistStocks.map(stock => {
-          console.log("Processing stock:", stock);
-          return {
-            id: stock.stockId || stock.id, // Thử cả stockId và id
-            stockCode: stock.stockCode || stock.tickerSymbol, // Thử cả stockCode và tickerSymbol
-            priorClosePrice: stock.priorClosePrice || '--',
-            ceilPrice: stock.ceilPrice || '--',
-            floorPrice: stock.floorPrice || '--',
-            price3Buy: stock.price3Buy || '--',
-            volume3Buy: stock.volume3Buy || '--',
-            price2Buy: stock.price2Buy || '--',
-            volume2Buy: stock.volume2Buy || '--',
-            price1Buy: stock.price1Buy || '--',
-            volume1Buy: stock.volume1Buy || '--',
-            matchPrice: stock.matchPrice || '--',
-            volumeAccumulation: stock.volumeAccumulation || '--',
-            plusMinus: stock.plusMinus || '--',
-            price1Sell: stock.price1Sell || '--',
-            volume1Sell: stock.volume1Sell || '--',
-            price2Sell: stock.price2Sell || '--',
-            volume2Sell: stock.volume2Sell || '--',
-            price3Sell: stock.price3Sell || '--',
-            volume3Sell: stock.volume3Sell || '--',
-            matchedOrderVolume: stock.matchedOrderVolume || '--',
-            foreignBuyVolume: stock.foreignBuyVolume || '--',
-            foreignSellVolume: stock.foreignSellVolume || '--'
-          };
-        });
-
-        console.log("Formatted watchlist:", formattedWatchlist);
-        setWatchlist(formattedWatchlist);
-        
-        // Lưu danh sách mã chứng khoán để sử dụng sau này
-        const stockCodes = watchlistStocks.map(stock => stock.stockCode);
-        setWatchlistCodes(stockCodes);
-        
-        // Sau khi có danh sách cổ phiếu, thiết lập SignalR
-        if (stockCodes.length > 0) {
-          setupSignalRConnection();
-        }
+      if (response?.data?.value?.data) {
+        const watchlistStocks = response.data.value.data;
+        setWatchlist(watchlistStocks);
       } else {
         console.warn("No stocks found in watchlist response");
         setWatchlist([]);
-        setWatchlistCodes([]);
       }
       
       setIsLoading(false);
@@ -496,136 +397,96 @@ const WatchlistPage = () => {
   // Tách riêng việc thiết lập SignalR ra khỏi fetching data
   const setupSignalRConnection = async () => {
     try {
-      console.log("=== Setting up SignalR for watchlist with detailed logging ===");
+      console.log("=== Setting up SignalR for watchlist ===");
       
-      // Start the SignalR connection
-      await signalRService.startStockConnection();
-      
-      // Check connection status
-      const connectionStatus = signalRService.isConnected();
-      console.log("WatchlistPage - SignalR Connection Status:", connectionStatus);
-      
-      if (connectionStatus.stockHub) {
-        console.log("WatchlistPage - SignalR connected successfully, setting up event listeners");
-        
-        // Đăng ký lắng nghe sự kiện ReceiveHSXStockUpdate - logic từ Android
-        console.log("WatchlistPage - Registering for HSX stock updates via ReceiveHSXStockUpdate event");
-        signalRService.onStock("ReceiveHSXStockUpdate", (messageObj) => {
-          // Sử dụng IIFE để không trả về Promise
-          (async () => {
-            try {
-              console.log("WatchlistPage - RECEIVED HSX STOCK UPDATE:", messageObj);
-              
-              // Trích xuất thông tin từ message object
-              const message = messageObj.Message;
-              const timestamp = messageObj.Timestamp;
-              
-              console.log("WatchlistPage - HSX update message:", message);
-              console.log("WatchlistPage - Using timestamp:", timestamp);
-              
-              // Lưu timestamp mới vào state
-              setLastTimestamp(timestamp);
-              
-              // Tiến hành gọi API để lấy dữ liệu mới với tham số chính xác
-              console.log("WatchlistPage - Fetching HSX stock data with timestamp:", timestamp);
-              try {
-                const response = await stockService.getStockInSession("hsx", timestamp);
-                if (response && response.value && response.value.data) {
-                  console.log("WatchlistPage - Received new HSX stock data:", response.value.data.length, "stocks");
-                  // Cập nhật dữ liệu watchlist với đúng exchange
-                  updateWatchlistData(response.value.data);
-                } else {
-                  console.warn("WatchlistPage - Invalid response format from HSX API");
-                  toast.error("Không thể cập nhật dữ liệu HSX");
-                }
-              } catch (apiError) {
-                console.error("WatchlistPage - Error fetching HSX stock data:", apiError);
-                toast.error("Có lỗi khi cập nhật dữ liệu HSX");
-              }
-            } catch (error) {
-              console.error("WatchlistPage - Error processing HSX update:", error);
-            }
-          })();
-        });
-        
-        // Đăng ký lắng nghe sự kiện ReceiveHNXStockUpdate - logic từ Android
-        console.log("WatchlistPage - Registering for HNX stock updates via ReceiveHNXStockUpdate event");
-        signalRService.onStock("ReceiveHNXStockUpdate", (messageObj) => {
-          // Tương tự như logic HSX nhưng cho sàn HNX
-          (async () => {
-            try {
-              console.log("WatchlistPage - RECEIVED HNX STOCK UPDATE:", messageObj);
-              
-              const message = messageObj.Message;
-              const timestamp = messageObj.Timestamp;
-              
-              setLastTimestamp(timestamp);
-              
-              console.log("WatchlistPage - Fetching HNX stock data with timestamp:", timestamp);
-              try {
-                const response = await stockService.getStockInSession("hnx", timestamp);
-                if (response && response.value && response.value.data) {
-                  console.log("WatchlistPage - Received new HNX stock data:", response.value.data.length, "stocks");
-                  updateWatchlistData(response.value.data);
-                } else {
-                  console.warn("WatchlistPage - Invalid response format from HNX API");
-                  toast.error("Không thể cập nhật dữ liệu HNX");
-                }
-              } catch (apiError) {
-                console.error("WatchlistPage - Error fetching HNX stock data:", apiError);
-                toast.error("Có lỗi khi cập nhật dữ liệu HNX");
-              }
-            } catch (error) {
-              console.error("WatchlistPage - Error processing HNX update:", error);
-            }
-          })();
-        });
-      } else {
-        console.warn("WatchlistPage - SignalR connection failed, falling back to polling");
-        // Có thể thêm polling định kỳ nếu SignalR thất bại
+      const connection = await signalRService.getConnection();
+      if (!connection) {
+        console.error("[SignalR] No active connection available");
+        return;
       }
+
+      // Lắng nghe sự kiện HSX
+      signalRService.onStock("ReceiveHSXStockUpdate", async (data) => {
+        if (activeTab === 'hsx') {
+          try {
+            console.log("[SignalR] Received HSX update:", data);
+            // Gọi API để lấy dữ liệu mới nhất của sàn HSX
+            const userId = getUserId();
+            const response = await axios.get(
+              `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+              {
+                params: {
+                  exchange: 'hsx'
+                },
+                headers: {
+                  'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+                  'accept': '*/*'
+                }
+              }
+            );
+            
+            if (response?.data?.value?.data) {
+              setWatchlist(response.data.value.data);
+            }
+          } catch (error) {
+            console.error("[SignalR] Error processing HSX update:", error);
+          }
+        }
+      });
+      
+      // Lắng nghe sự kiện HNX
+      signalRService.onStock("ReceiveHNXStockUpdate", async (data) => {
+        if (activeTab === 'hnx') {
+          try {
+            console.log("[SignalR] Received HNX update:", data);
+            // Gọi API để lấy dữ liệu mới nhất của sàn HNX
+            const userId = getUserId();
+            const response = await axios.get(
+              `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
+              {
+                params: {
+                  exchange: 'hnx'
+                },
+                headers: {
+                  'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+                  'accept': '*/*'
+                }
+              }
+            );
+            
+            if (response?.data?.value?.data) {
+              setWatchlist(response.data.value.data);
+            }
+          } catch (error) {
+            console.error("[SignalR] Error processing HNX update:", error);
+          }
+        }
+      });
+
+      console.log("[SignalR] Watchlist listeners setup complete");
     } catch (error) {
-      console.error("WatchlistPage - Error setting up SignalR:", error);
+      console.error("[SignalR] Error setting up watchlist listeners:", error);
     }
   };
 
   // Initial data loading and SignalR setup
   useEffect(() => {
-    const initializeWatchlist = async () => {
-      console.log("=== Initializing Watchlist Page ===");
-      
-      // Đặt trạng thái loading
-      setIsInitialLoading(true);
-      
+    console.log("WatchlistPage - Component mounted");
+    fetchStockData();
+    setupSignalRConnection();
+    
+    // Cleanup khi unmount
+    return () => {
+      console.log("WatchlistPage - Component unmounting");
       try {
-        // Fetch dữ liệu trước, không đợi SignalR
-        console.log("Fetching initial stock data");
-        const fetchSuccess = await fetchStockData();
-        
-        // Nếu fetch dữ liệu thành công, thiết lập SignalR
-        if (fetchSuccess) {
-          console.log("Initial data fetched successfully, now setting up SignalR");
-          // Thiết lập SignalR sau khi đã có dữ liệu ban đầu
-          setupSignalRConnection();
-        } else {
-          console.warn("Failed to fetch initial data, retrying in 5 seconds");
-          // Retry fetch một lần nữa nếu thất bại
-          setTimeout(fetchStockData, 5000);
-        }
+        signalRService.offStock("ReceiveHSXStockUpdate");
+        signalRService.offStock("ReceiveHNXStockUpdate");
+        console.log("WatchlistPage - Unregistered SignalR listeners");
       } catch (error) {
-        console.error("Error initializing watchlist:", error);
-        setIsInitialLoading(false);
-        setIsLoading(false);
+        console.error("WatchlistPage - Error removing SignalR listeners:", error);
       }
     };
-    
-    initializeWatchlist();
-    
-    // Cleanup when component unmounts
-    return () => {
-      console.log("=== Cleaning up Watchlist Page ===");
-    };
-  }, []);
+  }, [activeTab]); // Thêm activeTab vào dependencies
 
   const removeFromWatchlist = (stock) => {
     setStockToDelete(stock);
@@ -967,11 +828,6 @@ const WatchlistPage = () => {
     }
   };
 
-  // Add useEffect to refetch data when activeTab changes
-  useEffect(() => {
-    fetchStockData();
-  }, [activeTab]);
-
   // Fetch available stocks
   const fetchAvailableStocks = async () => {
     try {
@@ -1080,122 +936,6 @@ const WatchlistPage = () => {
         }
       );
     }
-  };
-
-  // Hàm xác định màu sắc dựa trên giá
-  const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
-    // Xử lý trường hợp giá trị là "--" (chuỗi đại diện cho giá trị null)
-    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--') {
-      return 'text-white';
-    }
-    
-    // Xử lý trường hợp null, undefined hoặc giá trị không phải số
-    if (price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-      return 'text-white';
-    }
-    
-    // Chuyển đổi sang số để so sánh, nhưng không làm tròn
-    let numPrice = parseFloat(price);
-    let numRefPrice = parseFloat(refPrice);
-    let numCeilPrice = parseFloat(ceilPrice);
-    let numFloorPrice = parseFloat(floorPrice);
-
-    if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-      return 'text-white';
-    }
-
-    // So sánh với sai số
-    const epsilon = 0.001; // Sai số cho phép 0.001
-    const equals = (a, b) => Math.abs(a - b) < epsilon;
-
-    if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
-    if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]'; // Tím - Bằng giá trần
-    if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
-    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
-    if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
-    
-    return 'text-white';
-  };
-
-  // Hàm ánh xạ từ trường khối lượng sang trường giá
-  const getPriceFieldForVolume = (volumeField) => {
-    const fieldMapping = {
-      'volume3Buy': 'price3Buy',
-      'volume2Buy': 'price2Buy',
-      'volume1Buy': 'price1Buy',
-      'matchedOrderVolume': 'matchPrice',
-      'volume1Sell': 'price1Sell',
-      'volume2Sell': 'price2Sell',
-      'volume3Sell': 'price3Sell',
-      'volumeAccumulation': 'matchPrice',
-      'foreignBuyVolume': 'matchPrice',
-      'foreignSellVolume': 'matchPrice'
-    };
-    
-    return fieldMapping[volumeField] || volumeField.replace('Volume', 'Price');
-  };
-
-  // Hàm kết hợp màu sắc và animation
-  const getCellClass = (stock, field, type = 'price') => {
-    // Kiểm tra stock và field tồn tại
-    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
-    
-    // Kiểm tra trường đặc biệt (tổng khối lượng luôn màu trắng)
-    if (field === 'volumeAccumulation') {
-      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
-    }
-    
-    // Kiểm tra giá trị field
-    const fieldValue = stock[field];
-    
-    // Xử lý trường hợp giá trị rỗng
-    if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
-      if (type === 'volume') {
-        // Đối với khối lượng, nếu giá trị rỗng, sử dụng màu của giá tương ứng
-        const priceField = getPriceFieldForVolume(field);
-        if (stock[priceField] && stock[priceField] !== '--') {
-          const colorClass = getPriceColor(
-            stock[priceField],
-            stock.priorClosePrice,
-            stock.ceilPrice,
-            stock.floorPrice
-          );
-          return `${colorClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
-        }
-      }
-      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
-    }
-
-    // Xác định màu sắc
-    let colorClass = 'text-white';
-    
-    if (type === 'price') {
-      colorClass = getPriceColor(
-        stock[field],
-        stock.priorClosePrice,
-        stock.ceilPrice,
-        stock.floorPrice
-      );
-    } else if (type === 'volume') {
-      // Xác định trường giá tương ứng với trường khối lượng
-      const priceField = getPriceFieldForVolume(field);
-      
-      // Sử dụng màu sắc của giá tương ứng cho khối lượng
-      if (stock[priceField]) {
-        colorClass = getPriceColor(
-          stock[priceField],
-          stock.priorClosePrice,
-          stock.ceilPrice,
-          stock.floorPrice
-        );
-      }
-    }
-
-    // Kết hợp với hiệu ứng flash nếu có
-    const flashStyle = stockCode => flashingCells[stockCode] || '';
-    const flashClass = field === 'matchPrice' ? flashStyle(stock.stockCode) : '';
-
-    return `${colorClass} ${flashClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
   };
 
   return (
@@ -1310,9 +1050,6 @@ const WatchlistPage = () => {
                       <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
                       <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
                       <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Cao</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Thấp</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TB</th>
                       <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
                       <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
                       <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
@@ -1363,82 +1100,60 @@ const WatchlistPage = () => {
                     ) : (
                       watchlist.map((stock) => (
                         <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
-                          <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2 ${
-                            priceChangeColors[stock.stockCode] || 'text-white'
-                          }`} onClick={() => handleStockClick(stock)}>
+                          <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2`} onClick={() => handleStockClick(stock)}>
                             {stock.stockCode}
                           </td>
                           <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceilPrice}</td>
                           <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floorPrice}</td>
                           <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.priorClosePrice}</td>
-                          <td className={`${getCellClass(stock, 'price3Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price3Buy')}`} 
-                              style={getFlashStyle(stock, 'price3Buy')}>
+                          <td className={getCellClasses(stock, 'price3Buy')}>
                             {stock.price3Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume3Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume3Buy')}`}>
+                          <td className={getCellClasses(stock, 'volume3Buy')}>
                             {stock.volume3Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'price2Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price2Buy')}`}
-                              style={getFlashStyle(stock, 'price2Buy')}>
+                          <td className={getCellClasses(stock, 'price2Buy')}>
                             {stock.price2Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume2Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume2Buy')}`}>
+                          <td className={getCellClasses(stock, 'volume2Buy')}>
                             {stock.volume2Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'price1Buy', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price1Buy')}`}
-                              style={getFlashStyle(stock, 'price1Buy')}>
+                          <td className={getCellClasses(stock, 'price1Buy')}>
                             {stock.price1Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume1Buy', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume1Buy')}`}>
+                          <td className={getCellClasses(stock, 'volume1Buy')}>
                             {stock.volume1Buy}
                           </td>
-                          <td className={`${getCellClass(stock, 'matchPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'matchPrice')}`}
-                              style={getFlashStyle(stock, 'matchPrice')}>
+                          <td className={getCellClasses(stock, 'matchPrice')}>
                             {stock.matchPrice}
                           </td>
-                          <td className={`${getCellClass(stock, 'matchedOrderVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'matchedOrderVolume')}`}>
-                            {stock.matchedOrderVolume}
+                          <td className={getCellClasses(stock, 'volumeAccumulation')}>
+                            {stock.volumeAccumulation}
                           </td>
                           <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
                             {stock.plusMinus !== '--' ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--'}
                           </td>
-                          <td className={`${getCellClass(stock, 'price1Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price1Sell')}`}
-                              style={getFlashStyle(stock, 'price1Sell')}>
+                          <td className={getCellClasses(stock, 'price1Sell')}>
                             {stock.price1Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume1Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume1Sell')}`}>
+                          <td className={getCellClasses(stock, 'volume1Sell')}>
                             {stock.volume1Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'price2Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price2Sell')}`}
-                              style={getFlashStyle(stock, 'price2Sell')}>
+                          <td className={getCellClasses(stock, 'price2Sell')}>
                             {stock.price2Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume2Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume2Sell')}`}>
+                          <td className={getCellClasses(stock, 'volume2Sell')}>
                             {stock.volume2Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'price3Sell', 'price')} ${getVolumeChangeClass(stock.stockCode, 'price3Sell')}`}
-                              style={getFlashStyle(stock, 'price3Sell')}>
+                          <td className={getCellClasses(stock, 'price3Sell')}>
                             {stock.price3Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'volume3Sell', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'volume3Sell')}`}>
+                          <td className={getCellClasses(stock, 'volume3Sell')}>
                             {stock.volume3Sell}
                           </td>
-                          <td className={`${getCellClass(stock, 'highPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'highPrice')}`}
-                              style={getFlashStyle(stock, 'highPrice')}>
-                            {stock.highPrice}
-                          </td>
-                          <td className={`${getCellClass(stock, 'lowPrice', 'price')} ${getVolumeChangeClass(stock.stockCode, 'lowPrice')}`}
-                              style={getFlashStyle(stock, 'lowPrice')}>
-                            {stock.lowPrice}
-                          </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">--</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.volumeAccumulation}</td>
-                          <td className={`${getCellClass(stock, 'foreignBuyVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'foreignBuyVolume')}`}>
-                            {stock.foreignBuyVolume}
-                          </td>
-                          <td className={`${getCellClass(stock, 'foreignSellVolume', 'volume')} ${getVolumeChangeClass(stock.stockCode, 'foreignSellVolume')}`}>
-                            {stock.foreignSellVolume}
-                          </td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchedOrderVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuyVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSellVolume}</td>
                           <td className="text-center py-2">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
@@ -2058,4 +1773,4 @@ const WatchlistPage = () => {
   );
 };
 
-export default WatchlistPage; 
+export default WatchlistPage;
