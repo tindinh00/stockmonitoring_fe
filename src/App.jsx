@@ -47,6 +47,7 @@ import AIChatPage from './pages/AIChatPage';
 import FeatureGuard from './components/FeatureGuard';
 import UnauthorizedFeatureMessage from './components/UnauthorizedFeatureMessage.jsx';
 import { ensureFreeFeatures } from './utils/featureUtils';
+import ForecastPage from './pages/ForecastPage';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -500,6 +501,41 @@ function App() {
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
                           <AIChatPage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
+                  </div>
+                </SidebarProvider>
+              </FeatureGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/forecast" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <FeatureGuard 
+                requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Dự đoán giá" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <ForecastPage />
                           <Toaster position="top-right" richColors />
                         </div>
                       </main>

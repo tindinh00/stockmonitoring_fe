@@ -16,11 +16,18 @@ import {
   Bookmark,
   Newspaper,
   Star,
-  Thermometer,
+  LayoutDashboard,
   MessageSquare,
   BarChart3,
-  Bot
+  Bot,
+  BrainCircuit,
+  Presentation,
+  Wallet,
+  TrendingUp,
+  LayoutGrid
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -60,62 +67,75 @@ import Cookies from "js-cookie";
 import { getUserFeatures, hasFeature } from "@/utils/featureUtils";
 import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage.jsx';
 
+// Icons component
+const Icons = {
+  stock: LineChart,
+  watchlist: Star,
+  news: Newspaper,
+  heatmap: LayoutDashboard,
+  notifications: Bell,
+  chat: MessageSquare,
+  'ai-chat': Bot,
+  analytics: BarChart3,
+  forecast: BrainCircuit
+};
+
 // Configuration for navigation items with their required features
-export const navItemsConfig = [
+const menuItems = [
   {
-    title: "Bảng giá",
-    url: "/stock",
-    icon: "lineChart",
-    requiredFeature: "Hiển thị dữ liệu thị trường chứng khoán"
+    title: 'Bảng giá',
+    icon: 'stock',
+    href: '/stock',
+    feature: 'Hiển thị dữ liệu thị trường chứng khoán'
   },
   {
-    title: "Danh sách theo dõi",
-    url: "/watchlist",
-    icon: "bookmark",
-    requiredFeature: "Quản lý danh mục theo dõi cổ phiếu"
+    title: 'Danh mục theo dõi',
+    icon: 'watchlist',
+    href: '/watchlist',
+    feature: 'Quản lý danh mục theo dõi cổ phiếu'
   },
   {
-    title: "Phân tích cá nhân",
-    url: "/analytics",
-    icon: "barChart3",
-    requiredFeature: "Phân tích và gợi ý theo cá nhân hóa"
+    title: 'Bản đồ nhiệt',
+    icon: 'heatmap',
+    href: '/heatmap',
+    feature: 'Bản đồ nhiệt'
   },
   {
-    title: "Bản đồ nhiệt",
-    url: "/heatmap",
-    icon: "thermometer",
-    requiredFeature: "Bản đồ nhiệt"
+    title: 'Phân tích cá nhân',
+    icon: 'analytics',
+    href: '/analytics',
+    feature: 'Phân tích và gợi ý theo cá nhân hóa'
   },
   {
-    title: "Quản lý thông báo",
-    url: "/notifications",
-    icon: "bell",
-    requiredFeature: "Quản lý thông báo theo nhu cầu"
+    title: 'Dự đoán giá',
+    icon: 'forecast',
+    href: '/forecast',
+    feature: 'Phân tích và gợi ý theo cá nhân hóa'
   },
   {
-    title: "Tin tức",
-    url: "/news",
-    icon: "newspaper",
-    requiredFeature: "Xem tin tức thị trường"
+    title: 'Thông báo',
+    icon: 'notifications',
+    href: '/notifications',
+    feature: 'Quản lý thông báo theo nhu cầu'
   },
   {
-    title: "Chat với hỗ trợ",
-    url: "/chat",
-    icon: "messageSquare",
-    requiredFeature: "Hiển thị dữ liệu thị trường chứng khoán"
+    title: 'Chat với hỗ trợ',
+    icon: 'chat',
+    href: '/chat',
+    feature: 'Hiển thị dữ liệu thị trường chứng khoán'
   },
   {
-    title: "Chat với AI",
-    url: "/ai-chat",
-    icon: "bot",
-    requiredFeature: "Trợ lý AI"
+    title: 'Chat với AI',
+    icon: 'ai-chat',
+    href: '/ai-chat',
+    feature: 'Trợ lý AI'
   },
   {
-    title: "Cài đặt",
-    url: "/settings",
-    icon: "settings",
-    requiredFeature: null // Always available
-  }
+    title: 'Tin tức',
+    icon: 'news',
+    href: '/news',
+    feature: 'Xem tin tức thị trường'
+  },
 ];
 
 // Company data
@@ -123,20 +143,6 @@ export const company = {
   name: 'StockFlow',
   logo: GalleryVerticalEnd,
   plan: 'Enterprise'
-};
-
-// Icons component
-export const Icons = {
-  logo: GalleryVerticalEnd,
-  lineChart: LineChart,
-  bookmark: Bookmark,
-  newspaper: Newspaper,
-  settings: Settings,
-  thermometer: Thermometer,
-  messageSquare: MessageSquare,
-  barChart3: BarChart3,
-  bell: Bell,
-  bot: Bot
 };
 
 // Custom sidebar trigger component
@@ -189,9 +195,9 @@ export default function SidebarLogined() {
   };
   
   const renderNavItem = (item) => {
-    const isActiveLink = pathname === item.url;
-    const userHasFeature = item.requiredFeature ? userFeatures.includes(item.requiredFeature) : true;
-    const isDisabled = item.requiredFeature && !userHasFeature;
+    const isActiveLink = pathname === item.href;
+    const userHasFeature = item.feature ? userFeatures.includes(item.feature) : true;
+    const isDisabled = item.feature && !userHasFeature;
     const Icon = Icons[item.icon];
 
     const handleNavItemClick = (e) => {
@@ -221,12 +227,19 @@ export default function SidebarLogined() {
           onClick={handleNavItemClick}
         >
           {userHasFeature ? (
-            <a href={item.url} className="flex items-center gap-3 w-full sidebar-link">
+            <Link
+              to={item.href}
+              className={cn(
+                "flex items-center gap-3 w-full sidebar-link",
+                isActiveLink && "text-[#09D1C7] bg-[#1a1a1a]",
+                "group-[[data-collapsed=true]]:px-2"
+              )}
+            >
               <span className="icon-wrapper flex-shrink-0">
                 <Icon className={`size-5 ${isActiveLink ? 'text-[#09D1C7]' : ''}`} />
               </span>
               <span className="link-text">{item.title}</span>
-            </a>
+            </Link>
           ) : (
             <div 
               className="flex items-center justify-between w-full cursor-pointer sidebar-link"
@@ -316,62 +329,7 @@ export default function SidebarLogined() {
           <SidebarGroup>
             <SidebarGroupLabel className="text-[#666]">Platform</SidebarGroupLabel>
             <SidebarMenu>
-              {navItemsConfig.map((item) => {
-                const ItemIcon = item.icon ? Icons[item.icon] : Icons.logo;
-                return item?.items && item?.items?.length > 0 ? (
-                  <Collapsible
-                    key={item.title}
-                    asChild
-                    defaultOpen={item.isActive}
-                    className='group/collapsible'
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          tooltip={item.title}
-                          isActive={item.isActive}
-                          className={
-                            item.isActive 
-                              ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
-                              : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
-                          }
-                        >
-                          <div className="flex items-center gap-3 w-full sidebar-link">
-                            <span className="icon-wrapper flex-shrink-0">
-                              {item.icon && <ItemIcon className={`size-5 ${item.isActive ? 'text-[#09D1C7]' : ''}`} />}
-                            </span>
-                            <span className="link-text">{item.title}</span>
-                          </div>
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {item.items?.map((subItem) => {
-                            const isSubActive = pathname === subItem.url;
-                            return (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={isSubActive}
-                                  className={
-                                    isSubActive 
-                                      ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
-                                      : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
-                                  }
-                                >
-                                  <a href={subItem.url} className="flex items-center gap-3 sidebar-link">
-                                    <span className="link-text">{subItem.title}</span>
-                                  </a>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                ) : renderNavItem(item);
-              })}
+              {menuItems.map((item) => renderNavItem(item))}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>

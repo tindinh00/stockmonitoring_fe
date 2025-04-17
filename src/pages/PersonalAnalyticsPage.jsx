@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { getUserId } from '@/api/Api';
 import axios from 'axios';
 import { toast } from "sonner";
-import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2 } from 'lucide-react';
+import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings } from 'lucide-react';
 import Cookies from 'js-cookie';
 
 const PersonalAnalyticsPage = () => {
@@ -11,6 +12,11 @@ const PersonalAnalyticsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sortField, setSortField] = useState('ticketSymbol');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isUpdatingWeights, setIsUpdatingWeights] = useState(false);
+  const [editedWeights, setEditedWeights] = useState({});
+  const [isWeightDialogOpen, setIsWeightDialogOpen] = useState(false);
+  const itemsPerPage = 5;
   
   // Add new state for date range
   const [dateRange, setDateRange] = useState({
@@ -40,13 +46,13 @@ const PersonalAnalyticsPage = () => {
         return;
       }
 
-      // Format dates to DD-MM-YYYY
+      // Format dates to MM/DD/YY
       const formatDate = (date) => {
         const d = new Date(date);
-        const day = String(d.getDate()).padStart(2, '0');
         const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}-${month}-${year}`;
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${month}/${day}/${year}`;
       };
 
       // Gọi API phân tích cá nhân với các tham số mới
@@ -141,54 +147,206 @@ const PersonalAnalyticsPage = () => {
     </th>
   );
 
-  // Render value cell
-  const renderValueCell = (value, type) => {
+  // Xử lý thay đổi trọng số
+  const handleWeightChange = (stockId, value) => {
+    const numericValue = parseFloat(value) || 0;
+    setEditedWeights(prev => ({
+      ...prev,
+      [stockId]: numericValue
+    }));
+  };
+
+  // Kiểm tra tổng trọng số
+  const calculateTotalWeight = () => {
+    const weights = stocks.map(stock => 
+      editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight
+    );
+    return weights.reduce((sum, weight) => sum + (weight || 0), 0);
+  };
+
+  // Reset edited weights
+  const handleOpenWeightDialog = () => {
+    setEditedWeights({});
+    setIsWeightDialogOpen(true);
+  };
+
+  // Cập nhật trọng số
+  const handleUpdateWeights = async () => {
+    try {
+      const totalWeight = calculateTotalWeight();
+      
+      if (Math.abs(totalWeight - 100) > 0.01) {
+        toast.error("Tổng trọng số phải bằng 100%", {
+          description: `Tổng hiện tại: ${totalWeight.toFixed(2)}%`
+        });
+        return;
+      }
+
+      setIsUpdatingWeights(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để thực hiện chức năng này");
+        return;
+      }
+
+      const stockWeights = stocks.map(stock => ({
+        stockId: stock.id,
+        weight: editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight
+      }));
+
+      await axios.put(
+        'https://stockmonitoring-api-gateway.onrender.com/api/personal-analysis',
+        {
+          userId: userId,
+          stockWeights: stockWeights
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success("Cập nhật trọng số thành công");
+      await fetchStocksData(); // Refresh data
+      setEditedWeights({}); // Reset edited weights
+      setIsWeightDialogOpen(false); // Close dialog
+    } catch (error) {
+      console.error("Error updating weights:", error);
+      toast.error("Không thể cập nhật trọng số", {
+        description: error.message || "Vui lòng thử lại sau"
+      });
+    } finally {
+      setIsUpdatingWeights(false);
+    }
+  };
+
+  // Render value cell with editable weight
+  const renderValueCell = (stock, field, type) => {
+    // Special handling for weight field
+    if (field === 'weight') {
+      return (
+        <td className="px-3 py-3 text-center">
+          <input
+            type="number"
+            value={editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight}
+            onChange={(e) => handleWeightChange(stock.id, e.target.value)}
+            className="w-16 px-2 py-1 bg-[#252525] border border-[#333] rounded text-white text-center"
+            min="0"
+            max="100"
+            step="0.01"
+          />
+        </td>
+      );
+    }
+
+    // Original renderValueCell logic for other fields
     let color = 'text-white';
-    let formattedValue = value;
+    let formattedValue = stock[field];
     
     switch (type) {
       case 'percentage':
-        formattedValue = value ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%` : '--';
-        color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        formattedValue = formattedValue ? `${formattedValue > 0 ? '+' : ''}${formattedValue.toFixed(2)}%` : '--';
+        color = formattedValue > 0 ? 'text-[#00FF00]' : formattedValue < 0 ? 'text-[#FF4A4A]' : 'text-white';
         break;
       case 'beta':
-        formattedValue = value ? `${value.toFixed(2)}%` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
         break;
       case 'betaWeight':
-        formattedValue = value ? `${value.toFixed(2)}%` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
         break;
       case 'returnLevel':
-        switch (value) {
+        switch (formattedValue) {
           case 'Sinh lời cao': color = 'text-[#00FF00]'; break;
           case 'Sinh lời thấp': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
         break;
       case 'riskLevel':
-        switch (value) {
+        switch (formattedValue) {
           case 'Rủi ro thấp': color = 'text-[#00FF00]'; break;
           case 'Rủi ro cao': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
         break;
       case 'recommendation':
-        switch (value) {
+        switch (formattedValue) {
           case 'Nên mua': color = 'text-[#00FF00]'; break;
           case 'Nên bán': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
         break;
       case 'number':
-        formattedValue = value?.toFixed(2) || '--';
+        formattedValue = formattedValue?.toFixed(2) || '--';
         break;
       default:
-        formattedValue = value || '--';
+        formattedValue = formattedValue || '--';
     }
     
     return (
       <td className={`px-3 py-3 ${color} text-center`}>
         {formattedValue}
       </td>
+    );
+  };
+
+  // Tính toán số trang
+  const totalPages = Math.ceil(stocks.length / itemsPerPage);
+
+  // Lấy dữ liệu cho trang hiện tại
+  const getCurrentPageData = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return stocks.slice(startIndex, endIndex);
+  };
+
+  // Xử lý chuyển trang
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // Component phân trang
+  const Pagination = () => {
+    return (
+      <div className="flex items-center justify-end gap-2 mt-4 pb-4">
+        <div className="text-sm text-[#666] mr-2">
+          Trang {currentPage} / {totalPages}
+        </div>
+        <Button
+          variant="outline"
+          className="bg-transparent border-[#333] text-white hover:bg-[#252525] px-2"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+          <Button
+            key={pageNum}
+            variant={currentPage === pageNum ? "default" : "outline"}
+            className={`${
+              currentPage === pageNum
+                ? "bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
+                : "bg-transparent border-[#333] text-white hover:bg-[#252525]"
+            } w-8 h-8 p-0`}
+            onClick={() => handlePageChange(pageNum)}
+          >
+            {pageNum}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          className="bg-transparent border-[#333] text-white hover:bg-[#252525] px-2"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     );
   };
 
@@ -211,12 +369,13 @@ const PersonalAnalyticsPage = () => {
             <p className="text-[#666]">Phân tích chuyên sâu danh mục cổ phiếu của bạn</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333]">
-              <span className="text-[#666]">Cập nhật:</span>
-              <span className="text-[#09D1C7] font-medium">
-                {new Date().toLocaleTimeString('vi-VN')}
-              </span>
-            </div>
+            <Button
+              onClick={handleOpenWeightDialog}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg"
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Cài đặt trọng số
+            </Button>
             <Button
               onClick={fetchStocksData}
               className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg"
@@ -251,7 +410,7 @@ const PersonalAnalyticsPage = () => {
               <thead className="bg-[#1a1a1a] sticky top-0">
                 <tr>
                   {renderHeaderCell('ticketSymbol', 'Mã CK')}
-                  {renderHeaderCell('weight', 'Trọng số', 'Trọng số của cổ phiếu trong danh mục')}
+                  {renderHeaderCell('weight', 'Trọng số (%)', 'Trọng số của cổ phiếu trong danh mục')}
                   {renderHeaderCell('stockReturn', 'Lợi nhuận', 'Tỷ suất sinh lời của cổ phiếu')}
                   {renderHeaderCell('returnWeight', 'TS Lợi nhuận', 'Trọng số lợi nhuận')}
                   {renderHeaderCell('beta', 'Beta', 'Hệ số Beta - Đo lường độ biến động so với thị trường')}
@@ -262,21 +421,24 @@ const PersonalAnalyticsPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-[#0a0a14]">
-                {stocks.map((stock) => (
+                {getCurrentPageData().map((stock) => (
                   <tr key={stock.id} className="hover:bg-[#1a1a1a] border-b border-[#333]">
                     <td className="px-3 py-3 font-medium text-white text-center">{stock.ticketSymbol}</td>
-                    {renderValueCell(stock.weight, 'number')}
-                    {renderValueCell(stock.stockReturn, 'percentage')}
-                    {renderValueCell(stock.returnWeight, 'percentage')}
-                    {renderValueCell(stock.beta, 'beta')}
-                    {renderValueCell(stock.betaWeight, 'betaWeight')}
-                    {renderValueCell(stock.returnLevel, 'returnLevel')}
-                    {renderValueCell(stock.riskLevel, 'riskLevel')}
-                    {renderValueCell(stock.recommendation, 'recommendation')}
+                    <td className="px-3 py-3 text-white text-center">{stock.weight.toFixed(2)}%</td>
+                    {renderValueCell(stock, 'stockReturn', 'percentage')}
+                    {renderValueCell(stock, 'returnWeight', 'percentage')}
+                    {renderValueCell(stock, 'beta', 'beta')}
+                    {renderValueCell(stock, 'betaWeight', 'betaWeight')}
+                    {renderValueCell(stock, 'returnLevel', 'returnLevel')}
+                    {renderValueCell(stock, 'riskLevel', 'riskLevel')}
+                    {renderValueCell(stock, 'recommendation', 'recommendation')}
                   </tr>
                 ))}
               </tbody>
             </table>
+            
+            {/* Phân trang */}
+            {stocks.length > 0 && <Pagination />}
           </div>
         </div>
         
@@ -285,8 +447,84 @@ const PersonalAnalyticsPage = () => {
           <p>* Dữ liệu được cập nhật định kỳ mỗi ngày giao dịch.</p>
         </div>
       </div>
+
+      {/* Weight Edit Dialog */}
+      <Dialog open={isWeightDialogOpen} onOpenChange={setIsWeightDialogOpen}>
+        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[480px] p-0">
+          <div className="p-6 border-b border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2">Cài đặt trọng số</DialogTitle>
+            <DialogDescription className="text-[#666]">
+              Điều chỉnh trọng số cho từng cổ phiếu trong danh mục. Tổng trọng số phải bằng 100%.
+            </DialogDescription>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#252525] rounded-lg">
+              <span className="text-[#666]">Tổng trọng số:</span>
+              <span className={`font-medium ${
+                Math.abs(calculateTotalWeight() - 100) < 0.01 
+                  ? 'text-[#09D1C7]' 
+                  : 'text-[#FF4A4A]'
+              }`}>
+                {calculateTotalWeight().toFixed(2)}%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-[1fr,120px] gap-4">
+              <div className="text-[#999] text-sm">Mã CK</div>
+              <div className="text-[#999] text-sm text-center">Trọng số (%)</div>
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto pr-2 -mr-2">
+              <div className="space-y-3">
+                {stocks.map((stock) => (
+                  <div key={stock.id} className="grid grid-cols-[1fr,120px] gap-4 items-center">
+                    <div className="font-medium">{stock.ticketSymbol}</div>
+                    <input
+                      type="number"
+                      value={editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight}
+                      onChange={(e) => handleWeightChange(stock.id, e.target.value)}
+                      className="w-full px-3 py-2 bg-[#252525] border border-[#333] rounded text-white text-center focus:outline-none focus:border-[#09D1C7]"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 p-6 border-t border-[#333]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditedWeights({});
+                setIsWeightDialogOpen(false);
+              }}
+              className="bg-[#252525] border-[#333] text-white hover:bg-[#333] min-w-[100px]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleUpdateWeights}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[140px]"
+              disabled={isUpdatingWeights || Math.abs(calculateTotalWeight() - 100) > 0.01}
+            >
+              {isUpdatingWeights ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang cập nhật...
+                </>
+              ) : (
+                'Cập nhật trọng số'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default PersonalAnalyticsPage; 
+export default PersonalAnalyticsPage;
