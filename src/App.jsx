@@ -27,6 +27,7 @@ import HeaderManager from './layouts/headerManager';
 import HeaderLogined from './layouts/headerLogined';
 import UpgradePackage from './pages/UpgradePackagePage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import CancelPaymentPage from './pages/CancelPaymentPage';
 import UserManagementPage from "@/pages/admin/UserManagementPage";
 import AdminSidebar from './layouts/AdminSidebar';
 import DashboardPage from './pages/dashboard';
@@ -454,7 +455,7 @@ function App() {
         />
         
         <Route 
-          path="/payment-success" 
+          path="/payment-successfully" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
@@ -543,6 +544,27 @@ function App() {
                   </div>
                 </SidebarProvider>
               </FeatureGuard>
+
+          path="/cancel-payment" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <CancelPaymentPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+
             </ProtectedRoute>
           } 
         />
@@ -562,7 +584,6 @@ function App() {
                 <Route path="/reset-password" element={<ResetPassword/>} />
                 <Route path="/knowledge" element={<Knowledge/>} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
-                <Route path="/payment-successfully" element={<PaymentSuccessPage />} />
                 <Route path="*" element={<NotFound/>} />
               </Routes>
               <Toaster position="top-right" richColors />
