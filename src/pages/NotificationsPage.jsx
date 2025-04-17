@@ -360,63 +360,60 @@ const NotificationsPage = () => {
 
     return (
       <div className="w-full overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-white">Mã cổ phiếu</TableHead>
-              <TableHead className="text-white">Giá mục tiêu</TableHead>
-              <TableHead className="text-white">Loại thông báo</TableHead>
-              <TableHead className="text-white">Trạng thái</TableHead>
-              <TableHead className="text-white">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {notifications.map((notification) => (
-              <TableRow key={notification.id}>
-                <TableCell className="font-medium text-white text-left">
-                  {notification.tickerSymbol.toUpperCase()}
-                </TableCell>
-                <TableCell className="text-white text-left">
-                  {notification.price.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-white text-left">
-                  {notification.type === 'increase' ? 'Khi giá tăng' : 'Khi giá giảm'}
-                </TableCell>
-                <TableCell className="text-white text-left">
-                  <Badge 
-                    variant={notification.status === 'ACTIVE' ? 'success' : 'secondary'}
-                    className={notification.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'}
-                  >
-                    {notification.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã kết thúc'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
-                      onClick={() => handleEditPrice(notification)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                      onClick={() => handleDeleteClick(notification)}
-                      disabled={deletingIds.includes(notification.id)}
-                    >
-                      {deletingIds.includes(notification.id) ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="min-w-[800px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-white w-16 text-center">STT</TableHead>
+                <TableHead className="text-white w-32 text-center">Mã cổ phiếu</TableHead>
+                <TableHead className="text-white w-40 text-center">Giá mục tiêu</TableHead>
+                <TableHead className="text-white w-40 text-center">Loại thông báo</TableHead>
+                <TableHead className="text-white w-32 text-center">Thao tác</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {notifications.map((notification, index) => (
+                <TableRow key={notification.id} className="hover:bg-[#252525] transition-colors">
+                  <TableCell className="text-white text-center font-medium">
+                    {index + 1}
+                  </TableCell>
+                  <TableCell className="text-white text-center font-medium">
+                    {notification.tickerSymbol.toUpperCase()}
+                  </TableCell>
+                  <TableCell className="text-white text-center">
+                    {notification.price.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-white text-center">
+                    {notification.type === 'increase' ? 'Khi giá tăng' : 'Khi giá giảm'}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-500/10"
+                        onClick={() => handleEditPrice(notification)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-500/10"
+                        onClick={() => handleDeleteClick(notification)}
+                        disabled={deletingIds.includes(notification.id)}
+                      >
+                        {deletingIds.includes(notification.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   };

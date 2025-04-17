@@ -1308,7 +1308,7 @@ export const apiService = {
       const response = await axios.post(
         `${STOCK_BASE_URL}/api/notifications`,
         {
-          tickerSymbol: normalizedTickerSymbol,
+          tickerSymbol: normalizedTickerSymbol.toUpperCase(),
           userId: userId,
           price: parseFloat(price),
           type: normalizedType

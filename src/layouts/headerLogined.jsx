@@ -17,12 +17,14 @@ import { toast } from 'sonner';
 import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import TradingSessionBadge from '@/components/TradingSessionBadge';
+import signalRService from '@/api/signalRService';
 
 export default function HeaderLogined() {
   // State to store notifications
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   // Fetch notifications when popup opens
   const fetchNotifications = async () => {
@@ -36,16 +38,59 @@ export default function HeaderLogined() {
 
       const response = await stockService.getNotificationMessages(userId);
       if (response?.value?.data) {
-        const notificationMessages = response.value.data.map(notification => ({
-          id: notification.id,
-          type: notification.type?.toLowerCase() || 'info',
-          title: notification.title || 'Thông báo giá',
-          message: notification.message,
-          time: new Date(notification.time).toLocaleString(),
-          read: notification.read || false,
-          stockCode: notification.tickerSymbol?.toUpperCase(),
-          exchange: notification.exchange
-        }));
+        const notificationMessages = response.value.data.map(notification => {
+          // Extract information from message using regex
+          const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
+          const matches = notification.message.match(messageRegex);
+          
+          let stockCode = '';
+          let targetPrice = '';
+          let currentPrice = '';
+          let exchange = '';
+          let messageTime = '';
+          
+          if (matches && matches.length >= 6) {
+            messageTime = matches[1]; // "2025-04-17 12:07:49"
+            stockCode = matches[2].trim(); // Ensure no whitespace
+            targetPrice = matches[3].trim();
+            currentPrice = matches[4].trim();
+            exchange = matches[5].trim(); // Ensure no whitespace
+          }
+
+          // Determine if price is increasing or decreasing
+          const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
+
+          // Convert message time string to Date object and adjust for Vietnam timezone (-7 hours)
+          const timeStr = messageTime.replace(' ', 'T') + 'Z';
+          const messageDate = new Date(timeStr);
+          messageDate.setHours(messageDate.getHours() - 7); // Adjust for Vietnam timezone
+
+          return {
+            id: notification.id,
+            type: priceChange >= 0 ? 'increase' : 'decrease',
+            title: 'Thông báo giá',
+            message: notification.message,
+            time: messageDate.toLocaleString('vi-VN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            }),
+            read: false,
+            stockCode: stockCode,
+            exchange: exchange,
+            createdAt: messageTime
+          };
+        });
+
+        // Sort by createdAt in descending order
+        notificationMessages.sort((a, b) => 
+          new Date(b.createdAt) - new Date(a.createdAt)
+        );
+
         setNotifications(notificationMessages);
       }
     } catch (error) {
@@ -64,6 +109,88 @@ export default function HeaderLogined() {
       return () => clearInterval(interval);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchNotifications();
+
+    // Setup SignalR listener for real-time notifications
+    const setupNotificationListener = async () => {
+      try {
+        const connection = await signalRService.getConnection();
+        if (!connection) {
+          console.error("[SignalR] No active connection available");
+          return;
+        }
+
+        // Listen for stockNotification events
+        window.addEventListener('stockNotification', (event) => {
+          const data = event.detail;
+          console.log("[SignalR] Received notification:", data);
+          
+          // Extract information from message using regex
+          const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
+          const matches = data.message.match(messageRegex);
+          
+          let stockCode = '';
+          let targetPrice = '';
+          let currentPrice = '';
+          let exchange = data.exchange || '';
+          
+          if (matches && matches.length >= 6) {
+            stockCode = matches[2].trim();
+            targetPrice = matches[3].trim();
+            currentPrice = matches[4].trim();
+            if (!exchange) {
+              exchange = matches[5].trim();
+            }
+          }
+
+          // Determine if price is increasing or decreasing
+          const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
+
+          // Add new notification to the list
+          setNotifications(prev => {
+            const newNotification = {
+              id: crypto.randomUUID(),
+              type: priceChange >= 0 ? 'increase' : 'decrease',
+              title: 'Thông báo giá',
+              message: data.message,
+              time: new Date(data.time).toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+              }),
+              read: false,
+              stockCode: stockCode,
+              exchange: exchange,
+              createdAt: data.time
+            };
+            return [newNotification, ...prev];
+          });
+
+          // Show toast notification
+          toast.info("Có thông báo giá mới!");
+        });
+
+        await signalRService.setupNotificationListeners();
+        console.log("[SignalR] Notification listener setup complete");
+      } catch (error) {
+        console.error("[SignalR] Error setting up notification listener:", error);
+      }
+    };
+
+    setupNotificationListener();
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('stockNotification', () => {});
+    };
+  }, []);
 
   // Mark all notifications as read
   const markAllAsRead = () => {
@@ -86,6 +213,11 @@ export default function HeaderLogined() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleNotificationClick = (id) => {
+    markAsRead(id);
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   return (
     <header className='bg-[white] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
@@ -162,7 +294,7 @@ export default function HeaderLogined() {
                 Đánh dấu tất cả đã đọc
               </button>
             </div>
-            <div className="max-h-[300px] overflow-auto">
+            <div className="max-h-[400px] overflow-auto">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -171,8 +303,9 @@ export default function HeaderLogined() {
                 notifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100 last:border-0 bg-white"
-                    onClick={() => markAsRead(notification.id)}
+                    className={`px-4 py-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer border-b border-gray-100 last:border-0 bg-white
+                      ${expandedId === notification.id ? 'bg-gray-50' : ''}`}
+                    onClick={() => handleNotificationClick(notification.id)}
                   >
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
@@ -187,17 +320,50 @@ export default function HeaderLogined() {
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-black">{notification.title}</p>
                           {notification.stockCode && (
-                            <Badge variant={notification.type === 'increase' ? 'success' : 'destructive'} className="text-[10px]">
+                            <Badge 
+                              variant="default"
+                              className={`text-[10px] px-2 ${
+                                notification.type === 'increase' 
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                  : 'bg-red-100 text-red-800 hover:bg-red-200'
+                              }`}
+                            >
                               {notification.stockCode}
                             </Badge>
                           )}
+                          {notification.exchange && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] px-2 border-gray-300 text-gray-700 bg-gray-50"
+                            >
+                              {notification.exchange}
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-700 truncate">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        <div className={`text-sm text-gray-700 transition-all duration-200 overflow-hidden
+                          ${expandedId === notification.id ? 'max-h-[500px]' : 'max-h-[20px]'}`}>
+                          <p className={expandedId === notification.id ? '' : 'line-clamp-1'}>
+                            {notification.message}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-500">{notification.time}</p>
+                          {expandedId === notification.id && (
+                            <button 
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedId(null);
+                              }}
+                            >
+                              Thu gọn
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {!notification.read && (
                         <div className="flex-shrink-0">

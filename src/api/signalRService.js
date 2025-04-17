@@ -22,13 +22,13 @@ class SignalRService {
       return this.state.connectionPromise;
     }
 
-    console.log("[SignalR-Stock] Initializing connection");
+    console.log("[SignalR] Initializing connection");
     this.state.isConnecting = true;
 
     try {
       const token = Cookies.get('auth_token');
       if (!token) {
-        console.warn("[SignalR-Stock] No auth token found");
+        console.warn("[SignalR] No auth token found");
         this.state.isConnecting = false;
         return null;
       }
@@ -41,7 +41,7 @@ class SignalRService {
           transport: HttpTransportType.WebSockets
         })
         .configureLogging(LogLevel.Information)
-        .withAutomaticReconnect([0, 2000, 5000, 10000, 20000]) // Retry intervals in milliseconds
+        .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
         .build();
 
       // Set up connection event handlers
@@ -51,7 +51,7 @@ class SignalRService {
       this.state.connectionPromise = this.startConnection();
       return await this.state.connectionPromise;
     } catch (error) {
-      console.error("[SignalR-Stock] Failed to initialize connection:", error);
+      console.error("[SignalR] Failed to initialize connection:", error);
       this.state.isConnecting = false;
       this.state.connectionPromise = null;
       return null;
@@ -62,23 +62,24 @@ class SignalRService {
     if (!this.state.connection) return;
 
     this.state.connection.onreconnecting(error => {
-      console.log("[SignalR-Stock] Connection lost. Attempting to reconnect...", error);
+      console.log("[SignalR] Connection lost. Attempting to reconnect...", error);
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { status: 'reconnecting', error } 
       }));
     });
 
     this.state.connection.onreconnected(connectionId => {
-      console.log("[SignalR-Stock] Connection reestablished. ID:", connectionId);
+      console.log("[SignalR] Connection reestablished. ID:", connectionId);
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { status: 'connected', connectionId } 
       }));
       // Re-setup listeners after reconnection
       this.setupStockListeners();
+      this.setupNotificationListeners();
     });
 
     this.state.connection.onclose(error => {
-      console.log("[SignalR-Stock] Connection closed", error);
+      console.log("[SignalR] Connection closed", error);
       this.state.isConnecting = false;
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { status: 'disconnected', error } 
@@ -93,7 +94,7 @@ class SignalRService {
 
     try {
       await this.state.connection.start();
-      console.log("[SignalR-Stock] Connection started successfully");
+      console.log("[SignalR] Connection started successfully");
       this.state.isConnecting = false;
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { 
@@ -103,7 +104,7 @@ class SignalRService {
       }));
       return this.state.connection;
     } catch (error) {
-      console.error("[SignalR-Stock] Connection start failed:", error);
+      console.error("[SignalR] Connection start failed:", error);
       this.state.isConnecting = false;
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { status: 'error', error } 
@@ -111,7 +112,7 @@ class SignalRService {
 
       // If the connection fails, try to reconnect after a delay
       setTimeout(() => {
-        console.log("[SignalR-Stock] Attempting to reconnect...");
+        console.log("[SignalR] Attempting to reconnect...");
         this.state.connection = null;
         this.state.connectionPromise = null;
         this.initializeConnection();
@@ -134,12 +135,12 @@ class SignalRService {
   }
 
   async setupStockListeners() {
-    console.log("[SignalR-Stock] Setting up stock update listeners");
+    console.log("[SignalR] Setting up stock update listeners");
     
     try {
       const connection = await this.getConnection();
       if (!connection) {
-        console.error("[SignalR-Stock] No active connection available");
+        console.error("[SignalR] No active connection available");
         return { success: false, message: "No connection available" };
       }
 
@@ -153,7 +154,7 @@ class SignalRService {
       try {
         this.onStock("ReceiveHSXStockUpdate", (data) => {
           hsxRegistered = true;
-          console.log("[SignalR-Stock] HSX update received:", data);
+          console.log("[SignalR] HSX update received:", data);
           try {
             let stockData = typeof data === 'string' ? JSON.parse(data) : data;
             const timestamp = stockData.Timestamp || stockData.timestamp;
@@ -167,17 +168,17 @@ class SignalRService {
               }));
             }
           } catch (error) {
-            console.error("[SignalR-Stock] Error processing HSX update:", error);
+            console.error("[SignalR] Error processing HSX update:", error);
           }
         });
       } catch (error) {
-        console.error("[SignalR-Stock] Failed to register HSX listener:", error);
+        console.error("[SignalR] Failed to register HSX listener:", error);
       }
 
       try {
         this.onStock("ReceiveHNXStockUpdate", (data) => {
           hnxRegistered = true;
-          console.log("[SignalR-Stock] HNX update received:", data);
+          console.log("[SignalR] HNX update received:", data);
           try {
             let stockData = typeof data === 'string' ? JSON.parse(data) : data;
             const timestamp = stockData.Timestamp || stockData.timestamp;
@@ -191,14 +192,14 @@ class SignalRService {
               }));
             }
           } catch (error) {
-            console.error("[SignalR-Stock] Error processing HNX update:", error);
+            console.error("[SignalR] Error processing HNX update:", error);
           }
         });
       } catch (error) {
-        console.error("[SignalR-Stock] Failed to register HNX listener:", error);
+        console.error("[SignalR] Failed to register HNX listener:", error);
       }
 
-      console.log("[SignalR-Stock] Listener registration status:", {
+      console.log("[SignalR] Stock listener registration status:", {
         hsx: hsxRegistered,
         hnx: hnxRegistered
       });
@@ -213,14 +214,43 @@ class SignalRService {
         }
       };
     } catch (error) {
-      console.error("[SignalR-Stock] Error in setupStockListeners:", error);
+      console.error("[SignalR] Error in setupStockListeners:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  async setupNotificationListeners() {
+    console.log("[SignalR] Setting up notification listeners");
+    
+    try {
+      const connection = await this.getConnection();
+      if (!connection) {
+        console.error("[SignalR] No active connection available");
+        return { success: false, message: "No connection available" };
+      }
+
+      // Clear existing listener
+      connection.off("StockNotification");
+
+      // Register notification handler
+      connection.on("StockNotification", (data) => {
+        console.log("[SignalR] Notification received:", data);
+        window.dispatchEvent(new CustomEvent('stockNotification', {
+          detail: data
+        }));
+      });
+
+      console.log("[SignalR] Notification listener setup complete");
+      return { success: true, message: "Notification listener registered successfully" };
+    } catch (error) {
+      console.error("[SignalR] Error in setupNotificationListeners:", error);
       return { success: false, message: error.message };
     }
   }
 
   onStock(eventName, callback) {
     if (!this.state.connection) {
-      console.warn(`[SignalR-Stock] Cannot register event ${eventName} - no active connection`);
+      console.warn(`[SignalR] Cannot register event ${eventName} - no active connection`);
       return;
     }
 
@@ -229,12 +259,12 @@ class SignalRService {
     this.state.eventHandlers.set(eventName, handlers);
 
     this.state.connection.on(eventName, (data) => {
-      console.log(`[SignalR-Stock] Received ${eventName} event:`, data);
+      console.log(`[SignalR] Received ${eventName} event:`, data);
       handlers.forEach(handler => {
         try {
           handler(data);
         } catch (error) {
-          console.error(`[SignalR-Stock] Error in handler for ${eventName}:`, error);
+          console.error(`[SignalR] Error in handler for ${eventName}:`, error);
         }
       });
     });
@@ -242,7 +272,7 @@ class SignalRService {
 
   offStock(eventName) {
     if (!this.state.connection) {
-      console.warn(`[SignalR-Stock] Cannot unregister - no active connection`);
+      console.warn(`[SignalR] Cannot unregister - no active connection`);
       return;
     }
     
@@ -253,16 +283,15 @@ class SignalRService {
   async stop() {
     try {
       if (this.state.connection) {
-        // Unregister all event handlers
-        this.state.eventHandlers.clear();
         await this.state.connection.stop();
-        console.log('[SignalR-Stock] Connection stopped');
+        console.log('[SignalR] Connection stopped');
       }
       this.state.connection = null;
       this.state.connectionPromise = null;
       this.state.isConnecting = false;
+      this.state.eventHandlers.clear();
     } catch (error) {
-      console.error('[SignalR-Stock] Error stopping connection:', error);
+      console.error('[SignalR] Error stopping connection:', error);
     }
   }
 }
@@ -273,8 +302,9 @@ const signalRService = new SignalRService();
 // Initialize connection when the service is imported
 signalRService.getConnection().then(() => {
   signalRService.setupStockListeners();
+  signalRService.setupNotificationListeners();
 }).catch(error => {
-  console.error("[SignalR-Stock] Initial connection setup failed:", error);
+  console.error("[SignalR] Initial connection setup failed:", error);
 });
 
 export default signalRService;
