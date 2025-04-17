@@ -923,7 +923,16 @@ export const apiService = {
       }
       
       const { amount, packageId } = data;
-      const response = await axiosInstance.post(`/api/payments?amount=${amount}&packageId=${packageId}`);
+      const response = await axiosInstance.post('/api/payments', {
+        packageId: packageId,
+        amount: amount
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      
       console.log('Payment API response:', response);
       console.log('Payment data structure:', JSON.stringify(response.data, null, 2));
       
@@ -1010,23 +1019,10 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
-      // Get user ID for the request
-      const userId = getUserId();
-      if (!userId) {
-        throw new Error("Không tìm thấy thông tin người dùng");
-      }
+      console.log(`Updating payment status for order: ${orderCode}`);
       
-      console.log(`Updating payment status for order: ${orderCode} with userId: ${userId}`);
-      
-      // Create proper request body
-      const requestBody = {
-        userId: userId,
-        orderCode: orderCode
-      };
-      
-      // Explicitly include the Authorization header for reliability
-      // The interceptor should also add it, this is a backup
-      const response = await axiosInstance.put(`/api/payments/${orderCode}`, requestBody, {
+      // Make API call with only orderCode in URL, userId will be extracted from token
+      const response = await axiosInstance.put(`/api/payments/${orderCode}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1039,15 +1035,30 @@ export const apiService = {
       if (response.status === 200) {
         return {
           success: true,
-          message: 'Mua gói dịch vụ thành công',
+          message: response.data?.message || 'Cập nhật trạng thái thanh toán thành công',
           data: response.data?.value
         };
       } else {
-        throw new Error('Không thể cập nhật trạng thái thanh toán');
+        throw new Error(response.data?.message || 'Không thể cập nhật trạng thái thanh toán');
       }
     } catch (error) {
       console.error('Error updating payment status:', error);
       console.error('Error details:', error.response?.data || error.message);
+      
+      // Handle specific error cases
+      if (error.response?.status === 404) {
+        return {
+          success: false,
+          error: 'Không tìm thấy thông tin đơn hàng'
+        };
+      }
+      
+      if (error.response?.status === 401) {
+        return {
+          success: false,
+          error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+        };
+      }
       
       return {
         success: false,
@@ -1297,7 +1308,7 @@ export const apiService = {
       const response = await axios.post(
         `${STOCK_BASE_URL}/api/notifications`,
         {
-          tickerSymbol: normalizedTickerSymbol,
+          tickerSymbol: normalizedTickerSymbol.toUpperCase(),
           userId: userId,
           price: parseFloat(price),
           type: normalizedType
