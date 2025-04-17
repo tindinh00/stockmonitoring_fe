@@ -544,7 +544,11 @@ function App() {
                   </div>
                 </SidebarProvider>
               </FeatureGuard>
+            </ProtectedRoute>
+          } 
+        />
 
+        <Route 
           path="/cancel-payment" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
@@ -564,7 +568,6 @@ function App() {
                   </div>
                 </div>
               </SidebarProvider>
-
             </ProtectedRoute>
           } 
         />
