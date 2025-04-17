@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiService } from "@/api/Api";
 import { Button } from "@/components/ui/button";
@@ -16,35 +16,28 @@ export default function PaymentSuccessPage() {
   const [orderCode, setOrderCode] = useState(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState(null);
-  const [isValidCallback, setIsValidCallback] = useState(true); // Assume valid initially
+  const isInitialMount = useRef(true);
 
-  // Parse URL parameters on component mount
+  // Process payment callback only on initial mount
   useEffect(() => {
-    const validateAndProcess = async () => {
+    if (!isInitialMount.current) return;
+    isInitialMount.current = false;
+
+    const processPayment = async () => {
       try {
         setLoading(true);
-        console.log("Starting payment validation process");
+        console.log("Processing payment callback");
         
         // Check if user is logged in
         const token = Cookies.get("auth_token");
         console.log("Auth token present:", !!token);
         
-        // Parse URL parameters from the callback URL
+        // Parse URL parameters
         const params = new URLSearchParams(location.search);
-        
-        // Get all parameters from the URL
-        const paymentCode = params.get("code");
-        const paymentId = params.get("id");
-        const cancelStatus = params.get("cancel");
-        const paymentStatus = params.get("status");
         const orderCodeFromQuery = params.get("orderCode");
         
         // Store payment details
         const paymentInfo = {
-          code: paymentCode,
-          id: paymentId,
-          cancel: cancelStatus === 'true',
-          status: paymentStatus,
           orderCode: orderCodeFromQuery,
           timestamp: new Date().toISOString()
         };
@@ -52,50 +45,12 @@ export default function PaymentSuccessPage() {
         setPaymentDetails(paymentInfo);
         console.log("Payment callback details:", paymentInfo);
         
-        // Verify this is from a valid source (PayOS)
-        // Note: In browser context, document.referrer might be limited due to security policies
-        const referrer = document.referrer;
-        console.log("Request referrer:", referrer);
-        
-        // Check if referrer is from PayOS (when available)
-        if (referrer && !referrer.includes('pay.payos.vn')) {
-          console.warn("Suspicious referrer for payment callback:", referrer);
-          // We'll still process but log a warning - can be made stricter in production
-        }
-        
-        // Second, try to get orderCode from state (for internal navigation)
-        const orderCodeFromState = location.state?.orderCode;
-        
-        // Use whichever orderCode we found
-        const finalOrderCode = orderCodeFromQuery || orderCodeFromState;
+        // Get orderCode from query or state
+        const finalOrderCode = orderCodeFromQuery || location.state?.orderCode;
         
         if (!finalOrderCode) {
           console.error("No order code found in request");
           setError("Không tìm thấy mã đơn hàng. Vui lòng kiểm tra lại URL.");
-          setLoading(false);
-          return;
-        }
-        
-        // Validate payment code and status
-        if (paymentCode !== "00") {
-          console.error("Invalid payment code:", paymentCode);
-          setError(`Mã thanh toán không hợp lệ: ${paymentCode}`);
-          setLoading(false);
-          return;
-        }
-        
-        // Check if payment status is PAID
-        if (paymentStatus && paymentStatus !== "PAID") {
-          console.error("Payment not successful, status:", paymentStatus);
-          setError(`Thanh toán không thành công. Trạng thái: ${paymentStatus}`);
-          setLoading(false);
-          return;
-        }
-        
-        // Check if payment was cancelled
-        if (cancelStatus === "true") {
-          console.error("Payment was cancelled");
-          setError("Thanh toán đã bị hủy.");
           setLoading(false);
           return;
         }
@@ -110,18 +65,18 @@ export default function PaymentSuccessPage() {
           return;
         }
         
-        // User is authenticated, update payment status
-        console.log("Proceeding to update subscription for order:", finalOrderCode);
+        // User is authenticated, update payment status immediately
+        console.log("Updating payment status for order:", finalOrderCode);
         await updatePaymentTier(finalOrderCode);
       } catch (error) {
-        console.error("Error processing payment callback:", error);
-        setError("Đã xảy ra lỗi khi xử lý kết quả thanh toán. " + error.message);
+        console.error("Error processing payment:", error);
+        setError("Đã xảy ra lỗi khi xử lý thanh toán. " + error.message);
         setLoading(false);
       }
     };
     
-    validateAndProcess();
-  }, [location]);
+    processPayment();
+  }, []); // Empty dependency array to run only once on mount
 
   // Function to update user's subscription tier
   const updatePaymentTier = async (code) => {
@@ -150,24 +105,21 @@ export default function PaymentSuccessPage() {
   };
 
   // Handle login and then update payment
-  const handleLoginAndUpdate = () => {
-    // Save orderCode to localStorage to retrieve after login
-    if (orderCode) {
-      localStorage.setItem('pending_payment_order', orderCode);
+  const handleLoginAndUpdate = async () => {
+    try {
+      // Log out the user first
+      await apiService.logout();
       
-      // Also save full payment details
-      if (paymentDetails) {
-        localStorage.setItem('pending_payment_details', JSON.stringify(paymentDetails));
-      }
+      // Redirect to login page
+      navigate('/login', { 
+        state: { 
+          message: "Thanh toán thành công! Vui lòng đăng nhập lại để sử dụng gói dịch vụ mới."
+        } 
+      });
+    } catch (error) {
+      console.error("Error during logout:", error);
+      toast.error("Đã xảy ra lỗi khi đăng xuất. Vui lòng thử lại!");
     }
-    
-    // Redirect to login page
-    navigate('/login', { 
-      state: { 
-        redirectAfterLogin: '/payment-successfully',
-        orderCode: orderCode
-      } 
-    });
   };
 
   // Format timestamp to readable date/time
@@ -205,76 +157,48 @@ export default function PaymentSuccessPage() {
               <h2 className="text-2xl font-bold text-white mb-2">Đang xử lý thanh toán...</h2>
               <p className="text-gray-400">Vui lòng đợi trong giây lát, chúng tôi đang cập nhật gói dịch vụ của bạn.</p>
             </div>
-          ) : needsLogin ? (
-            <div className="py-12">
-              <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle className="w-10 h-10 text-blue-500" />
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Cần đăng nhập</h2>
-              <p className="text-gray-400 mb-8">Thanh toán của bạn đã được xác nhận. Vui lòng đăng nhập để hoàn tất việc nâng cấp gói dịch vụ.</p>
-              {paymentDetails && (
-                <div className="bg-black/30 rounded-lg p-4 mb-8 text-left text-sm">
-                  <p className="text-white"><span className="text-gray-400">Mã đơn hàng:</span> {paymentDetails.orderCode}</p>
-                  <p className="text-white"><span className="text-gray-400">Trạng thái:</span> {paymentDetails.status || "Đã thanh toán"}</p>
-                  <p className="text-white"><span className="text-gray-400">Mã giao dịch:</span> {paymentDetails.id}</p>
-                  <p className="text-white"><span className="text-gray-400">Thời gian:</span> {formatTimestamp(paymentDetails.timestamp)}</p>
-                </div>
-              )}
-              <div className="space-y-4">
-                <Button 
-                  onClick={handleLoginAndUpdate}
-                  className="bg-blue-600 hover:bg-blue-700 w-full"
-                >
-                  Đăng nhập ngay
-                </Button>
-              </div>
-            </div>
           ) : success ? (
             <div className="py-12">
               <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-500" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">Thanh toán thành công!</h2>
-              <p className="text-gray-400 mb-8">Chúc mừng! Gói dịch vụ của bạn đã được nâng cấp thành công.</p>
+              <p className="text-gray-400 mb-8">Chúc mừng! Gói dịch vụ của bạn đã được nâng cấp thành công. Vui lòng đăng nhập lại để sử dụng gói dịch vụ mới.</p>
               {paymentDetails && (
                 <div className="bg-black/30 rounded-lg p-4 mb-8 text-left text-sm">
                   <p className="text-white"><span className="text-gray-400">Mã đơn hàng:</span> {paymentDetails.orderCode}</p>
-                  <p className="text-white"><span className="text-gray-400">Trạng thái:</span> {paymentDetails.status || "Đã thanh toán"}</p>
-                  <p className="text-white"><span className="text-gray-400">Mã giao dịch:</span> {paymentDetails.id}</p>
                   <p className="text-white"><span className="text-gray-400">Thời gian:</span> {formatTimestamp(paymentDetails.timestamp)}</p>
                 </div>
               )}
               <div className="space-y-4">
                 <Button 
-                  onClick={() => navigate('/dashboard')}
+                  onClick={handleLoginAndUpdate}
                   className="bg-gradient-to-r from-[#7F00FF] to-[#E100FF] hover:opacity-90 w-full"
                 >
-                  Đến trang chính
+                  Đăng nhập lại
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : error ? (
             <div className="py-12">
               <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle className="w-10 h-10 text-red-500" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">Đã xảy ra lỗi!</h2>
-              <p className="text-gray-400 mb-8">{error || "Không thể xác nhận trạng thái thanh toán."}</p>
+              <p className="text-gray-400 mb-8">{error}</p>
               {paymentDetails && (
                 <div className="bg-black/30 rounded-lg p-4 mb-8 text-left text-sm">
                   <p className="text-white"><span className="text-gray-400">Mã đơn hàng:</span> {paymentDetails.orderCode || "N/A"}</p>
-                  <p className="text-white"><span className="text-gray-400">Trạng thái:</span> {paymentDetails.status || "Không xác định"}</p>
-                  {paymentDetails.code && <p className="text-white"><span className="text-gray-400">Mã lỗi:</span> {paymentDetails.code}</p>}
                   <p className="text-white"><span className="text-gray-400">Thời gian:</span> {formatTimestamp(paymentDetails.timestamp)}</p>
                 </div>
               )}
               <div className="space-y-4">
                 <Button 
-                  onClick={() => navigate('/upgrade-package')}
+                  onClick={() => navigate('/stock')}
                   className="bg-purple-600 hover:bg-purple-700 w-full mb-2"
                 >
-                  Quay lại trang nâng cấp
+                  Quay lại trang chính
                 </Button>
                 <Button 
                   onClick={() => updatePaymentTier(orderCode)}
@@ -297,7 +221,7 @@ export default function PaymentSuccessPage() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </motion.div>
     </div>
