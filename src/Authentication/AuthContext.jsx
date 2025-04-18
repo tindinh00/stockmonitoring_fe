@@ -2,7 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { getUserId, saveUserId } from '@/api/Api'; // Import getUserId
-import { saveUserFeatures, clearUserFeatures } from '@/utils/featureUtils';
+import { saveUserFeatures, clearUserFeatures, FREE_FEATURES } from '../store/featureStore';
+// import { saveUserFeatures, clearUserFeatures } from '@/utils/featureUtils';
+import useFeatureStore from '../store/featureStore';
 
 const API_URL = "https://stockmonitoring-api-gateway.onrender.com";
 const TOKEN_KEY = "auth_token";
@@ -49,6 +51,12 @@ export const AuthProvider = ({ children }) => {
             if (!Cookies.get(USER_TIER_KEY) && userInfo.tier) {
               Cookies.set(USER_TIER_KEY, userInfo.tier);
             }
+            
+            // Khôi phục tính năng từ userInfo nếu có
+            if (userInfo.features && Array.isArray(userInfo.features) && userInfo.features.length > 0) {
+              console.log("Khôi phục tính năng từ thông tin người dùng:", userInfo.features);
+              saveUserFeatures(userInfo.features);
+            }
           }
         }
       } catch (error) {
@@ -61,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         Cookies.remove(USER_TIER_KEY);
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem('user_id_backup');
+        clearUserFeatures();
       } finally {
         setLoading(false);
       }
@@ -133,39 +142,17 @@ export const AuthProvider = ({ children }) => {
       Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
       Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
       
-      // Lưu features vào cookie để điều khiển quyền truy cập
+      // Log các tính năng nhận được từ API
+      console.log("Features from API:", userData.features);
+      
+      // Lưu features vào store
       if (userData.features && Array.isArray(userData.features)) {
-        // Đảm bảo thêm các tính năng miễn phí
-        const freeFeatures = [
-          "Các tính năng của gói miễn phí",
-          "Hiển thị dữ liệu thị trường chứng khoán",
-          "Tìm kiếm và bộ lọc cổ phiếu",
-          "Xem tin tức thị trường",
-          "Bản đồ nhiệt",
-          "Hộp thoại hỗ trợ người dùng (Chatbox)"
-        ];
-        
-        // Thêm các tính năng miễn phí chưa có vào danh sách
-        freeFeatures.forEach(feature => {
-          if (!userData.features.includes(feature)) {
-            userData.features.push(feature);
-          }
-        });
-        
+        // Lưu tất cả tính năng từ API (đã được kết hợp với FREE_FEATURES trong setFeatures)
         saveUserFeatures(userData.features);
-        console.log("User features saved:", userData.features);
       } else {
-        // Nếu không có features nào từ API, thêm tính năng miễn phí mặc định
-        const defaultFeatures = [
-          "Các tính năng của gói miễn phí",
-          "Hiển thị dữ liệu thị trường chứng khoán",
-          "Tìm kiếm và bộ lọc cổ phiếu", 
-          "Xem tin tức thị trường",
-          "Bản đồ nhiệt",
-          "Hộp thoại hỗ trợ người dùng (Chatbox)"
-        ];
-        saveUserFeatures(defaultFeatures);
-        console.log("Default free features saved:", defaultFeatures);
+        console.warn("Không nhận được dữ liệu tính năng từ API, chỉ sử dụng tính năng miễn phí");
+        // Nếu không có features từ API, reset về tính năng miễn phí
+        clearUserFeatures(); // Vẫn giữ lại tính năng miễn phí trong clearUserFeatures
       }
       
       // Cập nhật state
@@ -298,6 +285,15 @@ export const AuthProvider = ({ children }) => {
         Cookies.set(USER_ROLE_KEY, userInfo.role, { expires: 7 });
         Cookies.set(USER_NAME_KEY, userInfo.name, { expires: 7 });
         Cookies.set(USER_TIER_KEY, userInfo.tier, { expires: 7 });
+        
+        // Log và lưu features nếu có
+        if (userData.features && Array.isArray(userData.features)) {
+          console.log("Features from Google login:", userData.features);
+          saveUserFeatures(userData.features);
+        } else {
+          console.warn("Không nhận được dữ liệu tính năng từ Google login, chỉ sử dụng tính năng miễn phí");
+          clearUserFeatures();
+        }
         
         setUser(userInfo);
         setIsAuthenticated(true);
@@ -771,7 +767,12 @@ export const AuthProvider = ({ children }) => {
         getUserRoleFromCookie,
         getUserNameFromCookie,
         getUserTierFromCookie,
-        getHomePageForRole
+        getHomePageForRole,
+        hasFeatureAccess: (featureKey) => {
+          // Use the feature store to check if the user has access to this feature
+          const hasFeature = useFeatureStore.getState().hasFeature;
+          return hasFeature(featureKey);
+        }
       }}
     >
       {children}

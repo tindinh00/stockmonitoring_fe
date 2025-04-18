@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useFeatureStore from '@/store/featureStore';
+import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -49,8 +52,6 @@ import Cookies from 'js-cookie';
 import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
-import { hasFeature } from '@/utils/featureUtils'; // Import hàm hasFeature
-import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage'; // Import UnauthorizedFeatureMessage
 import CandlestickChart from '@/components/CandlestickChart';
 
 // SVG for Workspace Premium icon from Material Symbols Outlined
@@ -60,7 +61,16 @@ const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
   </svg>
 );
 
-const StockDerivatives = () => {
+export default function StockDerivatives() {
+  const navigate = useNavigate();
+  const { hasFeature } = useFeatureStore();
+  
+  // Feature message state
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
+
+  // Không cần kiểm tra quyền truy cập tính năng nữa vì đã đưa vào tính năng miễn phí
+
   const [activeTab, setActiveTab] = useState('price');
   const [selectedStock, setSelectedStock] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1202,10 +1212,6 @@ const StockDerivatives = () => {
     }
   };
 
-  // State for showing feature message dialog
-  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
-  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '/stock' });
-
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -1754,6 +1760,4 @@ const StockDerivatives = () => {
       </div>
     </div>
   );
-};
-
-export default StockDerivatives;
+}

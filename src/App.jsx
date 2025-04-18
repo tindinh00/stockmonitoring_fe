@@ -47,7 +47,6 @@ import signalRService from './api/signalRService';  // Import signalRService
 import AIChatPage from './pages/AIChatPage';
 import FeatureGuard from './components/FeatureGuard';
 import UnauthorizedFeatureMessage from './components/UnauthorizedFeatureMessage.jsx';
-import { ensureFreeFeatures } from './utils/featureUtils';
 import ForecastPage from './pages/ForecastPage';
 
 // Function to get sidebar state from cookie
@@ -76,14 +75,8 @@ const RootRoute = () => {
 };
 
 function App() {
-  // Đảm bảo người dùng luôn có quyền truy cập vào tính năng miễn phí
-  useEffect(() => {
-    ensureFreeFeatures();
-  }, []);
-
   // Dọn dẹp kết nối khi ứng dụng đóng
   useEffect(() => {
-    // Dọn dẹp kết nối khi component unmount
     return () => {
       signalRService.stop();
     };
@@ -184,32 +177,22 @@ function App() {
           path="/stock" 
           element={
             <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
-              <FeatureGuard 
-                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán" 
-                fallbackComponent={
-                  <UnauthorizedFeatureMessage 
-                    featureName="Bảng giá theo thời gian thực" 
-                    returnPath="/"
-                  />
-                }
-              >
-                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                    <div className="flex-shrink-0">
-                      <SidebarLogined />
-                    </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                      <HeaderLogined />
-                      <main className="p-4 md:p-8 w-full overflow-auto">
-                        <div className="max-w-full">
-                          <StockDerivatives />
-                          <Toaster position="top-right" richColors />
-                        </div>
-                      </main>
-                    </div>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
                   </div>
-                </SidebarProvider>
-              </FeatureGuard>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <StockDerivatives />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
             </ProtectedRoute>
           } 
         />
@@ -220,11 +203,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Quản lý danh mục theo dõi cổ phiếu" 
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Danh sách theo dõi" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -325,11 +309,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Quản lý thông báo theo nhu cầu"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Quản lý thông báo" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -359,7 +344,7 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
-                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán"
+                requiredFeature="Hộp thoại hỗ trợ người dùng (Chatbox)"
                 alwaysRenderChildren={true}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
@@ -425,11 +410,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Phân tích cá nhân" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -484,11 +470,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Trợ lý AI"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Chat với AI" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -518,12 +505,13 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
-                requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
-                alwaysRenderChildren={true}
+                requiredFeature="Dự đoán giá"
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Dự đoán giá" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >

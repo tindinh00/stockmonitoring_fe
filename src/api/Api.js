@@ -1511,6 +1511,33 @@ export const apiService = {
       throw error.response?.data || error.message;
     }
   },
+
+  // Thêm method getCurrentUser để đảm bảo tương thích với cũ
+  getCurrentUser: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      const response = await axiosInstance.get("/api/users/me");
+      
+      // Return data theo định dạng dự kiến của API
+      if (response.data?.value?.data) {
+        return { data: response.data.value.data };
+      }
+      
+      // Hỗ trợ cấu trúc phản hồi khác
+      if (response.data) {
+        return { data: response.data };
+      }
+      
+      return { data: null };
+    } catch (error) {
+      console.error("Get current user error:", error);
+      throw error;
+    }
+  },
 };
 
 export default axiosInstance;
