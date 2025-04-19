@@ -49,10 +49,13 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Cookies from 'js-cookie';
-import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
+import { getUserId, apiService, APP_BASE_URL } from '@/api/Api'; // Import APP_BASE_URL
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
 import CandlestickChart from '@/components/CandlestickChart';
+
+// Define the BASE_URL constant for API calls
+const BASE_URL = APP_BASE_URL;
 
 // SVG for Workspace Premium icon from Material Symbols Outlined
 const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
@@ -946,7 +949,7 @@ export default function StockDerivatives() {
         
         // Call the watchlist API endpoint with proper headers
         const response = await axios.get(
-          `${BASE_URL}/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
               userId: userId
@@ -1011,7 +1014,7 @@ export default function StockDerivatives() {
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
         await axios.delete(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
               userId: userId,
@@ -1029,7 +1032,7 @@ export default function StockDerivatives() {
       } else {
         // Add to watchlist with correct request format
         await axios.post(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             userId: userId,
             tickerSymbol: [stock.code]
@@ -1520,7 +1523,7 @@ export default function StockDerivatives() {
                   <div className="min-w-[1400px] w-full">
                     <table className="w-full border-collapse">
                       <colgroup>
-                        <col className="w-[80px]" /> {/* Mã CK - Slightly wider */}
+                        <col className="w-[80px]" />
                         <col className="w-[60px]" />
                         <col className="w-[60px]" />
                         <col className="w-[60px]" />
@@ -1530,19 +1533,19 @@ export default function StockDerivatives() {
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[70px]" /> {/* Giá khớp - Slightly wider */}
                         <col className="w-[70px]" />
-                        <col className="w-[70px]" /> {/* +/- - Slightly wider */}
-                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[80px]" /> {/* Tổng KL - Wider */}
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[80px]" />
                         <col className="w-[70px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[100px]" /> {/* Thao tác - Wider for buttons */}
+                        <col className="w-[100px]" />
                       </colgroup>
 
                       {/* Table header with sticky positioning */}

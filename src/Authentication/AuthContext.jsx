@@ -130,7 +130,9 @@ export const AuthProvider = ({ children }) => {
         isActive: userData.isActive !== false, // Mặc định là true nếu không có
         isOAuth: userData.isOAuth || false,
         tier: userData.tier || "Free",
-        features: userData.features || [] // Save features received from API
+        features: userData.features || [], // Save features received from API
+        dateOfBirth: userData.birthDate || null, // Include birthDate
+        address: userData.address || "" // Include address
       };
       
       // Lưu thông tin người dùng
@@ -272,7 +274,9 @@ export const AuthProvider = ({ children }) => {
           isActive: userData.isActive !== false, // Mặc định là true nếu không có
           isOAuth: true, // Đánh dấu là đăng nhập bằng OAuth
           avatar: userData.avatar || userData.profilePicture || "",
-          tier: userData.tier || "Free"
+          tier: userData.tier || "Free",
+          dateOfBirth: userData.birthDate || null, // Include birthDate
+          address: userData.address || "" // Include address
         };
         
         console.log("Processed Google user data:", userInfo);
@@ -440,7 +444,9 @@ export const AuthProvider = ({ children }) => {
           isActive: userData.isActive !== false, // Mặc định là true nếu không có
           isOAuth: true, // Đánh dấu là đăng nhập bằng OAuth
           avatar: userData.avatar || userData.profilePicture || "",
-          tier: userData.tier || "Free"
+          tier: userData.tier || "Free",
+          dateOfBirth: userData.birthDate || null, // Include birthDate
+          address: userData.address || "" // Include address
         };
         
         console.log("Processed Google user data:", userInfo);
@@ -525,11 +531,27 @@ export const AuthProvider = ({ children }) => {
       Cookies.remove(USER_ROLE_KEY);
       Cookies.remove(USER_NAME_KEY);
       Cookies.remove(USER_TIER_KEY);
+      Cookies.remove("refresh_token");
       
       // Clear feature cookies
       clearUserFeatures();
       
+      // Xóa tất cả dữ liệu người dùng trong localStorage
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('user_info');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user_id_backup');
+      localStorage.removeItem('user_features');
+      
+      // Xóa thêm các dữ liệu liên quan đến thanh toán và đăng ký nếu có
+      localStorage.removeItem('pending_payment_order');
+      localStorage.removeItem('registerEmail');
+      localStorage.removeItem('verifiedEmail');
+      localStorage.removeItem('otpVerified');
+      localStorage.removeItem('resetPasswordEmail');
+      
+      console.log("All user data has been cleared from localStorage and cookies");
+      
       setUser(null);
       setIsAuthenticated(false);
     }
@@ -705,7 +727,17 @@ export const AuthProvider = ({ children }) => {
       Cookies.remove(USER_ROLE_KEY);
       Cookies.remove(USER_NAME_KEY);
       Cookies.remove(USER_TIER_KEY);
+      
+      // Xóa tất cả dữ liệu người dùng trong localStorage
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('user_info');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user_id_backup');
+      
+      // Xóa thêm các dữ liệu liên quan
+      localStorage.removeItem('pending_payment_order');
+      
+      console.log("All user data has been cleared due to token refresh failure");
       
       // Cập nhật state
       setUser(null);
