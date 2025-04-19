@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
-import { hasFeature } from '../utils/featureUtils';
+import useFeatureStore from '../store/featureStore';
+import { FREE_FEATURES } from '../store/featureStore';
 import UnauthorizedFeatureMessage from './UnauthorizedFeatureMessage';
 
 /**
@@ -23,14 +24,26 @@ const FeatureGuard = ({
 }) => {
   const location = useLocation();
   const [showUnauthorizedMessage, setShowUnauthorizedMessage] = useState(true);
+  const { hasFeature } = useFeatureStore();
+
+  // Debug log cho FeatureGuard
+  console.log(`FeatureGuard check: requiredFeature=${requiredFeature}`);
 
   // Nếu không yêu cầu tính năng cụ thể, cho phép truy cập
   if (!requiredFeature) {
+    console.log('No required feature specified, granting access');
+    return <>{children}</>;
+  }
+
+  // Nếu là tính năng miễn phí trong FREE_FEATURES, cho phép truy cập 
+  if (FREE_FEATURES.includes(requiredFeature)) {
+    console.log(`"${requiredFeature}" is a free feature, granting access`);
     return <>{children}</>;
   }
 
   // Kiểm tra người dùng có tính năng cần thiết không
   const hasAccess = hasFeature(requiredFeature);
+  console.log(`Access check for "${requiredFeature}": ${hasAccess}`);
 
   // Nếu người dùng có quyền truy cập, hiển thị children
   if (hasAccess) {
@@ -54,6 +67,7 @@ const FeatureGuard = ({
         featureName={requiredFeature}
         returnPath={fallbackPath || '/'}
         onClose={() => setShowUnauthorizedMessage(false)}
+        showUpgradeOption={true}
       />
     );
   }
