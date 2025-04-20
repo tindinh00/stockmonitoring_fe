@@ -1255,7 +1255,8 @@ export const apiService = {
         email: userData.email || currentUserInfo.email,
         phone: userData.phone || currentUserInfo.phone,
         dateOfBirth: userData.birthDate || currentUserInfo.dateOfBirth,
-        address: userData.address || currentUserInfo.address
+        address: userData.address || currentUserInfo.address,
+        tier: currentUserInfo.tier || userData.tier || "Free" // Preserve tier information
       };
       localStorage.setItem('user_info', JSON.stringify(updatedUserInfo));
       
@@ -1310,6 +1311,14 @@ export const apiService = {
         discountedPrice: 0,
         isActive: true
       };
+      
+      // Update tier in localStorage from cookie if available
+      const tierFromCookie = Cookies.get("user_tier");
+      if (tierFromCookie && tierFromCookie !== user.tier) {
+        user.tier = tierFromCookie;
+        localStorage.setItem('user_info', JSON.stringify(user));
+        console.log("Updated user tier in localStorage from cookie:", tierFromCookie);
+      }
       
       console.log("Constructed subscription data:", subscription);
       
