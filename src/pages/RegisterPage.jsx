@@ -279,7 +279,7 @@ const Register = () => {
                 disabled={loading}
                 className="border-teal-500 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500"
               />
-              <Label htmlFor="agreeToTerms" className="text-sm text-teal-400">
+              <Label htmlFor="agreeToTerms" className="text-sm text-[#CFCFCF]">
                 Tôi đồng ý với{" "}
                 <button
                   type="button"
@@ -329,7 +329,7 @@ const Register = () => {
             {/* Divider */}
             <div className="flex items-center justify-center my-4">
               <div className="flex-grow border-t border-teal-500/50"></div>
-              <span className="px-3 text-sm text-teal-400/80">Hoặc đăng ký với</span>
+              <span className="px-3 text-sm text-[#CFCFCF]">Hoặc đăng ký với</span>
               <div className="flex-grow border-t border-teal-500/50"></div>
             </div>
 
@@ -376,9 +376,9 @@ const Register = () => {
             </Button>
 
             {/* Login Link */}
-            <p className="text-sm text-teal-400 text-center">
+            <p className="text-sm text-[#CFCFCF] text-center">
               Đã có tài khoản?{" "}
-              <a href="/login" className="font-medium hover:underline">
+              <a href="/login" className="text-teal-400 underline hover:text-teal-300 font-medium">
                 Đăng nhập
               </a>
             </p>

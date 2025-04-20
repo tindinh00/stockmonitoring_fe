@@ -35,7 +35,7 @@ const UnauthorizedFeatureMessage = ({
   const premiumIconPath = "/icons/workspace_premium.svg";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-gray-900/80">
+    <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4 bg-gray-900/80">
       <div className="max-w-md w-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl overflow-hidden">
         <div className="p-8">
           <div className="flex justify-center">

@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, BookOpen, Share2, Bookmark, Eye, ArrowLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Share2, Bookmark, Eye, ArrowLeft, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { apiService } from '@/api/Api';
+import signalRService from '@/api/signalRService';
 
 // Placeholder image
 const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
 
-const KnowledgePage = () => {
-  const [knowledge, setKnowledge] = useState([]);
+const HeaderNewsPage = () => {
+  const [news, setNews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -23,92 +24,188 @@ const KnowledgePage = () => {
   const [selectedArticleUrl, setSelectedArticleUrl] = useState(null);
   const itemsPerPage = 9;
 
-  // Fetch knowledge data
-  const fetchKnowledgeData = useCallback(async () => {
+  // Helper function to convert timeAgo string to minutes for proper sorting
+  const timeAgoToMinutes = (timeAgo) => {
+    if (!timeAgo || typeof timeAgo !== 'string') return Number.MAX_SAFE_INTEGER;
+    
+    // Trường hợp 1: Format "X phút/giờ/ngày trước"
+    const matchTimeAgo = timeAgo.match(/(\d+)\s*(giờ|phút|giây|ngày|tháng|năm)\s*trước/i);
+    if (matchTimeAgo) {
+      const amount = parseInt(matchTimeAgo[1]);
+      const unit = matchTimeAgo[2].toLowerCase();
+      
+      switch (unit) {
+        case 'giây': return amount / 60;
+        case 'phút': return amount;
+        case 'giờ': return amount * 60;
+        case 'ngày': return amount * 60 * 24;
+        case 'tháng': return amount * 60 * 24 * 30;
+        case 'năm': return amount * 60 * 24 * 365;
+        default: return Number.MAX_SAFE_INTEGER;
+      }
+    }
+    
+    // Trường hợp 2: Format ngày tháng cụ thể (VD: 25/05/2024)
+    const matchDate = timeAgo.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (matchDate) {
+      const day = parseInt(matchDate[1]);
+      const month = parseInt(matchDate[2]) - 1; // Tháng trong JS bắt đầu từ 0
+      const year = parseInt(matchDate[3]);
+      
+      const date = new Date(year, month, day);
+      const now = new Date();
+      
+      // Tính số phút giữa ngày hiện tại và ngày trong bài viết
+      const diffMinutes = Math.floor((now - date) / (1000 * 60));
+      return diffMinutes;
+    }
+    
+    return Number.MAX_SAFE_INTEGER;
+  };
+
+  // Define fetchNewsData as a useCallback function
+  const fetchNewsData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await apiService.getKnowledge();
+      const response = await apiService.getNews('cafef');
       
-      let knowledgeData = [];
-      if (response?.value?.data && Array.isArray(response.value.data)) {
-        knowledgeData = response.value.data;
-      } else if (Array.isArray(response)) {
-        knowledgeData = response;
-      }
-      
-      if (knowledgeData.length > 0) {
-        const processedKnowledge = knowledgeData.map(item => ({
+      if (response && Array.isArray(response)) {
+        const processedNews = response.map(item => ({
           id: item.id || Math.random().toString(36).substr(2, 9),
           title: item.title || 'No title',
-          category: item.category || 'Cơ bản',
-          timeAgo: item.createdTime ? format(new Date(item.createdTime), 'dd/MM/yyyy', { locale: vi }) : 'Gần đây',
-          imageUrl: item.imageUrl || DEFAULT_IMAGE,
-          content: item.content || '<p>Không có nội dung</p>',
+          timeAgo: item.time || 'Gần đây',
+          imageUrl: item.image || DEFAULT_IMAGE,
           description: item.description || '',
-          url: item.url || null
+          url: item.link || null,
+          time: item.time || 'Gần đây',
+          source: 'CafeF'
         }));
         
-        setKnowledge(processedKnowledge);
+        // Sort news by time before setting state
+        const sortedNews = processedNews.sort((a, b) => {
+          return timeAgoToMinutes(a.timeAgo) - timeAgoToMinutes(b.timeAgo);
+        });
+        
+        setNews(sortedNews);
       } else {
-        console.log('No knowledge data available');
-        setKnowledge([]);
+        console.log('No news data available');
+        setNews([]);
       }
     } catch (error) {
-      console.error('Error fetching knowledge:', error);
-      toast.error(error.message || "Không thể tải danh sách bài viết");
-      setKnowledge([]);
+      console.error('Error fetching news:', error);
+      toast.error(error.message || "Không thể tải danh sách tin tức");
+      setNews([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchKnowledgeData();
-  }, [fetchKnowledgeData]);
-
-  // Handle article detail
-  const fetchArticleDetail = async (id) => {
-    setLoadingDetail(true);
-    setArticleDetail(null);
-    
+  // Define the callback for news updates
+  const handleNewsUpdate = useCallback((message) => {
+    console.log('News update received:', message);
     try {
-      const response = await apiService.getKnowledgeById(id);
-      
-      let detail = null;
-      if (response?.value?.data) {
-        detail = response.value.data;
-      } else if (response?.value) {
-        detail = response.value;
-      } else {
-        detail = response;
-      }
-
-      if (detail) {
-        setArticleDetail({
-          id: detail.id,
-          title: detail.title,
-          content: detail.content,
-          imageUrl: detail.imageUrl,
-          createdTime: detail.createdTime,
-          description: detail.description || '',
-          category: detail.category || 'Cơ bản'
-        });
-      } else {
-        toast.error("Không thể tải chi tiết bài viết");
-      }
-    } catch (error) {
-      console.error("Error fetching article detail:", error);
-      toast.error(error.message || "Đã xảy ra lỗi khi tải chi tiết bài viết");
-    } finally {
-      setLoadingDetail(false);
+      toast.info(`${message.message || 'Có tin tức mới!'}`, {
+        position: "top-right",
+        duration: 3000,
+      });
+      // Refresh news data when update is received
+      fetchNewsData();
+    } catch (err) {
+      console.error('Error handling news update:', err);
     }
-  };
+  }, [fetchNewsData]);
+
+  useEffect(() => {
+    // Fetch initial news data
+    fetchNewsData();
+    
+    // Start SignalR connection and subscribe to events
+    const setupSignalR = async () => {
+      let usePolling = false;
+      let cleanupFunction = () => {}; // Default cleanup function
+      
+      try {
+        // Check current SignalR connection status
+        const connectionStatus = signalRService.isConnected();
+        
+        // Check if SignalR connection failed or is not available
+        if (connectionStatus.connectionFailed || !connectionStatus.appHub) {
+          usePolling = true;
+        } else {
+          // Try to set up the listener
+          try {
+            signalRService.on('ReceiveCafefNewsUpdate', handleNewsUpdate);
+            console.log('Successfully set up SignalR event listener for news');
+            
+            // Save cleanup function for SignalR connection
+            cleanupFunction = () => {
+              try {
+                signalRService.off('ReceiveCafefNewsUpdate', handleNewsUpdate);
+                console.log('Cleaned up SignalR event listener for news');
+              } catch (err) {
+                console.error('Error cleaning up SignalR:', err);
+              }
+            };
+          } catch (error) {
+            console.error('Error setting up SignalR listener:', error);
+            usePolling = true;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking SignalR status:', error);
+        usePolling = true;
+      }
+      
+      // Set up polling as fallback
+      if (usePolling) {
+        const pollingInterval = setInterval(fetchNewsData, 60000); // Poll every 60 seconds
+        
+        // Update cleanup function for polling
+        cleanupFunction = () => {
+          console.log('Cleaning up polling interval');
+          clearInterval(pollingInterval);
+        };
+      }
+      
+      // Always return a valid cleanup function
+      return cleanupFunction;
+    };
+    
+    // Execute setup and store cleanup function
+    let cleanup;
+    setupSignalR().then(cleanupFn => {
+      cleanup = cleanupFn;
+    }).catch(error => {
+      console.error('Error in setupSignalR:', error);
+      cleanup = () => {};
+    });
+    
+    // Clean up event subscription on component unmount
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      } else {
+        console.warn('Cleanup is not available or not a function');
+      }
+    };
+  }, [fetchNewsData, handleNewsUpdate]);
 
   // Open article detail
-  const openArticleDetail = (article) => {
+  const openArticleDetail = async (article) => {
     setSelectedArticle(article);
-    if (article.id) {
-      fetchArticleDetail(article.id);
+    if (article.url) {
+      setLoadingDetail(true);
+      try {
+        const detail = await apiService.getNewsDetail(article.url);
+        if (detail) {
+          setArticleDetail(detail);
+        }
+      } catch (error) {
+        console.error("Error fetching article detail:", error);
+        toast.error("Không thể tải chi tiết bài viết");
+      } finally {
+        setLoadingDetail(false);
+      }
     }
   };
 
@@ -135,10 +232,10 @@ const KnowledgePage = () => {
   // Pagination
   const getCurrentPageItems = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return knowledge.slice(startIndex, startIndex + itemsPerPage);
+    return news.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  const totalPages = Math.ceil(knowledge.length / itemsPerPage);
+  const totalPages = Math.ceil(news.length / itemsPerPage);
   
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -198,8 +295,8 @@ const KnowledgePage = () => {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">
-                  <span className="text-[#09D1C7]">Kiến thức </span>
-                  <span className="text-white">Đầu tư</span>
+                  <span className="text-[#09D1C7]">Tin tức </span>
+                  <span className="text-white">Thị trường</span>
                 </h1>
                 <div className="flex items-center gap-3">
                   <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#09D1C7]/10 text-[#09D1C7] hover:bg-[#09D1C7]/20 transition-all duration-300">
@@ -246,8 +343,6 @@ const KnowledgePage = () => {
                         <div className="flex items-center gap-2 text-sm text-gray-400">
                           <Clock className="w-4 h-4" />
                           <span>{currentItems[0].timeAgo}</span>
-                          <span>•</span>
-                          <span>{currentItems[0].category}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
@@ -306,8 +401,6 @@ const KnowledgePage = () => {
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                           <Clock className="w-3 h-3" />
                           <span>{item.timeAgo}</span>
-                          <span>•</span>
-                          <span>{item.category}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button 
@@ -356,8 +449,6 @@ const KnowledgePage = () => {
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <Clock className="w-3 h-3" />
                         <span>{item.timeAgo}</span>
-                        <span>•</span>
-                        <span>{item.category}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <button 
@@ -453,9 +544,7 @@ const KnowledgePage = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm text-gray-400">
                             <Clock className="w-4 h-4" />
-                            <span>{articleDetail ? format(new Date(articleDetail.createdTime), 'dd/MM/yyyy', { locale: vi }) : selectedArticle.timeAgo}</span>
-                            <span>•</span>
-                            <span>{selectedArticle.category}</span>
+                            <span>{selectedArticle.timeAgo}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button 
@@ -476,6 +565,16 @@ const KnowledgePage = () => {
                             >
                               <Share2 className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
                             </button>
+                            {selectedArticle.url && (
+                              <a
+                                href={selectedArticle.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                              >
+                                <ExternalLink className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                              </a>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -507,7 +606,7 @@ const KnowledgePage = () => {
                       dangerouslySetInnerHTML={{ 
                         __html: articleDetail && articleDetail.content 
                           ? articleDetail.content 
-                          : (selectedArticle.content || '<p>Không có nội dung chi tiết</p>')
+                          : (selectedArticle.description || '<p>Không có nội dung chi tiết</p>')
                       }}
                     />
                   </>
@@ -521,4 +620,4 @@ const KnowledgePage = () => {
   );
 };
 
-export default KnowledgePage; 
+export default HeaderNewsPage; 

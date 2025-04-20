@@ -3,9 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/Authentication/AuthContext';
 import { apiService } from '@/api/Api';
 import { motion } from "framer-motion";
-import { X, ArrowRight, RefreshCw, AlertTriangle, Clock } from "lucide-react";
+import { X, ArrowRight, RefreshCw, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const PaymentCancelPayOSPage = () => {
   const navigate = useNavigate();
@@ -56,7 +56,10 @@ const PaymentCancelPayOSPage = () => {
           if (isMounted) {
             toast.error("Vui lòng đăng nhập để xử lý hủy thanh toán");
             navigate('/login', {
-              state: { message: 'Vui lòng đăng nhập để xử lý hủy thanh toán' }
+              state: { 
+                message: 'Vui lòng đăng nhập để xử lý hủy thanh toán',
+                messageType: 'error'
+              }
             });
           }
           return;
@@ -64,25 +67,8 @@ const PaymentCancelPayOSPage = () => {
 
         // API /cancel đã xử lý việc cập nhật trạng thái nên không cần gọi updatePaymentStatus nữa
         
-        if (isMounted) {
-          // Check if we've already shown a cancellation notification for this order
-          const hasShownNotification = sessionStorage.getItem(`payment_cancel_notified_${code}`);
-          
-          if (!hasShownNotification) {
-            // Show only one notification for all cancellation cases
-            const message = reason === 'timeout' ? 
-              "Đã hủy thanh toán do hết thời gian" : 
-              "Đã hủy thanh toán";
-              
-            toast.error(message, {
-              duration: 3000,
-              style: { backgroundColor: '#ef4444', color: 'white' }
-            });
-            
-            // Mark this order as having shown a notification
-            sessionStorage.setItem(`payment_cancel_notified_${code}`, 'true');
-          }
-        }
+        // Remove this entire check and toast below because it's creating a duplicate
+        // The UI already shows a cancellation screen with the same information
 
       } catch (err) {
         console.error('Error processing cancellation:', err);
@@ -106,18 +92,17 @@ const PaymentCancelPayOSPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0a0a14]">
-        <div className="text-center">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center"
-          >
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mb-4"></div>
-            <h2 className="text-2xl font-bold text-white mb-2">Đang xử lý hủy thanh toán</h2>
-            <p className="text-gray-400">Vui lòng đợi trong giây lát...</p>
-          </motion.div>
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center"
+        >
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mb-4"></div>
+          <h2 className="text-2xl font-bold text-white mb-2">Đang xử lý hủy thanh toán</h2>
+          <p className="text-gray-400">Vui lòng đợi trong giây lát...</p>
+        </motion.div>
+        <Toaster position="top-center" richColors />
       </div>
     );
   }
@@ -144,6 +129,7 @@ const PaymentCancelPayOSPage = () => {
             </div>
           </motion.div>
         </div>
+        <Toaster position="top-center" richColors />
       </div>
     );
   }
@@ -187,7 +173,7 @@ const PaymentCancelPayOSPage = () => {
               className="w-full bg-purple-600 hover:bg-purple-700 group"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              <span>Thử thanh toán lại</span>
+              <span>Mua lại gói dịch vụ</span>
             </Button>
             
             <Button 
@@ -201,6 +187,7 @@ const PaymentCancelPayOSPage = () => {
           </div>
         </motion.div>
       </div>
+      <Toaster position="top-center" richColors />
     </div>
   );
 };

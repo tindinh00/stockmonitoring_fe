@@ -24,7 +24,8 @@ import {
   Presentation,
   Wallet,
   TrendingUp,
-  LayoutGrid
+  LayoutGrid,
+  BookOpen
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -76,7 +77,8 @@ const Icons = {
   chat: MessageSquare,
   'ai-chat': Bot,
   analytics: BarChart3,
-  forecast: BrainCircuit
+  forecast: BrainCircuit,
+  knowledge: BookOpen
 };
 
 // Configuration for navigation items with their required features
@@ -142,6 +144,13 @@ const menuItems = [
     icon: 'news',
     href: '/news',
     feature: 'Xem tin tức thị trường',
+    isFree: true
+  },
+  {
+    title: 'Kiến thức',
+    icon: 'knowledge',
+    href: '/knowledge',
+    feature: 'Xem kiến thức đầu tư',
     isFree: true
   },
 ];

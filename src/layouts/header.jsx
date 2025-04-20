@@ -139,7 +139,7 @@ const Header = () => {
             </div>
             <div className="relative group">
               <a
-                href="/knowledge"
+                href="/header-news"
                 className="text-[#CFCFCF] hover:text-[#46DFB1] transition-colors duration-300 font-semibold text-sm uppercase tracking-wide"
               >
                 Tin Tức
