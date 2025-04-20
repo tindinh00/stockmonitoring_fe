@@ -1221,12 +1221,14 @@ export default function StockDerivatives() {
       
       {/* Feature Message Dialog */}
       {showFeatureMessage && (
-        <UnauthorizedFeatureMessage
-          featureName={featureMessageInfo.name}
-          returnPath={featureMessageInfo.returnPath}
-          showUpgradeOption={true}
-          onClose={() => setShowFeatureMessage(false)}
-        />
+        <div className="fixed inset-0 flex items-center justify-center z-[11000]">
+          <UnauthorizedFeatureMessage
+            featureName={featureMessageInfo.name}
+            returnPath={featureMessageInfo.returnPath}
+            showUpgradeOption={true}
+            onClose={() => setShowFeatureMessage(false)}
+          />
+        </div>
       )}
       
       {/* Navigation Tabs */}
