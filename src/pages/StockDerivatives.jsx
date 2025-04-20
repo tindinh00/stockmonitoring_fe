@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useFeatureStore from '@/store/featureStore';
+import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -46,12 +49,13 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Cookies from 'js-cookie';
-import { getUserId, apiService } from '@/api/Api'; // Import hàm getUserId và apiService
+import { getUserId, apiService, APP_BASE_URL } from '@/api/Api'; // Import APP_BASE_URL
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
-import { hasFeature } from '@/utils/featureUtils'; // Import hàm hasFeature
-import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage'; // Import UnauthorizedFeatureMessage
 import CandlestickChart from '@/components/CandlestickChart';
+
+// Define the BASE_URL constant for API calls
+const BASE_URL = APP_BASE_URL;
 
 // SVG for Workspace Premium icon from Material Symbols Outlined
 const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
@@ -60,7 +64,16 @@ const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
   </svg>
 );
 
-const StockDerivatives = () => {
+export default function StockDerivatives() {
+  const navigate = useNavigate();
+  const { hasFeature } = useFeatureStore();
+  
+  // Feature message state
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
+
+  // Không cần kiểm tra quyền truy cập tính năng nữa vì đã đưa vào tính năng miễn phí
+
   const [activeTab, setActiveTab] = useState('price');
   const [selectedStock, setSelectedStock] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -936,7 +949,7 @@ const StockDerivatives = () => {
         
         // Call the watchlist API endpoint with proper headers
         const response = await axios.get(
-          `${BASE_URL}/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
               userId: userId
@@ -1001,7 +1014,7 @@ const StockDerivatives = () => {
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
         await axios.delete(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
               userId: userId,
@@ -1019,7 +1032,7 @@ const StockDerivatives = () => {
       } else {
         // Add to watchlist with correct request format
         await axios.post(
-          `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock`,
+          `${APP_BASE_URL}/api/watchlist-stock`,
           {
             userId: userId,
             tickerSymbol: [stock.code]
@@ -1201,10 +1214,6 @@ const StockDerivatives = () => {
       return false;
     }
   };
-
-  // State for showing feature message dialog
-  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
-  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '/stock' });
 
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
@@ -1514,7 +1523,7 @@ const StockDerivatives = () => {
                   <div className="min-w-[1400px] w-full">
                     <table className="w-full border-collapse">
                       <colgroup>
-                        <col className="w-[80px]" /> {/* Mã CK - Slightly wider */}
+                        <col className="w-[80px]" />
                         <col className="w-[60px]" />
                         <col className="w-[60px]" />
                         <col className="w-[60px]" />
@@ -1524,19 +1533,19 @@ const StockDerivatives = () => {
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[70px]" /> {/* Giá khớp - Slightly wider */}
                         <col className="w-[70px]" />
-                        <col className="w-[70px]" /> {/* +/- - Slightly wider */}
-                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
                         <col className="w-[60px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[80px]" /> {/* Tổng KL - Wider */}
+                        <col className="w-[60px]" />
+                        <col className="w-[70px]" />
+                        <col className="w-[80px]" />
                         <col className="w-[70px]" />
                         <col className="w-[70px]" />
-                        <col className="w-[100px]" /> {/* Thao tác - Wider for buttons */}
+                        <col className="w-[100px]" />
                       </colgroup>
 
                       {/* Table header with sticky positioning */}
@@ -1754,6 +1763,4 @@ const StockDerivatives = () => {
       </div>
     </div>
   );
-};
-
-export default StockDerivatives;
+}

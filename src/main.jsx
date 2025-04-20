@@ -13,14 +13,21 @@ const initSignalR = async () => {
     
     // Khởi tạo kết nối với StockDataHub
     try {
-      await signalRService.startStockConnection();
-      console.log("StockDataHub connection initialized");
+      // Sử dụng phương thức getConnection có sẵn trong service
+      const connection = await signalRService.getConnection();
       
-      // Thiết lập các listener cho stock updates
-      await signalRService.setupStockListeners();
-      console.log("Stock update listeners registered");
-    } catch (stockError) {
-      console.error("StockDataHub connection failed:", stockError.message);
+      if (connection) {
+        console.log("SignalR connection established successfully");
+        
+        // Thiết lập các listener cho stock updates và notifications
+        await signalRService.setupStockListeners();
+        await signalRService.setupNotificationListeners();
+        console.log("SignalR listeners registered successfully");
+      } else {
+        console.error("Failed to establish SignalR connection");
+      }
+    } catch (error) {
+      console.error("SignalR connection failed:", error);
     }
   } catch (error) {
     console.error("Error initializing SignalR:", error);

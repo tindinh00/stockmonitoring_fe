@@ -54,6 +54,9 @@ const UnauthorizedFeatureMessage = ({
             <p className="text-center text-gray-300">
               <span className="text-[#09D1C7] font-semibold">{featureName}</span> là tính năng của gói nâng cao
             </p>
+            <p className="text-center text-gray-300 mt-2">
+              Vui lòng nâng cấp gói để sử dụng dịch vụ này
+            </p>
           </div>
           
           <div className="space-y-4">

@@ -63,8 +63,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/Authentication/AuthContext';
 import { toast } from 'sonner';
-import Cookies from "js-cookie";
-import { getUserFeatures, hasFeature } from "@/utils/featureUtils";
+import useFeatureStore, { FREE_FEATURES, PREMIUM_FEATURES, FEATURE_MAPPING } from '@/store/featureStore';
 import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage.jsx';
 
 // Icons component
@@ -86,55 +85,64 @@ const menuItems = [
     title: 'Bảng giá',
     icon: 'stock',
     href: '/stock',
-    feature: 'Hiển thị dữ liệu thị trường chứng khoán'
+    feature: 'Hiển thị dữ liệu thị trường chứng khoán',
+    isFree: true
   },
   {
     title: 'Danh mục theo dõi',
     icon: 'watchlist',
     href: '/watchlist',
-    feature: 'Quản lý danh mục theo dõi cổ phiếu'
+    feature: 'Quản lý danh mục theo dõi cổ phiếu',
+    isPremium: true
   },
   {
     title: 'Bản đồ nhiệt',
     icon: 'heatmap',
     href: '/heatmap',
-    feature: 'Bản đồ nhiệt'
+    feature: 'Bản đồ nhiệt',
+    isFree: true
   },
   {
     title: 'Phân tích cá nhân',
     icon: 'analytics',
     href: '/analytics',
-    feature: 'Phân tích và gợi ý theo cá nhân hóa'
+    feature: 'Phân tích và gợi ý theo cá nhân hóa',
+    isPremium: true
   },
   {
     title: 'Dự đoán giá',
     icon: 'forecast',
     href: '/forecast',
-    feature: 'Phân tích và gợi ý theo cá nhân hóa'
+    feature: 'Dự đoán giá',
+    isPremium: true
   },
   {
     title: 'Thông báo',
     icon: 'notifications',
     href: '/notifications',
-    feature: 'Quản lý thông báo theo nhu cầu'
+    feature: 'Quản lý thông báo theo nhu cầu',
+    isPremium: true
   },
   {
     title: 'Chat với hỗ trợ',
     icon: 'chat',
     href: '/chat',
-    feature: 'Hiển thị dữ liệu thị trường chứng khoán'
+    feature: 'Hộp thoại hỗ trợ người dùng (Chatbox)',
+    isFree: true
   },
   {
     title: 'Chat với AI',
     icon: 'ai-chat',
     href: '/ai-chat',
-    feature: 'Trợ lý AI'
+    feature: 'Trợ lý AI',
+    isPremium: true
   },
   {
     title: 'Tin tức',
     icon: 'news',
     href: '/news',
-    feature: 'Xem tin tức thị trường'
+    feature: 'Xem tin tức thị trường',
+    isFree: true
   },
 ];
 
@@ -158,18 +166,52 @@ export default function SidebarLogined() {
   const pathname = location.pathname;
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [userFeatures, setUserFeatures] = useState([]);
+  const features = useFeatureStore((state) => state.features);
   const [showFeatureMessage, setShowFeatureMessage] = useState(false);
   const [lockedFeature, setLockedFeature] = useState(null);
   const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '/stock' });
+  const { hasFeature, hasMenuAccess } = useFeatureStore();
 
-  // Lấy danh sách tính năng của người dùng
+  // Debug log to check features
   useEffect(() => {
-    const features = getUserFeatures();
-    setUserFeatures(features);
+    console.log('Current user features from store:', features);
     
-    console.log("User features:", features);
-  }, [user]);
+    // Kiểm tra các tính năng quan trọng
+    const importantFeatures = [
+      "Hiển thị dữ liệu thị trường chứng khoán",
+      "Quản lý danh mục theo dõi cổ phiếu",
+      "Phân tích và gợi ý theo cá nhân hóa",
+      "Quản lý thông báo theo nhu cầu",
+      "Trợ lý AI"
+    ];
+    
+    console.log('Tình trạng các tính năng quan trọng:');
+    importantFeatures.forEach(feature => {
+      console.log(`- ${feature}: ${hasFeature(feature) ? 'Có quyền truy cập' : 'Không có quyền truy cập'}`);
+    });
+    
+    // Log gói hiện tại
+    console.log('Gói dịch vụ hiện tại:', user?.tier || 'Chưa đăng nhập');
+  }, [features, user]);
+
+  const checkFeatureAccess = (requiredFeature) => {
+    // Debug log
+    console.log('Checking feature access:', {
+      requiredFeature,
+      availableFeatures: features
+    });
+
+    // Nếu là tính năng miễn phí trong FREE_FEATURES, luôn cho phép truy cập
+    if (FREE_FEATURES.includes(requiredFeature)) {
+      console.log(`"${requiredFeature}" là tính năng miễn phí`);
+      return true;
+    }
+
+    // Kiểm tra trực tiếp trong features array
+    const hasAccess = features.includes(requiredFeature);
+    console.log(`Access check result for "${requiredFeature}":`, hasAccess);
+    return hasAccess;
+  };
 
   // Avatar initials
   const getInitials = () => {
@@ -196,9 +238,29 @@ export default function SidebarLogined() {
   
   const renderNavItem = (item) => {
     const isActiveLink = pathname === item.href;
-    const userHasFeature = item.feature ? userFeatures.includes(item.feature) : true;
-    const isDisabled = item.feature && !userHasFeature;
+    
+    // Xác định quyền truy cập
+    let userHasFeature = false;
+    
+    if (item.isFree) {
+      // Tính năng miễn phí, luôn cho phép truy cập
+      userHasFeature = true;
+    } else if (item.feature) {
+      // Nếu là tính năng cao cấp, kiểm tra quyền truy cập
+      userHasFeature = checkFeatureAccess(item.feature);
+    }
+    
+    const isDisabled = !userHasFeature;
     const Icon = Icons[item.icon];
+    const isPremium = item.isPremium === true;
+
+    // Debug log for each menu item
+    console.log(`Menu item "${item.title}":`, {
+      feature: item.feature,
+      isFree: item.isFree,
+      isPremium: isPremium,
+      hasAccess: userHasFeature
+    });
 
     const handleNavItemClick = (e) => {
       if (isDisabled) {

@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistance, format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useAuth } from "@/Authentication/AuthContext";
 
 const UserSubscription = () => {
   const [packages, setPackages] = useState([]);
@@ -17,28 +18,74 @@ const UserSubscription = () => {
   const [userSubscription, setUserSubscription] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // Hàm định dạng ngày tháng
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return format(date, "dd/MM/yyyy", { locale: vi });
+  // Format prices in VND
+  const formatPrice = (price) => {
+    if (!price) return "0 đ";
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price).replace('₫', 'đ');
   };
 
-  // Hàm tính thời gian còn lại
-  const getTimeRemaining = (endDate) => {
-    if (!endDate) return "N/A";
-    const end = new Date(endDate);
-    const now = new Date();
+  // Format dates in Vietnamese format
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     
     try {
-      return formatDistance(end, now, { 
-        addSuffix: true, 
-        locale: vi 
-      });
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "N/A";
+      
+      return new Intl.DateTimeFormat('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(date);
     } catch (error) {
-      console.error("Date formatting error:", error);
+      console.error("Error formatting date:", error);
       return "N/A";
+    }
+  };
+
+  // Calculate time remaining until subscription end
+  const getTimeRemaining = (endDateString) => {
+    if (!endDateString) return "Không thời hạn";
+    
+    try {
+      const endDate = new Date(endDateString);
+      if (isNaN(endDate.getTime())) return "Không xác định";
+      
+      const now = new Date();
+      
+      // Nếu đã hết hạn
+      if (endDate < now) {
+        return "Đã hết hạn";
+      }
+      
+      const diffTime = Math.abs(endDate - now);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return "Hết hạn trong hôm nay";
+      } else if (diffDays === 1) {
+        return "Còn 1 ngày";
+      } else if (diffDays <= 30) {
+        return `Còn ${diffDays} ngày`;
+      } else if (diffDays <= 365) {
+        const months = Math.floor(diffDays / 30);
+        const days = diffDays % 30;
+        return `Còn ${months} tháng ${days > 0 ? `${days} ngày` : ''}`;
+      } else {
+        const years = Math.floor(diffDays / 365);
+        const months = Math.floor((diffDays % 365) / 30);
+        return `Còn ${years} năm ${months > 0 ? `${months} tháng` : ''}`;
+      }
+    } catch (error) {
+      console.error("Error calculating time remaining:", error);
+      return "Không xác định";
     }
   };
 
@@ -46,18 +93,38 @@ const UserSubscription = () => {
     const fetchUserData = async () => {
       try {
         setLoadingSubscription(true);
-        const response = await apiService.getUserSubscription();
-        console.log("User Subscription API Response:", response);
         
-        if (response.success && response.data) {
-          setUserSubscription(response.data);
-        } else {
-          console.log("No active subscription found");
-          // Không hiển thị lỗi cho trường hợp này vì có thể user chưa đăng ký gói nào
+        // Lấy thông tin user từ localStorage
+        const userInfoStr = localStorage.getItem('user_info');
+        if (!userInfoStr) {
+          console.log("No user info found in localStorage");
+          setUserSubscription(null);
+          return;
         }
+        
+        const userInfo = JSON.parse(userInfoStr);
+        console.log("Retrieved user data from localStorage:", userInfo);
+        
+        // Tạo đối tượng subscription từ thông tin user
+        const subscription = {
+          packageName: userInfo.tier || "Free",
+          status: "Active", // Giả sử đang active vì user đã đăng nhập
+          features: userInfo.features || [],
+          startDate: new Date().toISOString(), // Sử dụng ngày hiện tại làm mặc định
+          endDate: userInfo.endDate || null,
+          id: "default-subscription-id",
+          userId: userInfo.id || "unknown",
+          packageId: "default-package-id",
+          price: 0,
+          discountedPrice: 0,
+          isActive: true
+        };
+        
+        console.log("Constructed subscription data:", subscription);
+        setUserSubscription(subscription);
       } catch (error) {
-        console.error("Error fetching user subscription:", error);
-        // Không hiển thị lỗi toast cho trường hợp này
+        console.error("Error fetching user data:", error);
+        setError("Không thể tải thông tin gói dịch vụ");
       } finally {
         setLoadingSubscription(false);
       }
@@ -91,12 +158,7 @@ const UserSubscription = () => {
     fetchPackages();
   }, []);
 
-  // Hàm định dạng giá tiền
-  const formatPrice = (price) => {
-    return price.toLocaleString('vi-VN') + ' đ';
-  };
-
-  // Xác định màu và thông tin dựa trên tên gói
+  // Get visual details for different package types
   const getPackageInfo = (packageName) => {
     const name = packageName.toLowerCase();
     
@@ -133,30 +195,17 @@ const UserSubscription = () => {
   // Hàm xử lý đăng ký gói
   const handleRegister = async (pkg) => {
     try {
-      // Hiển thị loading
-      toast.loading("Đang chuẩn bị thanh toán...");
-      
-      // Gọi API thanh toán
-      const response = await apiService.createPayment({
-        amount: pkg.isDiscounted ? pkg.discountedPrice : pkg.price,
-        packageId: pkg.id
+      // Chuyển đến trang nâng cấp với thông tin gói
+      navigate('/upgrade-package', { 
+        state: { 
+          packageId: pkg.id,
+          packageName: pkg.name,
+          price: pkg.isDiscounted ? pkg.discountedPrice : pkg.price 
+        } 
       });
-      
-      // Kiểm tra phản hồi
-      if (response?.value?.data?.checkoutUrl) {
-        // Chuyển hướng tới URL thanh toán PayOS
-        toast.dismiss();
-        toast.success("Đang chuyển hướng tới trang thanh toán");
-        window.location.href = response.value.data.checkoutUrl;
-      } else {
-        toast.dismiss();
-        toast.error("Không thể tạo đơn hàng. Vui lòng thử lại sau.");
-        console.error("Invalid payment response:", response);
-      }
     } catch (error) {
-      toast.dismiss();
-      toast.error(error.message || "Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại sau.");
-      console.error("Payment error:", error);
+      console.error("Error registering for package:", error);
+      toast.error("Không thể đăng ký gói dịch vụ. Vui lòng thử lại sau.");
     }
   };
 
@@ -238,81 +287,76 @@ const UserSubscription = () => {
                 </Button>
               </div>
             ) : (
-              <div className="mx-2 mb-4">
-                <div className={`rounded-lg overflow-hidden`}>
-                  {/* Phần header của gói */}
-                  <div className={`${getPackageInfo(userSubscription.packageName || "Basic").bgColor} py-3 px-4 text-white`}>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <div className={`${getPackageInfo(userSubscription.packageName || "Basic").iconBgColor} p-1.5 rounded-full`}>
-                          {getPackageInfo(userSubscription.packageName || "Basic").icon}
-                        </div>
-                        <h3 className="font-bold text-white">{userSubscription.packageName || "Gói Free"}</h3>
+              <div>
+                <div className={`${getPackageInfo(userSubscription.packageName || "Basic").bgColor} py-3 px-4 text-white`}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <div className={`${getPackageInfo(userSubscription.packageName || "Basic").iconBgColor} p-1.5 rounded-full`}>
+                        {getPackageInfo(userSubscription.packageName || "Basic").icon}
                       </div>
-                      <Badge className={`${getPackageInfo(userSubscription.packageName || "Basic").badgeBgColor} border-none`}>
-                        {userSubscription.status === "Active" ? "Đang hoạt động" : 
-                         userSubscription.status === "Expired" ? "Đã hết hạn" : 
-                         userSubscription.status === "Pending" ? "Đang xử lý" : "Không xác định"}
-                      </Badge>
+                      <h3 className="font-bold text-white">{userSubscription.packageName || "Gói Free"}</h3>
+                    </div>
+                    <Badge className={`${getPackageInfo(userSubscription.packageName || "Basic").badgeBgColor} border-none`}>
+                      {userSubscription.status === "Active" ? "Đang hoạt động" : 
+                       userSubscription.status === "Expired" ? "Đã hết hạn" : 
+                       userSubscription.status === "Pending" ? "Đang xử lý" : "Không xác định"}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="p-4 space-y-4 bg-[#171727] rounded-b-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-400">Ngày bắt đầu</span>
+                        <p className="font-medium text-white">{formatDate(userSubscription.startDate)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-400">Ngày kết thúc</span>
+                        <p className="font-medium text-white">
+                          {userSubscription.endDate ? formatDate(userSubscription.endDate) : "Không thời hạn"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-400">Thời gian còn lại</span>
+                        <p className="font-medium text-white">{getTimeRemaining(userSubscription.endDate)}</p>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Phần thông tin chi tiết */}
-                  <div className="bg-[#171727] p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-[#09D1C7] mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-400">Ngày bắt đầu:</p>
-                          <p className="font-medium text-white">{formatDate(userSubscription.startDate)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-[#09D1C7] mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-400">Ngày kết thúc:</p>
-                          <p className="font-medium text-white">{formatDate(userSubscription.endDate)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <Clock className="w-5 h-5 text-[#09D1C7] mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-400">Thời gian còn lại:</p>
-                          <p className="font-medium text-white">{getTimeRemaining(userSubscription.endDate)}</p>
-                        </div>
+                  {Array.isArray(userSubscription.features) && userSubscription.features.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium text-white mb-2">Tính năng được bao gồm</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {userSubscription.features.map((feature, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Check className="h-4 w-4 text-emerald-500" />
+                            <span className="text-sm text-gray-300">{feature}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    
-                    {userSubscription.features && userSubscription.features.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-xs text-gray-400 mb-2">Tính năng được sử dụng:</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {userSubscription.features.map((feature, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                              <span className="text-xs text-gray-300">{feature}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {userSubscription.status === "Expired" && (
-                      <div className="mt-4">
-                        <Button 
-                          className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 w-full"
-                          onClick={() => {
-                            const element = document.getElementById('available-packages');
-                            if (element) element.scrollIntoView({ behavior: 'smooth' });
-                          }}
-                        >
-                          Gia hạn gói
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  
+                  {userSubscription.status === "Expired" && (
+                    <div className="mt-4 flex justify-end">
+                      <Button 
+                        className="bg-[#09D1C7] hover:bg-[#09D1C7]/90"
+                        onClick={() => {
+                          const element = document.getElementById('available-packages');
+                          if (element) element.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        Gia hạn ngay
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

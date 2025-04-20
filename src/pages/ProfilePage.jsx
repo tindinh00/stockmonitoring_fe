@@ -20,6 +20,7 @@ import {
   Crown,
   LogOut
 } from "lucide-react";
+import Cookies from "js-cookie";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,7 @@ import { apiService } from "@/api/Api";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, logout, changePassword } = useAuth();
+  const { user, setUser, isAuthenticated, logout, changePassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -85,35 +86,81 @@ const ProfilePage = () => {
     isVerified: user?.isVerified || false,
     isActive: user?.isActive !== false,
     role: user?.role || "user",
+    dateOfBirth: user?.dateOfBirth || "",
+    address: user?.address || "",
+    tier: user?.tier || "Free"
   });
   
   // Lưu trữ thông tin ban đầu để có thể hủy chỉnh sửa
   const [initialUserInfo, setInitialUserInfo] = useState({...userInfo});
   
-  // Lấy thông tin người dùng từ context auth
+  // Enhanced data loading function to check both sources
   useEffect(() => {
-    if (user) {
-      console.log("ProfilePage - User data:", user); // Debug log
+    try {
+      // Get data from both localStorage sources
+      const userInfoStr = localStorage.getItem('user_info');
+      const userDataStr = localStorage.getItem('user_data');
       
-      const userData = {
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        avatar: user.avatar || null,
-        isVerified: user.isVerified || false,
-        isActive: user.isActive !== false,
-        role: user.role || "user",
+      let localUserInfo = null;
+      let localUserData = null;
+      
+      if (userInfoStr) {
+        localUserInfo = JSON.parse(userInfoStr);
+        console.log("Loaded user_info from localStorage:", localUserInfo);
+      }
+      
+      if (userDataStr) {
+        localUserData = JSON.parse(userDataStr);
+        console.log("Loaded user_data from localStorage:", localUserData);
+      }
+      
+      // Check if tier is available in cookies
+      const tierFromCookie = Cookies.get("user_tier");
+      if (tierFromCookie) {
+        console.log("Found tier in cookie:", tierFromCookie);
+        
+        // Update localStorage if the tier in cookie is different
+        if (localUserInfo && tierFromCookie !== localUserInfo.tier) {
+          localUserInfo.tier = tierFromCookie;
+          localStorage.setItem('user_info', JSON.stringify(localUserInfo));
+          console.log("Updated user_info tier from cookie:", tierFromCookie);
+        }
+        
+        if (localUserData && tierFromCookie !== localUserData.tier) {
+          localUserData.tier = tierFromCookie;
+          localStorage.setItem('user_data', JSON.stringify(localUserData));
+          console.log("Updated user_data tier from cookie:", tierFromCookie);
+        }
+      }
+      
+      // Combine data from all sources, prioritizing in this order:
+      // 1. Context data (user)
+      // 2. user_info from localStorage (most likely to have latest profile edits)
+      // 3. user_data from localStorage
+      
+      const combinedData = {
+        name: user?.name || localUserInfo?.name || localUserData?.name || "",
+        email: user?.email || localUserInfo?.email || localUserData?.email || "",
+        phone: user?.phone || localUserInfo?.phone || localUserData?.phone || "",
+        avatar: user?.avatar || localUserInfo?.avatar || localUserData?.avatar || null,
+        isVerified: user?.isVerified || localUserInfo?.isVerified || localUserData?.isVerified || false,
+        isActive: (user?.isActive !== false) || (localUserInfo?.isActive !== false) || (localUserData?.isActive !== false),
+        role: user?.role || localUserInfo?.role || localUserData?.role || "user",
+        // For these fields, prioritize user_info which might have updated profile data
+        dateOfBirth: localUserInfo?.dateOfBirth || user?.dateOfBirth || localUserData?.dateOfBirth || "",
+        address: localUserInfo?.address || user?.address || localUserData?.address || "",
+        tier: user?.tier || localUserInfo?.tier || localUserData?.tier || "Free"
       };
       
-      console.log("ProfilePage - Processed user data:", userData); // Debug log
+      console.log("Combined user data:", combinedData);
       
-      setUserInfo(userData);
-      setInitialUserInfo(userData);
-    } else {
-      // Nếu không có thông tin người dùng, chuyển hướng về trang đăng nhập
-      navigate('/login');
+      // Set the user info with the combined data
+      setUserInfo(combinedData);
+      setInitialUserInfo(combinedData);
+    } catch (error) {
+      console.error("Error loading user data:", error);
     }
-  }, [user, navigate]);
+  }, [user]);
   
   // Lấy thông tin gói dịch vụ
   useEffect(() => {
@@ -140,13 +187,31 @@ const ProfilePage = () => {
     }
   }, [isAuthenticated]);
   
-  // Chuyển hướng nếu chưa đăng nhập
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isAuthenticated && !loading) {
       navigate("/login");
     }
   }, [isAuthenticated, navigate, loading]);
   
+  // Thêm hàm để xác định màu sắc của badge dựa trên tier
+  const getTierBadgeColor = (tier) => {
+    if (!tier) return "bg-green-500"; // Default: Free
+    
+    const tierLower = tier.toLowerCase();
+    if (tierLower.includes("premium") || tierLower.includes("vàng") || tierLower === "premium") {
+      return "bg-yellow-500"; // Premium/Gold: yellow
+    } else if (tierLower.includes("vip") || tierLower.includes("kim cương") || tierLower === "vip") {
+      return "bg-blue-600"; // VIP/Diamond: blue
+    } else if (tierLower.includes("platinum") || tierLower === "platinum") {
+      return "bg-purple-600"; // Platinum: purple
+    } else if (tierLower === "free") {
+      return "bg-green-500"; // Free: green
+    }
+    
+    return "bg-green-500"; // Default fallback
+  };
+
   // Xác định màu sắc và nội dung của badge dựa trên role và tier
   const getBadgeForRole = (role) => {
     // Ưu tiên hiển thị theo subscription nếu có
@@ -217,17 +282,57 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
+      // Format date properly if it exists
+      let formattedDate = userInfo.dateOfBirth;
+      if (formattedDate && !formattedDate.includes('T')) {
+        // If date is in YYYY-MM-DD format, convert to ISO string
+        formattedDate = new Date(formattedDate + 'T00:00:00').toISOString();
+      }
+
       // Gọi API cập nhật thông tin
       await apiService.updateProfile({
         name: userInfo.name,
         email: userInfo.email,
         phone: userInfo.phone,
-        birthDate: userInfo.dateOfBirth,
+        birthDate: formattedDate,
         address: userInfo.address
       });
       
       // Cập nhật thông tin ban đầu
-      setInitialUserInfo({...userInfo});
+      setInitialUserInfo({...userInfo, dateOfBirth: formattedDate});
+      
+      // Update both localStorage data sources to keep them in sync
+      const updatedUserData = {
+        name: userInfo.name,
+        email: userInfo.email,
+        phone: userInfo.phone, 
+        dateOfBirth: formattedDate,
+        address: userInfo.address
+      };
+      
+      // Update user_info
+      const currentUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+      localStorage.setItem('user_info', JSON.stringify({
+        ...currentUserInfo,
+        ...updatedUserData,
+        tier: currentUserInfo.tier || userInfo.tier || "Free"
+      }));
+      
+      // Update user_data 
+      const currentUserData = JSON.parse(localStorage.getItem('user_data')) || {};
+      localStorage.setItem('user_data', JSON.stringify({
+        ...currentUserData,
+        ...updatedUserData,
+        tier: currentUserData.tier || userInfo.tier || "Free"
+      }));
+      
+      // Force refresh the page data
+      setUserInfo(prev => ({
+        ...prev,
+        dateOfBirth: formattedDate,
+        address: userInfo.address
+      }));
+      
       setIsEditing(false);
       toast.success("Cập nhật thông tin thành công");
     } catch (error) {
@@ -337,17 +442,38 @@ const ProfilePage = () => {
                 <div className="text-xs text-muted-foreground mt-2">Đang tải thông tin gói...</div>
               ) : subscription ? (
                 <div className="mt-2">
-                  <Badge className="bg-[#09D1C7]">
+                  <Badge className={getTierBadgeColor(subscription.packageName)}>
                     {subscription.packageName || "Gói Free"}
                   </Badge>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {subscription.status === "Active" ? "Đang hoạt động" : 
-                     subscription.status === "Expired" ? "Đã hết hạn" : 
-                     "Chưa kích hoạt"}
-                  </p>
+                  <div className="flex items-center justify-center mt-1 text-xs">
+                    {subscription.status === "Active" ? (
+                      <div className="flex items-center text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
+                        Đang hoạt động
+                      </div>
+                    ) : subscription.status === "Expired" ? (
+                      <div className="flex items-center text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-red-500 mr-1.5"></div>
+                        Đã hết hạn
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-yellow-500 mr-1.5"></div>
+                        Chưa kích hoạt
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div className="text-xs text-muted-foreground mt-2">Chưa đăng ký gói</div>
+                <div className="mt-2">
+                  <Badge className={getTierBadgeColor(user?.tier)}>
+                    {user?.tier || "Gói Free"}
+                  </Badge>
+                  <div className="flex items-center justify-center mt-1">
+                    <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
+                    <span className="text-xs text-muted-foreground">Đang hoạt động</span>
+                  </div>
+                </div>
               )}
             </CardHeader>
             <CardContent>
@@ -475,32 +601,36 @@ const ProfilePage = () => {
                       <div className="space-y-2">
                         <Label htmlFor="role">Loại tài khoản</Label>
                         <div className="flex items-center">
-                          {getBadgeForRole(userInfo.role)}
-                          {userInfo.role === "Free" && (
-                            <Button variant="link" className="ml-2 text-primary">
-                              Nâng cấp lên Premium
-                            </Button>
-                          )}
+                          <div className="flex gap-2 items-center">
+                            {getBadgeForRole(userInfo.role)}
+                            <span>{userInfo.role || "Customer"}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Ngày sinh</Label>
-                      <div className="flex">
-                        <Calendar className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                        <Input
-                          id="dateOfBirth"
-                          name="dateOfBirth"
-                          type="date"
-                          value={userInfo.dateOfBirth}
-                          onChange={handleInputChange}
-                          disabled={!isEditing || isLoading}
-                        />
+                    <div className="mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth">Ngày sinh</Label>
+                        <div className="flex">
+                          <Calendar className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
+                          <Input
+                            id="dateOfBirth"
+                            name="dateOfBirth"
+                            type="date"
+                            value={userInfo.dateOfBirth && userInfo.dateOfBirth !== "" ? 
+                              (userInfo.dateOfBirth.includes('T') ? 
+                                userInfo.dateOfBirth.split('T')[0] : 
+                                userInfo.dateOfBirth) : 
+                              ''}
+                            onChange={handleInputChange}
+                            disabled={!isEditing || isLoading}
+                          />
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-2 mt-4">
                       <Label htmlFor="address">Địa chỉ</Label>
                       <div className="flex">
                         <MapPin className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />

@@ -141,6 +141,15 @@ const Login = () => {
       const result = await Promise.race([loginPromise, timeoutPromise]);
 
       if (result.success) {
+        // Xử lý ghi nhớ đăng nhập
+        if (data.rememberMe) {
+          // Lưu email vào localStorage
+          localStorage.setItem('rememberedEmail', data.email);
+        } else {
+          // Xóa email đã lưu nếu không chọn ghi nhớ
+          localStorage.removeItem('rememberedEmail');
+        }
+
         // Đảm bảo chuyển hướng an toàn
         try {
           // Kiểm tra xem có đơn hàng đang chờ cập nhật sau thanh toán không
@@ -197,6 +206,15 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Thêm useEffect để kiểm tra và điền email đã lưu
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      setValue('email', rememberedEmail);
+      setValue('rememberMe', true);
+    }
+  }, [setValue]);
 
   return (
     <div

@@ -1218,15 +1218,47 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
       }
       
+      // Format birthDate to ISO string if it exists
+      // This fixes the 400 Bad Request error when sending date in incorrect format
+      // The backend API expects birthDate in DateTime format: "YYYY-MM-DDThh:mm:ss.sssZ"
+      let formattedBirthDate = userData.birthDate;
+      if (formattedBirthDate) {
+        // Check if birthDate is already a Date object
+        if (!(formattedBirthDate instanceof Date)) {
+          // Try to create a Date object from the provided string/value
+          formattedBirthDate = new Date(formattedBirthDate);
+        }
+        // Ensure it's a valid date before formatting
+        if (!isNaN(formattedBirthDate.getTime())) {
+          formattedBirthDate = formattedBirthDate.toISOString();
+        } else {
+          console.warn("Invalid birthDate provided:", userData.birthDate);
+          formattedBirthDate = null;
+        }
+      }
+      
       const response = await axiosInstance.put("/api/users", {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
-        birthDate: userData.birthDate,
+        birthDate: formattedBirthDate,
         address: userData.address
       });
 
       console.log("Update profile response:", response.data);
+      
+      // After successful update, also update the user info in localStorage
+      const currentUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+      const updatedUserInfo = {
+        ...currentUserInfo,
+        name: userData.name || currentUserInfo.name,
+        email: userData.email || currentUserInfo.email,
+        phone: userData.phone || currentUserInfo.phone,
+        dateOfBirth: userData.birthDate || currentUserInfo.dateOfBirth,
+        address: userData.address || currentUserInfo.address,
+        tier: currentUserInfo.tier || userData.tier || "Free" // Preserve tier information
+      };
+      localStorage.setItem('user_info', JSON.stringify(updatedUserInfo));
       
       if (response.data?.value) {
         return response.data.value;
@@ -1239,6 +1271,69 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
       }
       throw error.response?.data || error.message;
+    }
+  },
+
+  // Get user's active subscription
+  getUserSubscription: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      // Instead of making an API call, get user data from localStorage
+      const userData = localStorage.getItem("user_info");
+      if (!userData) {
+        console.log("No user info found in localStorage");
+        return {
+          success: true,
+          data: null,
+          message: "Không tìm thấy gói dịch vụ nào đang hoạt động"
+        };
+      }
+      
+      const user = JSON.parse(userData);
+      console.log("Retrieved user data from localStorage:", user);
+      
+      // Extract subscription information from user data
+      const subscription = {
+        packageName: user.tier || "Free",
+        status: "Active", // Assume active since user is logged in
+        features: user.features || [],
+        startDate: new Date().toISOString(), // Use current date as fallback
+        endDate: null, // End date might not be available
+        // Add other fields with default values to ensure consistency
+        id: "default-subscription-id",
+        userId: user.id || "unknown",
+        packageId: "default-package-id",
+        price: 0,
+        discountedPrice: 0,
+        isActive: true
+      };
+      
+      // Update tier in localStorage from cookie if available
+      const tierFromCookie = Cookies.get("user_tier");
+      if (tierFromCookie && tierFromCookie !== user.tier) {
+        user.tier = tierFromCookie;
+        localStorage.setItem('user_info', JSON.stringify(user));
+        console.log("Updated user tier in localStorage from cookie:", tierFromCookie);
+      }
+      
+      console.log("Constructed subscription data:", subscription);
+      
+      return {
+        success: true,
+        data: subscription,
+        message: "Lấy thông tin gói dịch vụ thành công"
+      };
+    } catch (error) {
+      console.error("Get user subscription error:", error);
+      return {
+        success: false,
+        data: null,
+        message: error.message || "Không thể lấy thông tin gói dịch vụ"
+      };
     }
   },
 
@@ -1509,6 +1604,61 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
       }
       throw error.response?.data || error.message;
+    }
+  },
+
+  // Thêm method getCurrentUser để đảm bảo tương thích với cũ
+  getCurrentUser: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      const response = await axiosInstance.get("/api/users/me");
+      
+      // Return data theo định dạng dự kiến của API
+      if (response.data?.value?.data) {
+        // Update user_info in localStorage with the complete user data
+        const userData = response.data.value.data;
+        if (userData) {
+          const currentUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+          const updatedUserInfo = {
+            ...currentUserInfo,
+            name: userData.name || currentUserInfo.name,
+            email: userData.email || currentUserInfo.email,
+            phone: userData.phone || currentUserInfo.phone,
+            dateOfBirth: userData.birthDate || currentUserInfo.dateOfBirth,
+            address: userData.address || currentUserInfo.address
+          };
+          localStorage.setItem('user_info', JSON.stringify(updatedUserInfo));
+        }
+        return { data: response.data.value.data };
+      }
+      
+      // Hỗ trợ cấu trúc phản hồi khác
+      if (response.data) {
+        // Update user_info in localStorage with the complete user data
+        const userData = response.data;
+        if (userData) {
+          const currentUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+          const updatedUserInfo = {
+            ...currentUserInfo,
+            name: userData.name || currentUserInfo.name,
+            email: userData.email || currentUserInfo.email,
+            phone: userData.phone || currentUserInfo.phone,
+            dateOfBirth: userData.birthDate || currentUserInfo.dateOfBirth,
+            address: userData.address || currentUserInfo.address
+          };
+          localStorage.setItem('user_info', JSON.stringify(updatedUserInfo));
+        }
+        return { data: response.data };
+      }
+      
+      return { data: null };
+    } catch (error) {
+      console.error("Get current user error:", error);
+      throw error;
     }
   },
 };

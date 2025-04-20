@@ -17,6 +17,7 @@ import logo from "../assets/logo.png";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner"; 
 import { useAuth } from "@/Authentication/AuthContext";
+import TermsAndConditions from "@/components/TermsAndConditions";
 
 // API URL 
 const API_URL = "https://stockmonitoring.onrender.com";
@@ -26,6 +27,7 @@ const Register = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const navigate = useNavigate();
   const { register, registerWithGoogle } = useAuth();
 
@@ -278,7 +280,14 @@ const Register = () => {
                 className="border-teal-500 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500"
               />
               <Label htmlFor="agreeToTerms" className="text-sm text-teal-400">
-                Tôi đồng ý với điều khoản sử dụng
+                Tôi đồng ý với{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className="text-teal-400 underline hover:text-teal-300 font-medium"
+                >
+                  điều khoản sử dụng
+                </button>
               </Label>
             </div>
             {formik.touched.agreeToTerms && formik.errors.agreeToTerms && (
@@ -376,6 +385,9 @@ const Register = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Terms and Conditions Modal */}
+      <TermsAndConditions isOpen={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   );
 };
