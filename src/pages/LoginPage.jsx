@@ -305,11 +305,11 @@ const Login = () => {
                   disabled={loading}
                   className="border-teal-500 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500"
                 />
-                <Label htmlFor="rememberMe" className="text-sm text-teal-400">
+                <Label htmlFor="rememberMe" className="text-sm text-[#CFCFCF]">
                   Ghi nhớ đăng nhập
                 </Label>
               </div>
-              <a href="/forgot-password" className="text-sm text-teal-400 hover:underline">
+              <a href="/forgot-password" className="text-sm text-[#DB4437] hover:underline">
                 Quên mật khẩu?
               </a>
             </div>
@@ -349,7 +349,7 @@ const Login = () => {
             {/* Divider */}
             <div className="flex items-center justify-center my-4">
               <div className="flex-grow border-t border-teal-500/50"></div>
-              <span className="px-3 text-sm text-teal-400/80">Hoặc đăng nhập với</span>
+              <span className="px-3 text-sm text-[#CFCFCF]">Hoặc đăng nhập với</span>
               <div className="flex-grow border-t border-teal-500/50"></div>
             </div>
 
@@ -396,9 +396,9 @@ const Login = () => {
             </Button>
 
             {/* Register Link */}
-            <p className="text-sm text-teal-400 text-center">
+            <p className="text-sm text-[#CFCFCF] text-center">
               Chưa có tài khoản?{" "}
-              <a href="/register" className="font-medium hover:underline">
+              <a href="/register" className="text-teal-400 underline hover:text-teal-300 font-medium">
                 Đăng ký ngay
               </a>
             </p>

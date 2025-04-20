@@ -156,17 +156,22 @@ export default function UserManagementPage() {
     // Mảng tất cả các role theo thứ tự 
     const allRoles = ['customer', 'staff', 'manager'];
     
-    // Lọc các role phù hợp (chỉ cho phép thay đổi lên/xuống 1 cấp)
-    const currentRoleValue = roleValues[currentRole.toLowerCase()];
+    // Nếu là admin thì không cho phép thay đổi
+    if (currentRole === 'admin') return [];
     
-    if (currentRole === 'admin') return []; // Admin không thể thay đổi
+    // Nếu là customer thì cho phép nâng lên staff hoặc manager
+    if (currentRole === 'customer') {
+      return ['staff', 'manager'];
+    }
     
-    return allRoles.filter(role => {
-      const roleValue = roleValues[role.toLowerCase()];
-      // Chỉ cho phép thay đổi role lên trên hoặc xuống dưới một cấp
-      const validChange = Math.abs(roleValue - currentRoleValue) === 1;
-      return validChange && role !== currentRole;
-    });
+    // Nếu là staff hoặc manager thì chỉ cho phép thay đổi giữa staff và manager
+    if (currentRole === 'staff' || currentRole === 'manager') {
+      return allRoles.filter(role => 
+        (role === 'staff' || role === 'manager') && role !== currentRole
+      );
+    }
+    
+    return [];
   };
 
   // Xử lý thay đổi role

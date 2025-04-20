@@ -13,7 +13,7 @@ import OtpPage from './pages/OtpPage';
 import StockDerivatives from './pages/StockDerivatives';
 import ForgotPassword from './pages/ForgotPasswordPage';
 import ResetPassword from './pages/ResetPasswordPage';
-import Knowledge from './pages/KnowledgePage';
+import KnowledgePage from './pages/KnowledgePage';
 import ProfilePage from './pages/ProfilePage';
 import { AuthProvider } from "../src/Authentication/AuthContext";
 import ProtectedRoute from "../src/Authentication/ProtectedRoute";
@@ -48,6 +48,9 @@ import ForecastPage from './pages/ForecastPage';
 import PaymentQRCodePage from './pages/PaymentQRCodePage';
 import PaymentSuccessPayOSPage from './pages/PaymentSuccessPayOSPage'; 
 import PaymentCancelPayOSPage from './pages/PaymentCancelPayOSPage';
+import HeaderNewsPage from './pages/HeaderNewsPage';
+import DataManagementPage from "./pages/manager/DataManagementPage";
+import StockInfoManagementPage from "./pages/manager/StockInfoManagementPage";
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -162,6 +165,8 @@ function App() {
                           <Route path="knowledge" element={<ManagerKnowledge />} />
                           <Route path="reports" element={<ManagerReportPage />} />
                           <Route path="scraper" element={<ScraperManagementPage />} />
+                          <Route path="data" element={<DataManagementPage />} />
+                          <Route path="stock-info" element={<StockInfoManagementPage />} />
                         </Routes>
                         <Toaster position="top-right" richColors />
                       </div>
@@ -444,22 +449,7 @@ function App() {
           path="/payment-successfully" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <PaymentSuccessPayOSPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+              <PaymentSuccessPayOSPage />
             </ProtectedRoute>
           } 
         />
@@ -468,22 +458,7 @@ function App() {
           path="/cancel-payment" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <PaymentCancelPayOSPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+              <PaymentCancelPayOSPage />
             </ProtectedRoute>
           } 
         />
@@ -569,6 +544,41 @@ function App() {
           } 
         />
 
+        <Route 
+          path="/knowledge" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <FeatureGuard 
+                requiredFeature="Xem kiến thức đầu tư" 
+                alwaysRenderChildren={true}
+                fallbackComponent={
+                  <UnauthorizedFeatureMessage 
+                    featureName="Kiến thức" 
+                    returnPath="/stock"
+                  />
+                }
+              >
+                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                    <div className="flex-shrink-0">
+                      <SidebarLogined />
+                    </div>
+                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                      <HeaderLogined />
+                      <main className="p-4 md:p-8 w-full overflow-auto">
+                        <div className="max-w-full">
+                          <KnowledgePage />
+                          <Toaster position="top-right" richColors />
+                        </div>
+                      </main>
+                    </div>
+                  </div>
+                </SidebarProvider>
+              </FeatureGuard>
+            </ProtectedRoute>
+          } 
+        />
+
         {/* Regular routes with Header and Footer */}
         <Route path="*" element={
           <div className="flex flex-col min-h-screen">
@@ -582,8 +592,8 @@ function App() {
                 <Route path="/otp" element={<OtpPage/>} />
                 <Route path="/forgot-password" element={<ForgotPassword/>} />
                 <Route path="/reset-password" element={<ResetPassword/>} />
-                <Route path="/knowledge" element={<Knowledge/>} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
+                <Route path="/header-news" element={<HeaderNewsPage/>} />
                 <Route path="*" element={<NotFound/>} />
               </Routes>
               <Toaster position="top-right" richColors />
