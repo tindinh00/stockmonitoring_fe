@@ -15,7 +15,9 @@ import {
   LayoutDashboard,
   FileText,
   BookOpen,
-  Database
+  Database,
+  LineChart,
+  BarChart3
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -80,10 +82,17 @@ export const navItems = [
     isActive: true
   },
   {
-    title: "Cài đặt",
-    url: "/manager/settings",
-    icon: "settings"
-  }
+    title: "Quản lý dữ liệu",
+    url: "/manager/data",
+    icon: "settings",
+    isActive: true
+  },
+  {
+    title: "Quản lý cổ phiếu",
+    url: "/manager/stock-info",
+    icon: "lineChart",
+    isActive: true
+  },
 ];
 
 // Mock company data
@@ -100,6 +109,8 @@ export const Icons = {
   bookOpen: () => <BookOpen className="size-4" />,
   fileText: () => <FileText className="size-4" />,
   database: () => <Database className="size-4" />,
+  barChart: () => <BarChart3 className="size-4" />,
+  lineChart: () => <LineChart className="size-4" />,
   settings: () => <Settings className="size-4" />
 };
 

@@ -49,6 +49,8 @@ import PaymentQRCodePage from './pages/PaymentQRCodePage';
 import PaymentSuccessPayOSPage from './pages/PaymentSuccessPayOSPage'; 
 import PaymentCancelPayOSPage from './pages/PaymentCancelPayOSPage';
 import HeaderNewsPage from './pages/HeaderNewsPage';
+import DataManagementPage from "./pages/manager/DataManagementPage";
+import StockInfoManagementPage from "./pages/manager/StockInfoManagementPage";
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -163,6 +165,8 @@ function App() {
                           <Route path="knowledge" element={<ManagerKnowledge />} />
                           <Route path="reports" element={<ManagerReportPage />} />
                           <Route path="scraper" element={<ScraperManagementPage />} />
+                          <Route path="data" element={<DataManagementPage />} />
+                          <Route path="stock-info" element={<StockInfoManagementPage />} />
                         </Routes>
                         <Toaster position="top-right" richColors />
                       </div>
