@@ -201,6 +201,7 @@ const PaymentQRCodePage = () => {
         // Create the PayOS script element
         const script = document.createElement('script');
         script.async = true;
+        script.src = "https://cdn.payos.vn/payos-checkout/production/stable/payos-checkout.min.js";
         
         // Define the success and cancel handlers on the window object
         window.onPayOSSuccess = function(data) {
@@ -215,9 +216,23 @@ const PaymentQRCodePage = () => {
           handlePaymentCancelled(orderCode);
         };
         
+        // Configure PayOS options
+        window.payosConfig = {
+          url: checkoutUrl,
+          hideReturnButton: true,  // Hide the "Return to main page" button
+          elementId: "payos-checkout"
+        };
+        
         script.onload = () => {
           console.log("PayOS script loaded successfully");
           payosInitialized.current = true;
+          
+          // Initialize the checkout with the config object
+          if (typeof window.PayOS !== 'undefined') {
+            window.PayOS.init(window.payosConfig);
+          } else {
+            console.error("PayOS object not available after script load");
+          }
         };
         
         script.onerror = (error) => {
@@ -362,7 +377,7 @@ const PaymentQRCodePage = () => {
               )}
               
               {/* Action buttons at the bottom with spacing */}
-              <div className="flex justify-between items-center mt-6">
+              <div className="flex justify-center items-center mt-6">
                 <Button 
                   className="bg-red-600 hover:bg-red-700 text-white"
                   onClick={handleCancelPayment}
@@ -379,14 +394,6 @@ const PaymentQRCodePage = () => {
                       Hủy thanh toán
                     </>
                   )}
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  className="border-gray-700 text-gray-400 hover:text-white"
-                  onClick={() => navigate('/stock')}
-                >
-                  Trở về trang chính
                 </Button>
               </div>
               

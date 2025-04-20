@@ -5,7 +5,7 @@ import { apiService } from '@/api/Api';
 import { motion } from "framer-motion";
 import { Check, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const PaymentSuccessPayOSPage = () => {
   const navigate = useNavigate();
@@ -46,7 +46,10 @@ const PaymentSuccessPayOSPage = () => {
           if (isMounted) {
             toast.error("Vui lòng đăng nhập để hoàn tất thanh toán");
             navigate('/login', {
-              state: { message: 'Vui lòng đăng nhập để hoàn tất thanh toán' }
+              state: { 
+                message: 'Vui lòng đăng nhập để hoàn tất thanh toán',
+                messageType: 'error'
+              }
             });
           }
           return;
@@ -59,7 +62,7 @@ const PaymentSuccessPayOSPage = () => {
           setSuccess(true);
           setProcessing(false);
           
-          // Show success toast
+          // Show success toast - this is the only toast we'll keep
           toast.success("Thanh toán thành công! Cảm ơn bạn đã nâng cấp gói dịch vụ.", {
             duration: 5000,
           });
@@ -90,18 +93,17 @@ const PaymentSuccessPayOSPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0a0a14]">
-        <div className="text-center">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center"
-          >
-            <Loader2 className="animate-spin h-16 w-16 text-purple-500 mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Đang xử lý thanh toán</h2>
-            <p className="text-gray-400">Vui lòng không đóng trang này...</p>
-          </motion.div>
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center"
+        >
+          <Loader2 className="animate-spin h-16 w-16 text-purple-500 mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Đang xử lý thanh toán</h2>
+          <p className="text-gray-400">Vui lòng không đóng trang này...</p>
+        </motion.div>
+        <Toaster position="top-center" richColors />
       </div>
     );
   }
@@ -135,6 +137,7 @@ const PaymentSuccessPayOSPage = () => {
             </div>
           </motion.div>
         </div>
+        <Toaster position="top-center" richColors />
       </div>
     );
   }
@@ -167,9 +170,12 @@ const PaymentSuccessPayOSPage = () => {
                 onClick={() => {
                   // Logout người dùng khi họ bấm nút
                   apiService.logout().then(() => {
+                    // Navigate without showing a toast - the message will be shown on the login page instead
                     navigate('/login', { 
                       state: { 
-                        message: "Thanh toán thành công! Vui lòng đăng nhập lại để sử dụng gói dịch vụ mới."
+                        // This will be shown as a message on the login page, not as a toast
+                        message: "Thanh toán thành công! Vui lòng đăng nhập lại để sử dụng gói dịch vụ mới.",
+                        suppressToast: true // Add a flag to prevent showing a toast
                       } 
                     });
                   });
@@ -183,6 +189,7 @@ const PaymentSuccessPayOSPage = () => {
           )}
         </motion.div>
       </div>
+      <Toaster position="top-center" richColors />
     </div>
   );
 };

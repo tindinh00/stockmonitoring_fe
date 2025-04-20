@@ -444,22 +444,7 @@ function App() {
           path="/payment-successfully" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <PaymentSuccessPayOSPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+              <PaymentSuccessPayOSPage />
             </ProtectedRoute>
           } 
         />
@@ -468,22 +453,7 @@ function App() {
           path="/cancel-payment" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <PaymentCancelPayOSPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+              <PaymentCancelPayOSPage />
             </ProtectedRoute>
           } 
         />
