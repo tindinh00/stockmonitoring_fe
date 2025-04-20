@@ -20,6 +20,7 @@ import {
   Crown,
   LogOut
 } from "lucide-react";
+import Cookies from "js-cookie";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,25 @@ const ProfilePage = () => {
       if (userDataStr) {
         localUserData = JSON.parse(userDataStr);
         console.log("Loaded user_data from localStorage:", localUserData);
+      }
+      
+      // Check if tier is available in cookies
+      const tierFromCookie = Cookies.get("user_tier");
+      if (tierFromCookie) {
+        console.log("Found tier in cookie:", tierFromCookie);
+        
+        // Update localStorage if the tier in cookie is different
+        if (localUserInfo && tierFromCookie !== localUserInfo.tier) {
+          localUserInfo.tier = tierFromCookie;
+          localStorage.setItem('user_info', JSON.stringify(localUserInfo));
+          console.log("Updated user_info tier from cookie:", tierFromCookie);
+        }
+        
+        if (localUserData && tierFromCookie !== localUserData.tier) {
+          localUserData.tier = tierFromCookie;
+          localStorage.setItem('user_data', JSON.stringify(localUserData));
+          console.log("Updated user_data tier from cookie:", tierFromCookie);
+        }
       }
       
       // Combine data from all sources, prioritizing in this order:
@@ -294,14 +314,16 @@ const ProfilePage = () => {
       const currentUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
       localStorage.setItem('user_info', JSON.stringify({
         ...currentUserInfo,
-        ...updatedUserData
+        ...updatedUserData,
+        tier: currentUserInfo.tier || userInfo.tier || "Free"
       }));
       
       // Update user_data 
       const currentUserData = JSON.parse(localStorage.getItem('user_data')) || {};
       localStorage.setItem('user_data', JSON.stringify({
         ...currentUserData,
-        ...updatedUserData
+        ...updatedUserData,
+        tier: currentUserData.tier || userInfo.tier || "Free"
       }));
       
       // Force refresh the page data
