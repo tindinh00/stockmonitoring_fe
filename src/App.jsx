@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom'; // Xóa BrowserRouter alias Router
 import './App.css';
-import { Button } from "@/components/ui/button";
 import Header from './layouts/header';
 import Footer from './layouts/footer';
 import Home from './pages/Home'; 
@@ -26,8 +25,6 @@ import SidebarLogined from './layouts/SidebarLogined';
 import HeaderManager from './layouts/headerManager';
 import HeaderLogined from './layouts/headerLogined';
 import UpgradePackage from './pages/UpgradePackagePage';
-import PaymentSuccessPage from './pages/PaymentSuccessPage';
-import CancelPaymentPage from './pages/CancelPaymentPage';
 import UserManagementPage from "@/pages/admin/UserManagementPage";
 import AdminSidebar from './layouts/AdminSidebar';
 import DashboardPage from './pages/dashboard';
@@ -47,8 +44,10 @@ import signalRService from './api/signalRService';  // Import signalRService
 import AIChatPage from './pages/AIChatPage';
 import FeatureGuard from './components/FeatureGuard';
 import UnauthorizedFeatureMessage from './components/UnauthorizedFeatureMessage.jsx';
-import { ensureFreeFeatures } from './utils/featureUtils';
 import ForecastPage from './pages/ForecastPage';
+import PaymentQRCodePage from './pages/PaymentQRCodePage';
+import PaymentSuccessPayOSPage from './pages/PaymentSuccessPayOSPage'; 
+import PaymentCancelPayOSPage from './pages/PaymentCancelPayOSPage';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -76,14 +75,8 @@ const RootRoute = () => {
 };
 
 function App() {
-  // Đảm bảo người dùng luôn có quyền truy cập vào tính năng miễn phí
-  useEffect(() => {
-    ensureFreeFeatures();
-  }, []);
-
   // Dọn dẹp kết nối khi ứng dụng đóng
   useEffect(() => {
-    // Dọn dẹp kết nối khi component unmount
     return () => {
       signalRService.stop();
     };
@@ -184,32 +177,22 @@ function App() {
           path="/stock" 
           element={
             <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
-              <FeatureGuard 
-                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán" 
-                fallbackComponent={
-                  <UnauthorizedFeatureMessage 
-                    featureName="Bảng giá theo thời gian thực" 
-                    returnPath="/"
-                  />
-                }
-              >
-                <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                    <div className="flex-shrink-0">
-                      <SidebarLogined />
-                    </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                      <HeaderLogined />
-                      <main className="p-4 md:p-8 w-full overflow-auto">
-                        <div className="max-w-full">
-                          <StockDerivatives />
-                          <Toaster position="top-right" richColors />
-                        </div>
-                      </main>
-                    </div>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
                   </div>
-                </SidebarProvider>
-              </FeatureGuard>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <StockDerivatives />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
             </ProtectedRoute>
           } 
         />
@@ -220,11 +203,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Quản lý danh mục theo dõi cổ phiếu" 
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Danh sách theo dõi" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -325,11 +309,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Quản lý thông báo theo nhu cầu"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Quản lý thông báo" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -359,7 +344,7 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
-                requiredFeature="Hiển thị dữ liệu thị trường chứng khoán"
+                requiredFeature="Hộp thoại hỗ trợ người dùng (Chatbox)"
                 alwaysRenderChildren={true}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
@@ -425,11 +410,12 @@ function App() {
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Phân tích cá nhân" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -467,7 +453,7 @@ function App() {
                     <HeaderLogined />
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
-                        <PaymentSuccessPage />
+                        <PaymentSuccessPayOSPage />
                         <Toaster position="top-right" richColors />
                       </div>
                     </main>
@@ -479,16 +465,50 @@ function App() {
         />
         
         <Route 
+          path="/cancel-payment" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
+                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex-shrink-0">
+                    <SidebarLogined />
+                  </div>
+                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <HeaderLogined />
+                    <main className="p-4 md:p-8 w-full overflow-auto">
+                      <div className="max-w-full">
+                        <PaymentCancelPayOSPage />
+                        <Toaster position="top-right" richColors />
+                      </div>
+                    </main>
+                  </div>
+                </div>
+              </SidebarProvider>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/payment-qrcode" 
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <PaymentQRCodePage />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
           path="/ai-chat" 
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
                 requiredFeature="Trợ lý AI"
-                alwaysRenderChildren={true}
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Chat với AI" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -518,12 +538,13 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <FeatureGuard 
-                requiredFeature="Phân tích và gợi ý theo cá nhân hóa"
-                alwaysRenderChildren={true}
+                requiredFeature="Dự đoán giá"
+                alwaysRenderChildren={false}
                 fallbackComponent={
                   <UnauthorizedFeatureMessage 
                     featureName="Dự đoán giá" 
                     returnPath="/stock"
+                    showUpgradeOption={true}
                   />
                 }
               >
@@ -548,30 +569,6 @@ function App() {
           } 
         />
 
-        <Route 
-          path="/cancel-payment" 
-          element={
-            <ProtectedRoute allowedRoles={['customer']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <SidebarLogined />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
-                    <HeaderLogined />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <CancelPaymentPage />
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
-            </ProtectedRoute>
-          } 
-        />
-        
         {/* Regular routes with Header and Footer */}
         <Route path="*" element={
           <div className="flex flex-col min-h-screen">

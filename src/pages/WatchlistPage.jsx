@@ -376,7 +376,13 @@ const WatchlistPage = () => {
       
       if (response?.data?.value?.data) {
         const watchlistStocks = response.data.value.data;
-        setWatchlist(watchlistStocks);
+        // Kiểm tra là mảng trước khi set
+        if (Array.isArray(watchlistStocks)) {
+          setWatchlist(watchlistStocks);
+        } else {
+          console.warn("Watchlist data is not an array:", watchlistStocks);
+          setWatchlist([]);
+        }
       } else {
         console.warn("No stocks found in watchlist response");
         setWatchlist([]);
@@ -390,6 +396,7 @@ const WatchlistPage = () => {
       setIsLoading(false);
       setIsInitialLoading(false);
       toast.error("Không thể tải dữ liệu danh sách theo dõi");
+      setWatchlist([]);
       return false;
     }
   };
@@ -426,7 +433,13 @@ const WatchlistPage = () => {
             );
             
             if (response?.data?.value?.data) {
-              setWatchlist(response.data.value.data);
+              const watchlistStocks = response.data.value.data;
+              if (Array.isArray(watchlistStocks)) {
+                setWatchlist(watchlistStocks);
+              } else {
+                console.warn("[SignalR] HSX watchlist data is not an array:", watchlistStocks);
+                setWatchlist([]);
+              }
             }
           } catch (error) {
             console.error("[SignalR] Error processing HSX update:", error);
@@ -455,7 +468,13 @@ const WatchlistPage = () => {
             );
             
             if (response?.data?.value?.data) {
-              setWatchlist(response.data.value.data);
+              const watchlistStocks = response.data.value.data;
+              if (Array.isArray(watchlistStocks)) {
+                setWatchlist(watchlistStocks);
+              } else {
+                console.warn("[SignalR] HNX watchlist data is not an array:", watchlistStocks);
+                setWatchlist([]);
+              }
             }
           } catch (error) {
             console.error("[SignalR] Error processing HNX update:", error);
@@ -1098,6 +1117,8 @@ const WatchlistPage = () => {
                         </td>
                       </tr>
                     ) : (
+                      // Thêm kiểm tra watchlist có phải là mảng hay không
+                      Array.isArray(watchlist) ? 
                       watchlist.map((stock) => (
                         <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
                           <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2`} onClick={() => handleStockClick(stock)}>
@@ -1166,7 +1187,18 @@ const WatchlistPage = () => {
                             </button>
                           </td>
                         </tr>
-                      ))
+                      )) : (
+                        // Hiển thị trường hợp watchlist không phải là mảng
+                        <tr>
+                          <td colSpan="26" className="text-center py-8">
+                            <div className="flex flex-col items-center gap-2">
+                              <AlertTriangle className="h-8 w-8 text-red-500" />
+                              <span className="text-gray-400">Đã xảy ra lỗi khi tải dữ liệu</span>
+                              <span className="text-gray-500 text-sm">Vui lòng làm mới trang để thử lại</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
                     )}
                   </tbody>
                 </table>

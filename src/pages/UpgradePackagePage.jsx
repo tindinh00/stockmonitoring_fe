@@ -1,19 +1,43 @@
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Shield, TrendingUp, Clock, Award, Percent, Loader2 } from "lucide-react"
+import { Check, Sparkles, Zap, Shield, TrendingUp, Clock, Award, Percent, Loader2, AlertTriangle } from "lucide-react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/api/Api"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { useAuth } from "@/Authentication/AuthContext"
+import Cookies from "js-cookie"
 
 const UpgradePackage = () => {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [processingPackageId, setProcessingPackageId] = useState(null)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [selectedPackage, setSelectedPackage] = useState(null)
+  const [userTier, setUserTier] = useState("Free")
+  
+  useEffect(() => {
+    // Lấy tier từ cookie
+    const tierFromCookie = Cookies.get("user_tier");
+    if (tierFromCookie) {
+      setUserTier(tierFromCookie);
+      console.log("User tier from cookie:", tierFromCookie);
+    } else {
+      // Fallback nếu không có cookie
+      setUserTier(user?.tier || "Free");
+      console.log("User tier from user object:", user?.tier || "Free");
+    }
+  }, [user]);
+
+  // Kiểm tra xem người dùng có phải tier Free hay không
+  const isFreeTier = userTier === "Free" || !userTier;
+  console.log("🔍 Is Free Tier:", isFreeTier, "Current tier:", userTier);
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -45,16 +69,54 @@ const UpgradePackage = () => {
 
   // Hàm xử lý khi nhấn nút "Bắt đầu ngay"
   const handleStartNow = async (pkg) => {
+    console.log("🚀 Start Now clicked for package:", pkg.name);
+    console.log("📋 Current user tier:", userTier);
+    console.log("📋 Package tier:", pkg.name);
+    console.log("📋 Is Free Tier:", isFreeTier);
+    console.log("📋 Different package check:", userTier !== pkg.name);
+    
+    // Nếu không phải Free tier và không phải cùng gói hiện tại, hiển thị xác nhận
+    if (!isFreeTier && userTier !== pkg.name) {
+      console.log("🔔 Showing confirmation dialog");
+      setSelectedPackage(pkg);
+      setConfirmDialogOpen(true);
+      return;
+    } else {
+      console.log("➡️ Proceeding directly to payment");
+      if (isFreeTier) {
+        console.log("🆓 Reason: User is on Free tier");
+      } else if (userTier === pkg.name) {
+        console.log("🔄 Reason: User is already on this package tier");
+      }
+    }
+    
+    // Nếu là Free tier hoặc người dùng đã xác nhận, tiến hành thanh toán
+    await processPayment(pkg);
+  };
+  
+  // Hàm xử lý thanh toán sau khi đã xác nhận (nếu cần)
+  const processPayment = async (pkg) => {
     try {
-      setProcessingPackageId(pkg.id)
+      console.log("🔄 Starting payment process for package:", pkg.name);
+      setProcessingPackageId(pkg.id);
+      
+      // Thêm timeout để reset nếu xử lý quá lâu
+      const timeoutId = setTimeout(() => {
+        console.log("⏱️ Payment processing timeout - resetting state");
+        setProcessingPackageId(null);
+        toast.error("Xử lý thanh toán quá lâu. Vui lòng thử lại.");
+      }, 15000); // 15 giây timeout
+      
       // Gọi API thanh toán PayOS
       const response = await apiService.createPayment({
         amount: pkg.isDiscounted ? pkg.discountedPrice : pkg.price,
         packageId: pkg.id
       });
       
+      // Clear timeout khi có response
+      clearTimeout(timeoutId);
+      
       console.log('Payment response in UpgradePackage:', response);
-      console.log('Payment data structure:', JSON.stringify(response.data, null, 2));
       
       // Debug chi tiết từng thuộc tính
       if (response?.value?.data) {
@@ -64,21 +126,26 @@ const UpgradePackage = () => {
         console.log('- qrCode length:', response.value.data.qrCode?.length);
         console.log('- checkoutUrl:', response.value.data.checkoutUrl);
         
-        // Chuyển hướng người dùng trực tiếp đến trang thanh toán PayOS
-        if (response.value.data.checkoutUrl) {
-          window.location.href = response.value.data.checkoutUrl;
-        } else {
-          toast.error('Không tìm thấy link thanh toán. Vui lòng thử lại sau.');
-          setProcessingPackageId(null);
-        }
+        // Định nghĩa dữ liệu thanh toán
+        const paymentData = {
+          orderCode: response.value.data.orderCode,
+          qrCode: response.value.data.qrCode,
+          checkoutUrl: response.value.data.checkoutUrl,
+          amount: pkg.isDiscounted ? pkg.discountedPrice : pkg.price,
+          packageName: pkg.name
+        };
+        
+        // Thay vì chuyển hướng trực tiếp đến trang thanh toán PayOS,
+        // chuyển hướng đến trang hiển thị mã QR
+        console.log("✅ Payment process successful, navigating to QR code page");
+        navigate('/payment-qrcode', { state: { paymentData } });
+        
       } else {
         console.error('Invalid payment response structure:', response);
         console.error('Response structure:', Object.keys(response || {}));
-        if (response?.data) console.error('Data structure:', Object.keys(response.data || {}));
-        if (response?.data?.value) console.error('Value structure:', Object.keys(response.data.value || {}));
         
         toast.error('Cấu trúc dữ liệu thanh toán không hợp lệ. Vui lòng thử lại sau.');
-        setProcessingPackageId(null)
+        setProcessingPackageId(null);
       }
     } catch (error) {
       console.error('Lỗi thanh toán:', error);
@@ -86,7 +153,7 @@ const UpgradePackage = () => {
       console.error('Error response:', error.response?.data);
       
       toast.error(error.message || 'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.');
-      setProcessingPackageId(null)
+      setProcessingPackageId(null);
     }
   };
 
@@ -98,51 +165,84 @@ const UpgradePackage = () => {
 
   // Xác định theme và icon dựa trên tên gói
   const getPackageTheme = (packageName) => {
-    const name = packageName.toLowerCase()
+    const name = packageName.toLowerCase();
+    
+    // Expanded array of gradient color combinations including the provided colors
+    const colorThemes = [
+      { gradient: "from-[#28c76f] to-[#dfd142]", bgGlow: "group-hover:shadow-[#28c76f]/20" },  // Green to Yellow
+      { gradient: "from-[#fe5d6a] to-[#fe82a7]", bgGlow: "group-hover:shadow-[#fe5d6a]/20" },  // Red to Pink
+      { gradient: "from-[#ff9f43] to-[#ffbd59]", bgGlow: "group-hover:shadow-[#ff9f43]/20" },  // Orange to Light Orange
+      { gradient: "from-[#0396ff] to-[#abdcff]", bgGlow: "group-hover:shadow-[#0396ff]/20" },  // Blue to Light Blue
+      { gradient: "from-[#ffd200] to-[#f7f779]", bgGlow: "group-hover:shadow-[#ffd200]/20" },  // Yellow to Light Yellow
+    ];
+    
+    // Array of possible icons with their respective components
+    const iconOptions = [
+      { component: <Sparkles className="w-6 h-6 text-white" />, name: "sparkles" },
+      { component: <Shield className="w-6 h-6 text-white" />, name: "shield" },
+      { component: <TrendingUp className="w-6 h-6 text-white" />, name: "trendingUp" },
+      { component: <Zap className="w-6 h-6 text-white" />, name: "zap" },
+      { component: <Award className="w-6 h-6 text-white" />, name: "award" },
+      { component: <Clock className="w-6 h-6 text-white" />, name: "clock" },
+    ];
+    
+    // Create a consistent hash from the package name
+    const hash = name.split('').reduce((acc, char) => {
+      return acc + char.charCodeAt(0);
+    }, 0);
+    
+    // Select colors and icon based on the hash
+    const colorIndex = hash % colorThemes.length;
+    const iconIndex = (hash * 13) % iconOptions.length; // Use a different modulo operation for icon selection
+    
+    const colors = colorThemes[colorIndex];
+    const icon = iconOptions[iconIndex];
+    
+    // Base package details
+    let packageDetails = {};
     
     if (name.includes("premium") || name.includes("vàng") || name.includes("elite")) {
-      return {
-    name: "Elite Trader",
-    description: "Tối ưu lợi nhuận với công nghệ AI",
-    gradient: "from-[#FF512F] to-[#DD2476]",
-    bgGlow: "group-hover:shadow-[#DD2476]/20",
-        icon: <Sparkles className="w-6 h-6 text-white" />,
+      packageDetails = {
+        name: "Elite Trader",
+        description: "Tối ưu lợi nhuận với công nghệ AI",
         isPopular: true,
-    stats: {
-      accuracy: "92%",
-      signals: "50/ngày",
-      support: "24/7"
+        stats: {
+          accuracy: "92%",
+          signals: "50/ngày",
+          support: "24/7"
         }
-      }
+      };
     } else if (name.includes("vip") || name.includes("kim cương") || name.includes("institutional")) {
-      return {
-    name: "Institutional",
-    description: "Giải pháp toàn diện cho tổ chức",
-    gradient: "from-[#7F00FF] to-[#E100FF]",
-    bgGlow: "group-hover:shadow-[#7F00FF]/20",
-        icon: <Shield className="w-6 h-6 text-white" />,
+      packageDetails = {
+        name: "Institutional",
+        description: "Giải pháp toàn diện cho tổ chức",
         isPopular: false,
-    stats: {
-      accuracy: "95%",
-      signals: "100+/ngày",
-      support: "24/7 VIP"
-    }
-      }
+        stats: {
+          accuracy: "95%",
+          signals: "100+/ngày",
+          support: "24/7 VIP"
+        }
+      };
     } else {
-      return {
+      packageDetails = {
         name: "Basic Trader",
         description: "Khởi đầu hành trình đầu tư của bạn",
-        gradient: "from-[#3CA55C] to-[#B5AC49]",
-        bgGlow: "group-hover:shadow-[#3CA55C]/20",
-        icon: <TrendingUp className="w-6 h-6 text-white" />,
         isPopular: false,
         stats: {
           accuracy: "85%",
           signals: "20/ngày",
           support: "12/5"
         }
-      }
+      };
     }
+    
+    // Combine the details with the color theme and icon
+    return {
+      ...packageDetails,
+      gradient: colors.gradient,
+      bgGlow: colors.bgGlow,
+      icon: icon.component
+    };
   }
 
 const StatCard = ({ icon, label, value, gradient }) => (
@@ -213,6 +313,7 @@ const StatCard = ({ icon, label, value, gradient }) => (
             const isDiscounted = pkg.isDiscounted && pkg.price > pkg.discountedPrice
             const displayPrice = isDiscounted ? pkg.discountedPrice : pkg.price
             const isProcessing = processingPackageId === pkg.id
+            const isCurrentTier = pkg.name === userTier // Check if this package is the user's current tier
             
             return (
             <motion.div
@@ -224,8 +325,8 @@ const StatCard = ({ icon, label, value, gradient }) => (
             >
               <Card className={`relative h-full flex flex-col backdrop-blur-sm bg-black/40 border-2 
                 transition-all duration-500 hover:translate-y-[-4px]
-                  ${theme.isPopular ? 'border-purple-500' : 'border-gray-800'}
-                group-hover:border-opacity-100 group-hover:border-purple-500
+                  ${theme.isPopular ? 'border-purple-500' : isCurrentTier ? 'border-green-500' : 'border-gray-800'}
+                group-hover:border-opacity-100 ${!isCurrentTier ? 'group-hover:border-purple-500' : ''}
                   ${theme.bgGlow} group-hover:shadow-2xl`}
               >
                   {theme.isPopular && (
@@ -235,7 +336,14 @@ const StatCard = ({ icon, label, value, gradient }) => (
                   </div>
                 )}
                 
-                  {isDiscounted && (
+                  {isCurrentTier && (
+                  <div className="absolute -top-4 right-4 px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 
+                    rounded-full text-white text-sm font-medium shadow-lg shadow-green-500/30 flex items-center gap-1">
+                    Đang sử dụng
+                  </div>
+                )}
+                
+                  {!isCurrentTier && isDiscounted && (
                   <div className="absolute -top-4 right-4 px-3 py-1 bg-gradient-to-r from-red-500 to-orange-500 
                     rounded-full text-white text-sm font-medium shadow-lg shadow-red-500/30 flex items-center gap-1">
                     <Percent className="w-3 h-3" />
@@ -313,7 +421,7 @@ const StatCard = ({ icon, label, value, gradient }) => (
                   <div className="mt-auto">
                     <Button 
                         onClick={() => handleStartNow(pkg)}
-                        disabled={isProcessing}
+                        disabled={isProcessing || isCurrentTier}
                       className={`w-full h-14 text-base font-semibold
                           bg-gradient-to-r ${theme.gradient} hover:opacity-90
                           transition-all duration-300 hover:scale-[1.02] shadow-xl
@@ -324,6 +432,8 @@ const StatCard = ({ icon, label, value, gradient }) => (
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             Đang xử lý...
                           </>
+                        ) : isCurrentTier ? (
+                          'Đang sử dụng'
                         ) : (
                           'Bắt đầu ngay'
                         )}
@@ -344,6 +454,46 @@ const StatCard = ({ icon, label, value, gradient }) => (
           </div>
         </div>
       </div>
+
+      {/* Xác nhận thay đổi gói */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="bg-[#121212] border-gray-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Xác nhận thay đổi gói
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 mt-2">
+              Bạn đang sử dụng gói <span className="font-semibold text-purple-400">{userTier}</span> và chuẩn bị nâng cấp lên gói <span className="font-semibold text-purple-400">{selectedPackage?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="my-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-md text-yellow-200">
+            <p className="text-sm">
+              Nếu bạn đang trong thời hạn sử dụng một gói, việc thay đổi gói sẽ thay đổi quyền truy cập các tính năng và mất quyền truy cập các tính năng của gói cũ nhưng vẫn được gia hạn ngày bình thường. Vui lòng cân nhắc trước khi thay đổi.
+            </p>
+          </div>
+          
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => setConfirmDialogOpen(false)}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+            >
+              Hủy
+            </Button>
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={() => {
+                setConfirmDialogOpen(false);
+                processPayment(selectedPackage);
+              }}
+            >
+              Xác nhận thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
