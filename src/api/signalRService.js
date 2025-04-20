@@ -76,6 +76,7 @@ class SignalRService {
       // Re-setup listeners after reconnection
       this.setupStockListeners();
       this.setupNotificationListeners();
+      this.setupScrapperLogListener();
     });
 
     this.state.connection.onclose(error => {
@@ -248,6 +249,35 @@ class SignalRService {
     }
   }
 
+  async setupScrapperLogListener() {
+    console.log("[SignalR] Setting up scrapper log listener");
+    
+    try {
+      const connection = await this.getConnection();
+      if (!connection) {
+        console.error("[SignalR] No active connection available");
+        return { success: false, message: "No connection available" };
+      }
+
+      // Clear existing listener
+      connection.off("ScrapperLog");
+
+      // Register log handler
+      connection.on("ScrapperLog", (data) => {
+        console.log("[SignalR] Scrapper log received:", data);
+        window.dispatchEvent(new CustomEvent('scrapperLog', {
+          detail: data
+        }));
+      });
+
+      console.log("[SignalR] Scrapper log listener setup complete");
+      return { success: true, message: "Scrapper log listener registered successfully" };
+    } catch (error) {
+      console.error("[SignalR] Error in setupScrapperLogListener:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
   onStock(eventName, callback) {
     if (!this.state.connection) {
       console.warn(`[SignalR] Cannot register event ${eventName} - no active connection`);
@@ -303,6 +333,7 @@ const signalRService = new SignalRService();
 signalRService.getConnection().then(() => {
   signalRService.setupStockListeners();
   signalRService.setupNotificationListeners();
+  signalRService.setupScrapperLogListener();
 }).catch(error => {
   console.error("[SignalR] Initial connection setup failed:", error);
 });

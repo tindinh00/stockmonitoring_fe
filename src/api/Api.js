@@ -164,7 +164,7 @@ axiosInstance.interceptors.response.use(
 // Tạo một service cho các yêu cầu API
 export const apiService = {
   // Lấy danh sách người dùng từ API (Yêu cầu quyền Admin)
-  getUsers: async () => {
+  getUsers: async (pageIndex = 1, pageSize = 1000) => {
     try {
       const token = Cookies.get("auth_token");
       
@@ -172,7 +172,7 @@ export const apiService = {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản Admin.");
       }
       
-      const response = await axiosInstance.get("/api/users");
+      const response = await axiosInstance.get(`/api/users?pageIndex=${pageIndex}&pageSize=${pageSize}`);
       console.log("Get users response:", response.data);
       
       if (response.data && response.data.value) {
