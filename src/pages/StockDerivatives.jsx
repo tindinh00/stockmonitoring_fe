@@ -339,14 +339,6 @@ export default function StockDerivatives() {
         background-color: rgba(0, 255, 0, 0.3);
         transform: scale(1.1);
       }
-      30% {
-        background-color: rgba(0, 255, 0, 0.2);
-        transform: scale(1.05);
-      }
-      70% {
-        background-color: rgba(0, 255, 0, 0.1);
-        transform: scale(1.02);
-      }
       100% { 
         background-color: transparent;
         transform: scale(1);
@@ -357,14 +349,6 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(255, 0, 0, 0.3);
         transform: scale(1.1);
-      }
-      30% {
-        background-color: rgba(255, 0, 0, 0.2);
-        transform: scale(1.05);
-      }
-      70% {
-        background-color: rgba(255, 0, 0, 0.1);
-        transform: scale(1.02);
       }
       100% { 
         background-color: transparent;
@@ -377,53 +361,22 @@ export default function StockDerivatives() {
         background-color: rgba(244, 190, 55, 0.3);
         transform: scale(1.1);
       }
-      30% {
-        background-color: rgba(244, 190, 55, 0.2);
-        transform: scale(1.05);
-      }
-      70% {
-        background-color: rgba(244, 190, 55, 0.1);
-        transform: scale(1.02);
-      }
       100% { 
         background-color: transparent;
         transform: scale(1);
       }
     }
 
-    @keyframes volumeChange {
-      0% { 
-        opacity: 0.5;
-        transform: scale(1.1);
-      }
-      30% {
-        opacity: 0.7;
-        transform: scale(1.05);
-      }
-      70% {
-        opacity: 0.9;
-        transform: scale(1.02);
-      }
-      100% { 
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-    
     .price-up {
-      animation: priceUp 1s ease-out;
+      animation: priceUp 1s ease-out forwards;
     }
     
     .price-down {
-      animation: priceDown 1s ease-out;
+      animation: priceDown 1s ease-out forwards;
     }
 
     .price-equal {
-      animation: priceEqual 1s ease-out;
-    }
-
-    .volume-change {
-      animation: volumeChange 1s ease-out;
+      animation: priceEqual 1s ease-out forwards;
     }
   `;
 
@@ -733,6 +686,7 @@ export default function StockDerivatives() {
           const newData = [...prevData];
           const newPriceHistory = { ...priceHistory };
           const newPriceChangeColors = { ...priceChangeColors };
+          const newPreviousValues = { ...previousValues };
           let hasChanges = false;
 
           stockData.forEach(stock => {
@@ -769,8 +723,13 @@ export default function StockDerivatives() {
               foreignSell: formatValue(stock.foreignSellVolume)
             };
 
+            // Save old values before updating
+            if (!newPreviousValues[stock.stockCode]) {
+              newPreviousValues[stock.stockCode] = { ...newData[existingIndex] };
+            }
+
             const currentPrice = parseFloat(newValues.matchPrice);
-            const previousPrice = parseFloat(newData[existingIndex].matchPrice);
+            const previousPrice = parseFloat(newPreviousValues[stock.stockCode].matchPrice);
 
             if (!isNaN(previousPrice) && currentPrice !== previousPrice) {
               hasChanges = true;
@@ -791,6 +750,7 @@ export default function StockDerivatives() {
 
           // Chỉ cập nhật state nếu có thay đổi
           if (hasChanges) {
+            setPreviousValues(newPreviousValues);
             setPriceHistory(newPriceHistory);
             setPriceChangeColors(newPriceChangeColors);
           }
@@ -1215,6 +1175,30 @@ export default function StockDerivatives() {
     }
   };
 
+  // Add state for previous values after other state declarations
+  const [previousValues, setPreviousValues] = useState({});
+
+  // Add useEffect for handling animation cleanup
+  useEffect(() => {
+    const timeoutIds = [];
+    
+    Object.keys(priceChangeColors).forEach(stockCode => {
+      const timeoutId = setTimeout(() => {
+        setPriceChangeColors(prev => {
+          const newColors = { ...prev };
+          delete newColors[stockCode];
+          return newColors;
+        });
+      }, 1000); // 1000ms = duration of animation
+      
+      timeoutIds.push(timeoutId);
+    });
+
+    return () => {
+      timeoutIds.forEach(id => clearTimeout(id));
+    };
+  }, [priceChangeColors]);
+
   return (
     <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -1247,19 +1231,7 @@ export default function StockDerivatives() {
               <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500 w-full animate-[borderSlide_0.3s_ease-in-out]" />
             )}
           </button>
-          <button
-            className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out rounded-t-lg ${
-              activeTab === 'market' 
-                ? 'text-white bg-[#1a1a1a]' 
-                : 'text-[#888] hover:text-white hover:bg-[#1a1a1a]/50'
-            }`}
-            onClick={() => setActiveTab('market')}
-          >
-            Toàn cảnh thị trường
-            {activeTab === 'market' && (
-              <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500 w-full animate-[borderSlide_0.3s_ease-in-out]" />
-            )}
-          </button>
+          
         </div>
       </div>
 
@@ -1393,11 +1365,6 @@ export default function StockDerivatives() {
                   <div>C <span className="text-white">{selectedStock?.matchPrice}</span></div>
                 </div>
               </div>
-              <button className="hover:bg-[#2a2e39] p-2 rounded" onClick={() => setIsDialogOpen(false)}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
             {/* Chart Area */}
@@ -1653,7 +1620,7 @@ export default function StockDerivatives() {
                               {/* Update padding for all cells */}
                               <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
                               <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
-                              <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
+                              <td className={`${getCellClass(stock, 'matchPrice', 'price')} ${priceChangeColors[stock.code] || ''}`}>{stock.matchPrice}</td>
                               <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
                               <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
                               <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td>

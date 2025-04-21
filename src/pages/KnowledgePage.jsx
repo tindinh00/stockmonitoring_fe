@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, BookOpen, Share2, Bookmark, Eye, ArrowLeft, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,15 +112,6 @@ const KnowledgePage = () => {
     }
   };
 
-  // Toggle bookmark
-  const toggleBookmark = (articleId) => {
-    setBookmarkedArticles(prev => 
-      prev.includes(articleId) 
-        ? prev.filter(id => id !== articleId)
-        : [...prev, articleId]
-    );
-  };
-
   // Share article
   const shareArticle = (article) => {
     if (navigator.share) {
@@ -206,10 +197,7 @@ const KnowledgePage = () => {
                     <Clock className="w-4 h-4" />
                     <span className="text-sm font-medium">Mới nhất</span>
                   </button>
-                  <div className="h-4 w-px bg-[#333]"></div>
-                  <button className="p-2 rounded-full hover:bg-[#1a1a1a] transition-colors">
-                    <Bookmark className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
-                  </button>
+                  
                 </div>
               </div>
             </div>
@@ -250,21 +238,6 @@ const KnowledgePage = () => {
                           <span>{currentItems[0].category}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleBookmark(currentItems[0].id);
-                            }}
-                            className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                          >
-                            <Bookmark 
-                              className={`w-4 h-4 ${
-                                bookmarkedArticles.includes(currentItems[0].id)
-                                  ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -313,21 +286,6 @@ const KnowledgePage = () => {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleBookmark(item.id);
-                            }}
-                            className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                          >
-                            <Bookmark 
-                              className={`w-3 h-3 ${
-                                bookmarkedArticles.includes(item.id)
-                                  ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
                               shareArticle(item);
                             }}
                             className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
@@ -360,21 +318,6 @@ const KnowledgePage = () => {
                         <span>{item.category}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleBookmark(item.id);
-                          }}
-                          className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Bookmark 
-                            className={`w-3 h-3 ${
-                              bookmarkedArticles.includes(item.id)
-                                ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                : 'text-gray-400'
-                            }`}
-                          />
-                        </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -435,6 +378,12 @@ const KnowledgePage = () => {
         {/* Article Detail Dialog */}
         <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
           <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="sr-only">
+              {selectedArticle?.title || 'Chi tiết bài viết'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Chi tiết nội dung bài viết
+            </DialogDescription>
             {selectedArticle && (
               <div className="space-y-6">
                 {loadingDetail ? (
@@ -453,23 +402,15 @@ const KnowledgePage = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm text-gray-400">
                             <Clock className="w-4 h-4" />
-                            <span>{articleDetail ? format(new Date(articleDetail.createdTime), 'dd/MM/yyyy', { locale: vi }) : selectedArticle.timeAgo}</span>
+                            <span>
+                              {articleDetail && articleDetail.createdTime
+                                ? format(new Date(articleDetail.createdTime), 'dd/MM/yyyy', { locale: vi })
+                                : selectedArticle.timeAgo}
+                            </span>
                             <span>•</span>
                             <span>{selectedArticle.category}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => toggleBookmark(selectedArticle.id)}
-                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                            >
-                              <Bookmark 
-                                className={`w-4 h-4 ${
-                                  bookmarkedArticles.includes(selectedArticle.id)
-                                    ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                    : 'text-gray-400'
-                                }`}
-                              />
-                            </button>
                             <button 
                               onClick={() => shareArticle(selectedArticle)}
                               className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"

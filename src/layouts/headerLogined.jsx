@@ -123,8 +123,7 @@ export default function HeaderLogined() {
           return;
         }
 
-        // Listen for stockNotification events
-        window.addEventListener('stockNotification', (event) => {
+        const handleNotification = (event) => {
           const data = event.detail;
           console.log("[SignalR] Received notification:", data);
           
@@ -174,21 +173,50 @@ export default function HeaderLogined() {
           });
 
           // Show toast notification
-          toast.info("Có thông báo giá mới!");
-        });
+          toast.info("Có thông báo giá mới!", {
+            description: `${stockCode} - ${exchange}`,
+            action: {
+              label: "Xem",
+              onClick: () => setIsOpen(true)
+            }
+          });
+        };
 
+        // Add event listener
+        window.addEventListener('stockNotification', handleNotification);
+
+        // Setup SignalR notification listeners
         await signalRService.setupNotificationListeners();
         console.log("[SignalR] Notification listener setup complete");
+
+        // Handle connection status changes
+        const handleConnectionStatus = (event) => {
+          const { status } = event.detail;
+          if (status === 'connected') {
+            console.log("[SignalR] Reconnected, re-setting up notification listeners");
+            signalRService.setupNotificationListeners();
+          }
+        };
+
+        window.addEventListener('signalrConnectionStatus', handleConnectionStatus);
+
+        // Return cleanup function
+        return () => {
+          window.removeEventListener('stockNotification', handleNotification);
+          window.removeEventListener('signalrConnectionStatus', handleConnectionStatus);
+        };
       } catch (error) {
         console.error("[SignalR] Error setting up notification listener:", error);
       }
     };
 
-    setupNotificationListener();
-
-    // Cleanup
+    const cleanup = setupNotificationListener();
     return () => {
-      window.removeEventListener('stockNotification', () => {});
+      if (cleanup && typeof cleanup.then === 'function') {
+        cleanup.then(cleanupFn => {
+          if (cleanupFn) cleanupFn();
+        });
+      }
     };
   }, []);
 
