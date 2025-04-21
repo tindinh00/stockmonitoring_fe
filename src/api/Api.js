@@ -1067,6 +1067,93 @@ export const apiService = {
     }
   },
 
+  getUserPaymentHistory: async (search = '', statusFilter = '') => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("User ID không tồn tại");
+      }
+      
+      console.log("Fetching payment history for user:", userId);
+      
+      // Create a base URL
+      let url = '/api/payments/history';
+      
+      // Only add query parameters if they have values
+      const queryParams = [];
+      if (search && search.trim() !== '') {
+        queryParams.push(`search=${encodeURIComponent(search.trim())}`);
+      }
+      
+      if (statusFilter && statusFilter !== 'ALL') {
+        queryParams.push(`statusFilter=${encodeURIComponent(statusFilter)}`);
+      }
+      
+      // Append query string if we have parameters
+      if (queryParams.length > 0) {
+        url += '?' + queryParams.join('&');
+      }
+      
+      console.log("Fetching payment history with URL:", url);
+      
+      const response = await axiosInstance.get(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      
+      console.log('Payment history response:', response.data);
+      
+      if (response.status === 200) {
+        let transactions = [];
+        
+        // Check for different response structures
+        if (response.data && response.data.value && Array.isArray(response.data.value)) {
+          transactions = response.data.value;
+        } else if (response.data && response.data.value && response.data.value.data && Array.isArray(response.data.value.data)) {
+          transactions = response.data.value.data;
+        } else if (response.data && Array.isArray(response.data)) {
+          transactions = response.data;
+        } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          transactions = response.data.data;
+        } else {
+          console.warn('Unexpected response format:', response.data);
+          transactions = [];
+        }
+        
+        return {
+          status: 'success',
+          data: transactions
+        };
+      } else {
+        throw new Error('Không thể lấy lịch sử thanh toán');
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        return {
+          status: 'error',
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+        };
+      }
+      
+      return {
+        status: 'error',
+        message: error.response?.data?.message || error.message || 'Không thể lấy lịch sử giao dịch'
+      };
+    }
+  },
+
   getNews: async (source = "cafef") => {
     try {
       const token = Cookies.get("auth_token");
