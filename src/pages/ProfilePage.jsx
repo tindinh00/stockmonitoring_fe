@@ -18,7 +18,10 @@ import {
   Settings,
   Bell,
   Crown,
-  LogOut
+  LogOut,
+  Star,
+  AlertCircle,
+  CheckCircle
 } from "lucide-react";
 import Cookies from "js-cookie";
 
@@ -133,6 +136,16 @@ const ProfilePage = () => {
         }
       }
       
+      // Ưu tiên lấy tier từ user_data
+      let userTier = "Free";
+      if (localUserData && localUserData.tier) {
+        userTier = localUserData.tier;
+      } else if (tierFromCookie) {
+        userTier = tierFromCookie;
+      } else if (localUserInfo && localUserInfo.tier) {
+        userTier = localUserInfo.tier;
+      }
+      
       // Combine data from all sources, prioritizing in this order:
       // 1. Context data (user)
       // 2. user_info from localStorage (most likely to have latest profile edits)
@@ -149,7 +162,8 @@ const ProfilePage = () => {
         // For these fields, prioritize user_info which might have updated profile data
         dateOfBirth: localUserInfo?.dateOfBirth || user?.dateOfBirth || localUserData?.dateOfBirth || "",
         address: localUserInfo?.address || user?.address || localUserData?.address || "",
-        tier: user?.tier || localUserInfo?.tier || localUserData?.tier || "Free"
+        tier: userTier,
+        features: localUserData?.features || user?.features || localUserInfo?.features || []
       };
       
       console.log("Combined user data:", combinedData);
@@ -162,28 +176,49 @@ const ProfilePage = () => {
     }
   }, [user]);
   
-  // Lấy thông tin gói dịch vụ
+  // Lấy thông tin gói dịch vụ và lịch sử thanh toán
   useEffect(() => {
-    const fetchUserSubscription = async () => {
+    const fetchUserData = async () => {
       try {
         setLoadingSubscription(true);
-        const response = await apiService.getUserSubscription();
-        console.log("User Subscription API Response:", response);
         
-        if (response.success && response.data) {
-          setSubscription(response.data);
+        // Lấy thông tin subscription
+        const subscriptionResponse = await apiService.getUserSubscription();
+        console.log("User Subscription API Response:", subscriptionResponse);
+        
+        if (subscriptionResponse.success && subscriptionResponse.data) {
+          setSubscription(subscriptionResponse.data);
         } else {
           console.log("No active subscription found");
         }
+        
+        // Lấy thông tin lịch sử thanh toán để biết ngày thanh toán và hết hạn
+        const paymentHistoryResponse = await apiService.getUserPaymentHistory();
+        console.log("Payment History API Response:", paymentHistoryResponse);
+        
+        if (paymentHistoryResponse.status === 'success' && Array.isArray(paymentHistoryResponse.data)) {
+          // Tìm gói đăng ký hiện tại (đầu tiên có status SUCCESS)
+          const latestSuccessPayment = paymentHistoryResponse.data.find(t => t.status === 'SUCCESS');
+          
+          if (latestSuccessPayment) {
+            console.log("Found latest SUCCESS payment:", latestSuccessPayment);
+            // Cập nhật lại thông tin subscription với ngày thanh toán và hết hạn từ lịch sử thanh toán SUCCESS
+            setSubscription(prev => ({
+              ...prev,
+              createdAt: latestSuccessPayment.createdAt,
+              expireDate: latestSuccessPayment.expireDate
+            }));
+          }
+        }
       } catch (error) {
-        console.error("Error fetching user subscription:", error);
+        console.error("Error fetching user data:", error);
       } finally {
         setLoadingSubscription(false);
       }
     };
     
     if (isAuthenticated) {
-      fetchUserSubscription();
+      fetchUserData();
     }
   }, [isAuthenticated]);
   
@@ -196,47 +231,97 @@ const ProfilePage = () => {
   
   // Thêm hàm để xác định màu sắc của badge dựa trên tier
   const getTierBadgeColor = (tier) => {
-    if (!tier) return "bg-green-500"; // Default: Free
+    if (!tier) return "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/80"; // Default: Free
     
-    const tierLower = tier.toLowerCase();
-    if (tierLower.includes("premium") || tierLower.includes("vàng") || tierLower === "premium") {
-      return "bg-yellow-500"; // Premium/Gold: yellow
-    } else if (tierLower.includes("vip") || tierLower.includes("kim cương") || tierLower === "vip") {
-      return "bg-blue-600"; // VIP/Diamond: blue
-    } else if (tierLower.includes("platinum") || tierLower === "platinum") {
-      return "bg-purple-600"; // Platinum: purple
-    } else if (tierLower === "free") {
-      return "bg-green-500"; // Free: green
+    // Chuyển đổi tier thành chuỗi và lowercase để so sánh
+    const tierLower = (tier + "").toLowerCase();
+    
+    // Tạo hash từ tên tier để có màu nhất quán
+    let hash = 0;
+    for (let i = 0; i < tierLower.length; i++) {
+      hash = tierLower.charCodeAt(i) + ((hash << 5) - hash);
     }
     
-    return "bg-green-500"; // Default fallback
+    // Một số tier đặc biệt có thể được gán màu cố định
+    if (tierLower === "free") return "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/80";
+    if (tierLower.includes("vip")) return "border-transparent bg-blue-600 text-white hover:bg-blue-600/80";
+    if (tierLower.includes("premium")) return "border-transparent bg-amber-500 text-white hover:bg-amber-500/80";
+    if (tierLower.includes("platinum")) return "border-transparent bg-purple-600 text-white hover:bg-purple-600/80";
+    if (tierLower.includes("standard")) return "border-transparent bg-sky-500 text-white hover:bg-sky-500/80";
+    
+    // Các tier khác: dùng hash để chọn màu
+    const colors = [
+      "border-transparent bg-amber-500 text-white hover:bg-amber-500/80",
+      "border-transparent bg-blue-600 text-white hover:bg-blue-600/80",
+      "border-transparent bg-purple-600 text-white hover:bg-purple-600/80",
+      "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/80",
+      "border-transparent bg-sky-500 text-white hover:bg-sky-500/80",
+      "border-transparent bg-red-500 text-white hover:bg-red-500/80",
+      "border-transparent bg-pink-500 text-white hover:bg-pink-500/80",
+      "border-transparent bg-indigo-600 text-white hover:bg-indigo-600/80",
+      "border-transparent bg-orange-500 text-white hover:bg-orange-500/80",
+      "border-transparent bg-teal-500 text-white hover:bg-teal-500/80"
+    ];
+    
+    const colorIndex = Math.abs(hash) % colors.length;
+    return colors[colorIndex];
   };
 
   // Xác định màu sắc và nội dung của badge dựa trên role và tier
   const getBadgeForRole = (role) => {
     // Ưu tiên hiển thị theo subscription nếu có
-    if (subscription) {
-      const packageName = subscription.packageName?.toLowerCase() || "";
-      
-      if (packageName.includes("vip") || packageName.includes("kim cương")) {
-        return <Badge className="absolute -top-1 -right-1 bg-blue-500">VIP</Badge>;
-      } else if (packageName.includes("premium") || packageName.includes("vàng")) {
-        return <Badge className="absolute -top-1 -right-1 bg-yellow-500">Premium</Badge>;
-      }
+    if (subscription) {      
+      return (
+        <Badge 
+          className="absolute -top-1 -right-1"
+          style={{ 
+            backgroundColor: subscription.packageName?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                             subscription.packageName?.toLowerCase().includes('vip') ? '#2563eb' : 
+                             subscription.packageName?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                             subscription.packageName?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                             '#10b981',
+            color: 'white',
+            borderColor: 'transparent'
+          }}
+        > 
+          {subscription.packageName}
+        </Badge>
+      );
     }
     
-    // Nếu không có subscription, kiểm tra role
+    // Nếu không có subscription, kiểm tra tier từ userInfo
+    if (userInfo.tier && userInfo.tier !== 'Free') {
+      return (
+        <Badge 
+          className="absolute -top-1 -right-1"
+          style={{ 
+            backgroundColor: userInfo.tier.toLowerCase().includes('premium') ? '#f59e0b' : 
+                             userInfo.tier.toLowerCase().includes('vip') ? '#2563eb' : 
+                             userInfo.tier.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                             userInfo.tier.toLowerCase().includes('platinum') ? '#9333ea' : 
+                             '#10b981',
+            color: 'white',
+            borderColor: 'transparent'
+          }}
+        > 
+          {userInfo.tier}
+        </Badge>
+      );
+    }
+    
+    // Kiểm tra role nếu không có tier
     if (role) {
-      switch (role.toLowerCase()) {
+      const roleLower = role.toLowerCase();
+      switch (roleLower) {
         case "admin":
-          return <Badge className="absolute -top-1 -right-1 bg-red-500">Admin</Badge>;
+          return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#ef4444', color: 'white', borderColor: 'transparent' }}>Admin</Badge>;
         case "manager":
-          return <Badge className="absolute -top-1 -right-1 bg-blue-500">Manager</Badge>;
+          return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#3b82f6', color: 'white', borderColor: 'transparent' }}>Manager</Badge>;
       }
     }
     
     // Mặc định là Free
-    return <Badge className="absolute -top-1 -right-1 bg-green-500">Free</Badge>;
+    return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#10b981', color: 'white', borderColor: 'transparent' }}>Free</Badge>;
   };
 
   const handleInputChange = (e) => {
@@ -438,36 +523,45 @@ const ProfilePage = () => {
               </div>
               <CardTitle>{userInfo.name}</CardTitle>
               <CardDescription>{userInfo.email}</CardDescription>
+              {/* Component hiển thị trong sidebar */}
               {loadingSubscription ? (
                 <div className="text-xs text-muted-foreground mt-2">Đang tải thông tin gói...</div>
               ) : subscription ? (
                 <div className="mt-2">
-                  <Badge className={getTierBadgeColor(subscription.packageName)}>
-                    {subscription.packageName || "Gói Free"}
+                  <Badge 
+                    style={{ 
+                      backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                        userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                        userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                        userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                        '#10b981',
+                      color: 'white',
+                      borderColor: 'transparent'
+                    }}
+                  >
+                    {subscription.packageName || userInfo.tier || "Free"}
                   </Badge>
                   <div className="flex items-center justify-center mt-1 text-xs">
-                    {subscription.status === "Active" ? (
-                      <div className="flex items-center text-muted-foreground">
-                        <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
-                        Đang hoạt động
-                      </div>
-                    ) : subscription.status === "Expired" ? (
-                      <div className="flex items-center text-muted-foreground">
-                        <div className="h-2 w-2 rounded-full bg-red-500 mr-1.5"></div>
-                        Đã hết hạn
-                      </div>
-                    ) : (
-                      <div className="flex items-center text-muted-foreground">
-                        <div className="h-2 w-2 rounded-full bg-yellow-500 mr-1.5"></div>
-                        Chưa kích hoạt
-                      </div>
-                    )}
+                    <div className="flex items-center text-muted-foreground">
+                      <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
+                      Đang hoạt động
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="mt-2">
-                  <Badge className={getTierBadgeColor(user?.tier)}>
-                    {user?.tier || "Gói Free"}
+                  <Badge 
+                    style={{ 
+                      backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                        userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                        userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                        userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                        '#10b981',
+                      color: 'white',
+                      borderColor: 'transparent'
+                    }}
+                  >
+                    {userInfo.tier || "Free"}
                   </Badge>
                   <div className="flex items-center justify-center mt-1">
                     <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
@@ -492,15 +586,7 @@ const ProfilePage = () => {
                   onClick={() => handleTabChange("subscriptions")}
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Gói dịch vụ
-                </Button>
-                <Button 
-                  variant={activeTab === "transactions" ? "default" : "ghost"} 
-                  className="w-full justify-start" 
-                  onClick={() => handleTabChange("transactions")}
-                >
-                  <History className="h-4 w-4 mr-2" />
-                  Lịch sử giao dịch
+                  Dịch vụ & Giao dịch
                 </Button>
               </nav>
             </CardContent>
@@ -707,14 +793,128 @@ const ProfilePage = () => {
             </div>
           )}
           
-          {/* Gói dịch vụ */}
+          {/* Gói dịch vụ và Lịch sử giao dịch */}
           {activeTab === "subscriptions" && (
-            <UserSubscription />
-          )}
-          
-          {/* Lịch sử giao dịch */}
-          {activeTab === "transactions" && (
-            <TransactionHistory />
+            <div className="space-y-6">
+              {/* Component hiển thị gói dịch vụ hiện tại */}
+              {!loadingSubscription && (
+                <Card className="bg-[#111121] border border-[#1f1f30] overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div style={{ 
+                          backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                           userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                           userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                           userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                           '#10b981',
+                          padding: '0.5rem',
+                          borderRadius: '0.375rem'
+                        }}>
+                          <Star className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-bold text-white">Gói dịch vụ hiện tại</CardTitle>
+                          <CardDescription className="text-gray-400">Thông tin gói dịch vụ bạn đang sử dụng</CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-0">
+                    {userInfo.tier === 'Free' || !userInfo.tier ? (
+                      <div className="flex items-center justify-between bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-yellow-500/20 p-2 rounded-full">
+                            <AlertCircle className="w-5 h-5 text-yellow-500" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-white">Bạn đang dùng gói Free</h3>
+                            <p className="text-sm text-gray-400">Vui lòng chọn một gói dịch vụ phù hợp để nâng cấp tài khoản</p>
+                          </div>
+                        </div>
+                        <Button 
+                          className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 whitespace-nowrap"
+                          onClick={() => navigate('/upgrade-package')}
+                        >
+                          Nâng cấp ngay
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ 
+                          backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                           userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                           userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                           userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                           '#10b981',
+                          padding: '0.75rem 1rem',
+                          color: 'white'
+                        }}>
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-white/20 p-1.5 rounded-full">
+                                <CreditCard className="w-4 h-4" />
+                              </div>
+                              <h3 className="font-bold text-white">
+                                Gói {userInfo.tier}
+                              </h3>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4">
+                          {/* Thông tin thời gian */}
+                          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-[#171727] p-3 rounded-md">
+                              <span className="text-sm text-gray-400">Ngày thanh toán</span>
+                              <p className="font-medium text-white">
+                                {subscription?.createdAt ? new Date(subscription.createdAt).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
+                              </p>
+                            </div>
+                            <div className="bg-[#171727] p-3 rounded-md">
+                              <span className="text-sm text-gray-400">Ngày hết hạn</span>
+                              <p className="font-medium text-white">
+                                {subscription?.expireDate ? new Date(subscription.expireDate).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <h4 className="text-sm font-medium text-gray-400 mb-3">Tính năng của gói:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {Array.isArray(userInfo.features) && userInfo.features.length > 0 ? 
+                              userInfo.features.map((feature, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-500" />
+                                  <span className="text-sm">{feature}</span>
+                                </div>
+                              )) : 
+                              (
+                                <div className="col-span-2 text-center text-gray-400">
+                                  <p>Không có thông tin về tính năng gói</p>
+                                </div>
+                              )
+                            }
+                          </div>
+                          
+                          <div className="mt-4 flex justify-end">
+                            <Button 
+                              className="bg-[#09D1C7] hover:bg-[#09D1C7]/90"
+                              onClick={() => navigate('/upgrade-package')}
+                            >
+                              Nâng cấp gói
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Thêm lịch sử giao dịch */}
+              <TransactionHistory className="bg-[#111121] border border-[#1f1f30] rounded-md overflow-hidden" />
+            </div>
           )}
           
           {/* Cài đặt */}

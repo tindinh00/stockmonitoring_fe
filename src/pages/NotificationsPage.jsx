@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import { toast } from "sonner";
-import { Loader2, Bell, AlertTriangle, ArrowUpDown, ArrowDown, ArrowUp, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Bell, AlertTriangle, ArrowUpDown, ArrowDown, ArrowUp, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils"
 import signalRService from "@/api/signalRService";
 
 const NotificationsPage = () => {
@@ -41,10 +42,11 @@ const NotificationsPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [watchlistStocks, setWatchlistStocks] = useState([]);
+  const [open, setOpen] = useState(false);
   const [newNotification, setNewNotification] = useState({
     tickerSymbol: '',
     price: '',
-    type: 'increase' // Thay đổi giá trị mặc định
+    type: 'increase'
   });
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingNotification, setEditingNotification] = useState(null);
@@ -53,7 +55,16 @@ const NotificationsPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingNotification, setDeletingNotification] = useState(null);
-  const [deletingIds, setDeletingIds] = useState([]); // Track which notifications are being deleted
+  const [deletingIds, setDeletingIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredStocks, setFilteredStocks] = useState([]);
+
+  useEffect(() => {
+    const filtered = watchlistStocks.filter(stock =>
+      stock.ticketSymbol.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredStocks(filtered);
+  }, [searchQuery, watchlistStocks]);
 
   useEffect(() => {
     fetchNotifications();
@@ -68,52 +79,43 @@ const NotificationsPage = () => {
         }
         console.log("[Notifications] Setting up notification listener for user:", userId);
 
-        // Đảm bảo kết nối được thiết lập trước
-        const connection = await signalRService.startStockConnection();
+        const connection = await signalRService.getConnection();
+        if (!connection) {
+          console.error("Failed to establish SignalR connection");
+          return;
+        }
         console.log("[Notifications] SignalR connection state:", connection?.state);
         
-        // Đợi một chút để kết nối ổn định
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        const result = await signalRService.setupNotificationListener(userId);
-        console.log("[Notifications] Setup result:", result);
+        await signalRService.setupNotificationListeners();
         
-        if (result.success) {
-          console.log("[Notifications] Listener setup successful, registering event handler");
-          
-          const handleNotification = (event) => {
-            console.log("[Notifications] Received notification event:", event);
-            const notification = event.detail;
-            if (notification.userId === userId) {
-              console.log("[Notifications] Processing notification for current user:", notification);
-              
-              toast.info(notification.message, {
-                description: `Thời gian: ${new Date(notification.time).toLocaleString()} - Sàn: ${notification.exchange}`,
-                duration: 10000,
-                action: {
-                  label: "Xem",
-                  onClick: () => fetchNotifications()
-                }
-              });
+        const handleNotification = (event) => {
+          console.log("[Notifications] Received notification event:", event);
+          const notification = event.detail;
+          if (notification.userId === userId) {
+            console.log("[Notifications] Processing notification for current user:", notification);
+            
+            toast.info(notification.message, {
+              description: `Thời gian: ${new Date(notification.time).toLocaleString()} - Sàn: ${notification.exchange}`,
+              duration: 10000,
+              action: {
+                label: "Xem",
+                onClick: () => fetchNotifications()
+              }
+            });
 
-              fetchNotifications();
-            }
-          };
+            fetchNotifications();
+          }
+        };
 
-          window.addEventListener('stockNotification', handleNotification);
-          
-          return () => {
-            window.removeEventListener('stockNotification', handleNotification);
-            signalRService.leaveNotificationGroup(userId).catch(console.error);
-          };
-        } else {
-          console.error("Failed to setup notification listener:", result.message);
-          // Thử kết nối lại sau 5 giây
-          setTimeout(() => setupNotificationListener(), 5000);
-        }
+        window.addEventListener('stockNotification', handleNotification);
+        
+        return () => {
+          window.removeEventListener('stockNotification', handleNotification);
+        };
       } catch (error) {
         console.error("Error setting up notification listener:", error);
-        // Thử kết nối lại sau 5 giây
         setTimeout(() => setupNotificationListener(), 5000);
       }
     };
@@ -136,6 +138,7 @@ const NotificationsPage = () => {
       console.log("Watchlist stocks response:", response);
       if (response?.value?.data && Array.isArray(response.value.data)) {
         setWatchlistStocks(response.value.data);
+        setFilteredStocks(response.value.data);
       }
     } catch (error) {
       console.error("Error fetching watchlist stocks:", error);
@@ -173,7 +176,6 @@ const NotificationsPage = () => {
       setIsDialogOpen(false);
       fetchNotifications();
       
-      // Reset form
       setNewNotification({
         tickerSymbol: '',
         price: '',
@@ -296,7 +298,7 @@ const NotificationsPage = () => {
         duration: 5000
       });
       setIsEditDialogOpen(false);
-      fetchNotifications(); // Refresh the list
+      fetchNotifications();
     } catch (error) {
       console.error("Error updating price:", error);
       toast.error("Không thể cập nhật giá: " + (error.message || "Vui lòng thử lại sau"));
@@ -420,7 +422,6 @@ const NotificationsPage = () => {
 
   return (
     <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
-      {/* Page Header */}
       <div className="px-4 py-6 border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between">
           <div>
@@ -451,18 +452,43 @@ const NotificationsPage = () => {
                       onValueChange={(value) => setNewNotification(prev => ({ ...prev, tickerSymbol: value }))}
                     >
                       <SelectTrigger className="bg-[#0a0a14] border-[#333] text-white">
-                        <SelectValue placeholder="Chọn mã cổ phiếu" />
+                        <SelectValue placeholder="Tìm kiếm mã cổ phiếu..." />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1a1a] border-[#333]">
-                        {watchlistStocks.map((stock) => (
-                          <SelectItem 
-                            key={stock.id} 
-                            value={stock.ticketSymbol}
-                            className="text-white hover:bg-[#252525] focus:bg-[#252525]"
-                          >
-                            {stock.ticketSymbol}
-                          </SelectItem>
-                        ))}
+                        <div className="p-2">
+                          <Input
+                            type="text"
+                            placeholder="Tìm kiếm mã cổ phiếu..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery(e.target.value);
+                            }}
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className="bg-[#0a0a14] border-[#333] text-white mb-2"
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-auto">
+                          {filteredStocks.map((stock) => (
+                            <SelectItem 
+                              key={stock.id} 
+                              value={stock.ticketSymbol}
+                              className="text-white hover:bg-[#252525] focus:bg-[#252525]"
+                            >
+                              {stock.ticketSymbol}
+                            </SelectItem>
+                          ))}
+                          {filteredStocks.length === 0 && (
+                            <div className="text-[#666] p-2 text-center">
+                              Không tìm thấy mã cổ phiếu
+                            </div>
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>
@@ -546,7 +572,6 @@ const NotificationsPage = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="p-4">
         <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
           <div className="p-4 border-b border-[#333] flex justify-between items-center">
@@ -563,7 +588,6 @@ const NotificationsPage = () => {
         </div>
       </div>
 
-      {/* Edit Price Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-[#1a1a1a] text-white border-[#333]">
           <DialogHeader>
@@ -611,7 +635,6 @@ const NotificationsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="bg-[#1a1a1a] text-white border-[#333]">
           <DialogHeader>

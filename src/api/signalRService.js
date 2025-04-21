@@ -233,18 +233,22 @@ class SignalRService {
       // Clear existing listener
       connection.off("StockNotification");
 
-      // Register notification handler
+      // Register new listener
       connection.on("StockNotification", (data) => {
-        console.log("[SignalR] Notification received:", data);
+        console.log("[SignalR] Stock notification received:", data);
         window.dispatchEvent(new CustomEvent('stockNotification', {
-          detail: data
+          detail: {
+            message: data.message,
+            time: data.time,
+            userId: data.userId,
+            exchange: data.exchange
+          }
         }));
       });
 
-      console.log("[SignalR] Notification listener setup complete");
-      return { success: true, message: "Notification listener registered successfully" };
+      return { success: true };
     } catch (error) {
-      console.error("[SignalR] Error in setupNotificationListeners:", error);
+      console.error("[SignalR] Failed to setup notification listeners:", error);
       return { success: false, message: error.message };
     }
   }
