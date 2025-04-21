@@ -521,7 +521,12 @@ export const stockService = {
   getWatchlistStocks: async () => {
     try {
       const response = await axiosInstance.get(
-        '/api/watchlist-stock'
+        '/api/watchlist-stock',
+        {
+          params: {
+            pageSize: 10000
+          }
+        }
       );
       console.log("Get watchlist stocks response:", response.data);
       return response.data;
