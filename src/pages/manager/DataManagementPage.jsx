@@ -110,12 +110,8 @@ export default function DataManagementPage() {
         isContinuousScraping: editedValues.isContinuousScraping !== undefined 
           ? editedValues.isContinuousScraping 
           : currentConfig.isContinuousScraping,
-        periodicIntervalMinutes: editedValues.periodicIntervalMinutes !== undefined 
-          ? editedValues.periodicIntervalMinutes 
-          : currentConfig.periodicIntervalMinutes,
-        continuousIntervalMinutes: editedValues.continuousIntervalMinutes !== undefined 
-          ? editedValues.continuousIntervalMinutes 
-          : currentConfig.continuousIntervalMinutes
+        periodicIntervalMinutes: editedValues.isPeriodicScraping ? editedValues.periodicIntervalMinutes : currentConfig.periodicIntervalMinutes,
+        continuousIntervalMinutes: editedValues.isContinuousScraping ? editedValues.continuousIntervalMinutes : currentConfig.continuousIntervalMinutes
       };
       
       // Validate rules
@@ -136,7 +132,7 @@ export default function DataManagementPage() {
         return;
       }
       
-      await axios.put(`${API_URL}/api/scrapper-config/${currentConfig.id}`, updatedData, createAuthHeader());
+      await axios.put(`${API_URL}/api/scrapper-config`, updatedData, createAuthHeader());
       
       // Update local state
       setScraperConfigs(prev => 
@@ -160,15 +156,46 @@ export default function DataManagementPage() {
   };
 
   const handleEditConfig = (config) => {
+    // Tách số phút thành phút và giây
+    const periodicMinutes = Math.floor(config.periodicIntervalMinutes);
+    const periodicSeconds = Math.round((config.periodicIntervalMinutes - periodicMinutes) * 60);
+    
+    const continuousMinutes = Math.floor(config.continuousIntervalMinutes);
+    const continuousSeconds = Math.round((config.continuousIntervalMinutes - continuousMinutes) * 60);
+    
     setEditingConfig(config);
     setEditedValues({
       isActive: config.isActive,
       isPeriodicScraping: config.isPeriodicScraping,
       isContinuousScraping: config.isContinuousScraping,
       periodicIntervalMinutes: config.periodicIntervalMinutes,
-      continuousIntervalMinutes: config.continuousIntervalMinutes
+      continuousIntervalMinutes: config.continuousIntervalMinutes,
+      // Thêm các giá trị mới cho phút và giây
+      periodicMinutes,
+      periodicSeconds,
+      continuousMinutes,
+      continuousSeconds
     });
     setConfigDialogOpen(true);
+  };
+
+  // Thêm hàm định dạng hiển thị phút và giây
+  const formatTimeDisplay = (minutes) => {
+    const mins = Math.floor(minutes);
+    const secs = Math.round((minutes - mins) * 60);
+    
+    if (mins === 0) {
+      return `${secs} giây`;
+    } else if (secs === 0) {
+      return `${mins} phút`;
+    } else {
+      return `${mins} phút ${secs} giây`;
+    }
+  };
+
+  // Hàm chuyển đổi phút và giây thành số phút (có phần thập phân)
+  const convertToMinutes = (minutes, seconds) => {
+    return parseFloat(minutes) + (parseFloat(seconds) / 60);
   };
 
   const handleValueChange = (field, value) => {
@@ -176,6 +203,23 @@ export default function DataManagementPage() {
       ...prev,
       [field]: value
     }));
+    
+    // Nếu cập nhật phút hoặc giây, tính lại số phút tổng
+    if (field === 'periodicMinutes' || field === 'periodicSeconds') {
+      const minutes = field === 'periodicMinutes' ? value : prev.periodicMinutes || 0;
+      const seconds = field === 'periodicSeconds' ? value : prev.periodicSeconds || 0;
+      setEditedValues(prev => ({
+        ...prev,
+        periodicIntervalMinutes: convertToMinutes(minutes, seconds)
+      }));
+    } else if (field === 'continuousMinutes' || field === 'continuousSeconds') {
+      const minutes = field === 'continuousMinutes' ? value : prev.continuousMinutes || 0;
+      const seconds = field === 'continuousSeconds' ? value : prev.continuousSeconds || 0;
+      setEditedValues(prev => ({
+        ...prev,
+        continuousIntervalMinutes: convertToMinutes(minutes, seconds)
+      }));
+    }
     
     // If toggling scraping mode, make sure they're mutually exclusive
     if (field === 'isPeriodicScraping' && value === true) {
@@ -684,20 +728,40 @@ export default function DataManagementPage() {
                   </Label>
                   <div className="sm:col-span-3">
                     <div className="flex items-center space-x-2">
-                      <Input
-                        id="periodicIntervalMinutes"
-                        type="number"
-                        min={editingConfig.minPeriodicInterval}
-                        step="0.1"
-                        value={editedValues.periodicIntervalMinutes}
-                        onChange={(e) => handleValueChange('periodicIntervalMinutes', parseFloat(e.target.value))}
-                        className="w-28 rounded-lg"
-                      />
-                      <span>phút</span>
+                      <div className="flex items-center">
+                        <Input
+                          id="periodicMinutes"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={editedValues.periodicMinutes || 0}
+                          onChange={(e) => handleValueChange('periodicMinutes', parseFloat(e.target.value) || 0)}
+                          className="w-20 rounded-lg"
+                        />
+                        <span className="ml-2 mr-4">phút</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Input
+                          id="periodicSeconds"
+                          type="number"
+                          min="0"
+                          max="59"
+                          step="1"
+                          value={editedValues.periodicSeconds || 0}
+                          onChange={(e) => handleValueChange('periodicSeconds', parseFloat(e.target.value) || 0)}
+                          className="w-20 rounded-lg"
+                        />
+                        <span className="ml-2">giây</span>
+                      </div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-2 flex items-center bg-muted/50 p-2 rounded-md">
                       <AlertCircle className="h-3 w-3 mr-1.5 text-amber-500" />
-                      Giá trị tối thiểu: {editingConfig.minPeriodicInterval} phút
+                      Giá trị tối thiểu: {formatTimeDisplay(editingConfig.minPeriodicInterval)}
+                      {editedValues.periodicIntervalMinutes < editingConfig.minPeriodicInterval && (
+                        <span className="ml-2 text-red-500 font-medium">
+                          (Thời gian đã chọn: {formatTimeDisplay(editedValues.periodicIntervalMinutes)})
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -729,20 +793,40 @@ export default function DataManagementPage() {
                   </Label>
                   <div className="sm:col-span-3">
                     <div className="flex items-center space-x-2">
-                      <Input
-                        id="continuousIntervalMinutes"
-                        type="number"
-                        min={editingConfig.minContinuousInterval}
-                        step="0.1"
-                        value={editedValues.continuousIntervalMinutes}
-                        onChange={(e) => handleValueChange('continuousIntervalMinutes', parseFloat(e.target.value))}
-                        className="w-28 rounded-lg"
-                      />
-                      <span>phút</span>
+                      <div className="flex items-center">
+                        <Input
+                          id="continuousMinutes"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={editedValues.continuousMinutes || 0}
+                          onChange={(e) => handleValueChange('continuousMinutes', parseFloat(e.target.value) || 0)}
+                          className="w-20 rounded-lg"
+                        />
+                        <span className="ml-2 mr-4">phút</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Input
+                          id="continuousSeconds"
+                          type="number"
+                          min="0"
+                          max="59"
+                          step="1"
+                          value={editedValues.continuousSeconds || 0}
+                          onChange={(e) => handleValueChange('continuousSeconds', parseFloat(e.target.value) || 0)}
+                          className="w-20 rounded-lg"
+                        />
+                        <span className="ml-2">giây</span>
+                      </div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-2 flex items-center bg-muted/50 p-2 rounded-md">
                       <AlertCircle className="h-3 w-3 mr-1.5 text-amber-500" />
-                      Giá trị tối thiểu: {editingConfig.minContinuousInterval} phút
+                      Giá trị tối thiểu: {formatTimeDisplay(editingConfig.minContinuousInterval)}
+                      {editedValues.continuousIntervalMinutes < editingConfig.minContinuousInterval && (
+                        <span className="ml-2 text-red-500 font-medium">
+                          (Thời gian đã chọn: {formatTimeDisplay(editedValues.continuousIntervalMinutes)})
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

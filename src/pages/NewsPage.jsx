@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, TrendingUp, Newspaper, Share2, Bookmark, Eye, ArrowLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Share2, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import signalRService from '@/api/signalRService';
@@ -17,25 +17,11 @@ const NewsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
-  // Thêm state để theo dõi các ảnh bị lỗi
   const [failedImages, setFailedImages] = useState({});
-  // Thêm state để theo dõi quá trình tải chi tiết bài viết
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [newsDetail, setNewsDetail] = useState(null);
-  // URL của bài viết được chọn
   const [selectedArticleUrl, setSelectedArticleUrl] = useState(null);
   const itemsPerPage = 9;
-
-  // Categories
-  const categories = [
-    { id: 'all', name: 'Tất cả', icon: Newspaper },
-    { id: 'trending', name: 'Xu hướng', icon: TrendingUp },
-    { id: 'market', name: 'Thị trường', icon: Eye },
-    { id: 'stock', name: 'Chứng khoán', icon: TrendingUp },
-    { id: 'crypto', name: 'Tiền số', icon: TrendingUp },
-  ];
 
   // Helper function to convert timeAgo string to minutes for proper sorting
   const timeAgoToMinutes = (timeAgo) => {
@@ -244,14 +230,6 @@ const NewsPage = () => {
     }
   };
 
-  const toggleBookmark = (articleId) => {
-    setBookmarkedArticles(prev => 
-      prev.includes(articleId) 
-        ? prev.filter(id => id !== articleId)
-        : [...prev, articleId]
-    );
-  };
-
   const shareArticle = (article) => {
     if (navigator.share) {
       navigator.share({
@@ -332,49 +310,19 @@ const NewsPage = () => {
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white">
       <div className="max-w-[1600px] mx-auto">
-        {/* Header with Categories */}
+        {/* Header */}
         <div className="sticky top-0 z-10 bg-[#0a0a14]/95 backdrop-blur-sm border-b border-[#333] mb-6">
           <div className="px-4 py-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">
-                  <span className="text-[#09D1C7]">Stock</span>
-                  <span className="text-white">News</span>
-                </h1>
-                <div className="flex items-center gap-3">
-                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#09D1C7]/10 text-[#09D1C7] hover:bg-[#09D1C7]/20 transition-all duration-300">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm font-medium">Mới nhất</span>
-                  </button>
-                  <div className="h-4 w-px bg-[#333]"></div>
-                  <button className="p-2 rounded-full hover:bg-[#1a1a1a] transition-colors">
-                    <Bookmark className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {categories.map((category) => {
-                  const Icon = category.icon;
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${
-                        selectedCategory === category.id
-                          ? 'bg-gradient-to-r from-[#09D1C7] to-[#0a8f88] text-white shadow-lg shadow-[#09D1C7]/20'
-                          : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525] hover:text-[#09D1C7]'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${
-                        selectedCategory === category.id
-                          ? 'animate-pulse'
-                          : ''
-                      }`} />
-                      <span className="text-sm font-medium whitespace-nowrap">{category.name}</span>
-                    </button>
-                  );
-                })}
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold">
+                <span className="text-[#09D1C7]">Stock</span>
+                <span className="text-white">News</span>
+              </h1>
+              <div className="flex items-center gap-3">
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#09D1C7]/10 text-[#09D1C7] hover:bg-[#09D1C7]/20 transition-all duration-300">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-medium">Mới nhất</span>
+                </button>
               </div>
             </div>
           </div>
@@ -415,21 +363,6 @@ const NewsPage = () => {
                         <span>{currentItems[0]?.source}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleBookmark(currentItems[0]?.id);
-                          }}
-                          className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Bookmark 
-                            className={`w-4 h-4 ${
-                              bookmarkedArticles.includes(currentItems[0]?.id)
-                                ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                : 'text-gray-400'
-                            }`}
-                          />
-                        </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -479,21 +412,6 @@ const NewsPage = () => {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleBookmark(item.id);
-                            }}
-                            className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                          >
-                            <Bookmark 
-                              className={`w-3 h-3 ${
-                                bookmarkedArticles.includes(item.id)
-                                  ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
                               shareArticle(item);
                             }}
                             className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
@@ -526,21 +444,6 @@ const NewsPage = () => {
                         <span>{item.source}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleBookmark(item.id);
-                          }}
-                          className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Bookmark 
-                            className={`w-3 h-3 ${
-                              bookmarkedArticles.includes(item.id)
-                                ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                : 'text-gray-400'
-                            }`}
-                          />
-                        </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -630,18 +533,6 @@ const NewsPage = () => {
                             <span>{selectedArticle.source}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => toggleBookmark(selectedArticle.id)}
-                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                            >
-                              <Bookmark 
-                                className={`w-4 h-4 ${
-                                  bookmarkedArticles.includes(selectedArticle.id)
-                                    ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                    : 'text-gray-400'
-                                }`}
-                              />
-                            </button>
                             <button 
                               onClick={() => shareArticle(selectedArticle)}
                               className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"

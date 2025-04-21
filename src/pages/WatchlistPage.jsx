@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -417,6 +417,31 @@ const WatchlistPage = () => {
         if (activeTab === 'hsx') {
           try {
             console.log("[SignalR] Received HSX update:", data);
+            // Lưu trữ giá trị cũ trước khi cập nhật
+            const oldPrices = {};
+            const oldVolumes = {};
+            watchlist.forEach(stock => {
+              oldPrices[stock.stockCode] = {
+                matchPrice: stock.matchPrice,
+                price1Buy: stock.price1Buy,
+                price2Buy: stock.price2Buy,
+                price3Buy: stock.price3Buy,
+                price1Sell: stock.price1Sell,
+                price2Sell: stock.price2Sell,
+                price3Sell: stock.price3Sell
+              };
+              oldVolumes[stock.stockCode] = {
+                volumeAccumulation: stock.volumeAccumulation,
+                volume1Buy: stock.volume1Buy,
+                volume2Buy: stock.volume2Buy,
+                volume3Buy: stock.volume3Buy,
+                volume1Sell: stock.volume1Sell,
+                volume2Sell: stock.volume2Sell,
+                volume3Sell: stock.volume3Sell,
+                matchedOrderVolume: stock.matchedOrderVolume
+              };
+            });
+
             // Gọi API để lấy dữ liệu mới nhất của sàn HSX
             const userId = getUserId();
             const response = await axios.get(
@@ -435,10 +460,39 @@ const WatchlistPage = () => {
             if (response?.data?.value?.data) {
               const watchlistStocks = response.data.value.data;
               if (Array.isArray(watchlistStocks)) {
+                // So sánh và tạo hiệu ứng flash cho các giá trị thay đổi
+                watchlistStocks.forEach(newStock => {
+                  const oldPrice = oldPrices[newStock.stockCode];
+                  const oldVolume = oldVolumes[newStock.stockCode];
+                  
+                  if (oldPrice) {
+                    // Kiểm tra thay đổi giá
+                    Object.keys(oldPrice).forEach(field => {
+                      if (newStock[field] !== oldPrice[field]) {
+                        const newValue = parseFloat(newStock[field]);
+                        const oldValue = parseFloat(oldPrice[field]);
+                        if (!isNaN(newValue) && !isNaN(oldValue)) {
+                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
+                        }
+                      }
+                    });
+                  }
+                  
+                  if (oldVolume) {
+                    // Kiểm tra thay đổi khối lượng
+                    Object.keys(oldVolume).forEach(field => {
+                      if (newStock[field] !== oldVolume[field]) {
+                        const newValue = parseFloat(newStock[field]);
+                        const oldValue = parseFloat(oldVolume[field]);
+                        if (!isNaN(newValue) && !isNaN(oldValue)) {
+                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
+                        }
+                      }
+                    });
+                  }
+                });
+                
                 setWatchlist(watchlistStocks);
-              } else {
-                console.warn("[SignalR] HSX watchlist data is not an array:", watchlistStocks);
-                setWatchlist([]);
               }
             }
           } catch (error) {
@@ -447,12 +501,36 @@ const WatchlistPage = () => {
         }
       });
       
-      // Lắng nghe sự kiện HNX
+      // Lắng nghe sự kiện HNX - tương tự như HSX
       signalRService.onStock("ReceiveHNXStockUpdate", async (data) => {
         if (activeTab === 'hnx') {
           try {
             console.log("[SignalR] Received HNX update:", data);
-            // Gọi API để lấy dữ liệu mới nhất của sàn HNX
+            // Lưu trữ giá trị cũ
+            const oldPrices = {};
+            const oldVolumes = {};
+            watchlist.forEach(stock => {
+              oldPrices[stock.stockCode] = {
+                matchPrice: stock.matchPrice,
+                price1Buy: stock.price1Buy,
+                price2Buy: stock.price2Buy,
+                price3Buy: stock.price3Buy,
+                price1Sell: stock.price1Sell,
+                price2Sell: stock.price2Sell,
+                price3Sell: stock.price3Sell
+              };
+              oldVolumes[stock.stockCode] = {
+                volumeAccumulation: stock.volumeAccumulation,
+                volume1Buy: stock.volume1Buy,
+                volume2Buy: stock.volume2Buy,
+                volume3Buy: stock.volume3Buy,
+                volume1Sell: stock.volume1Sell,
+                volume2Sell: stock.volume2Sell,
+                volume3Sell: stock.volume3Sell,
+                matchedOrderVolume: stock.matchedOrderVolume
+              };
+            });
+
             const userId = getUserId();
             const response = await axios.get(
               `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
@@ -470,10 +548,37 @@ const WatchlistPage = () => {
             if (response?.data?.value?.data) {
               const watchlistStocks = response.data.value.data;
               if (Array.isArray(watchlistStocks)) {
+                // So sánh và tạo hiệu ứng flash cho các giá trị thay đổi
+                watchlistStocks.forEach(newStock => {
+                  const oldPrice = oldPrices[newStock.stockCode];
+                  const oldVolume = oldVolumes[newStock.stockCode];
+                  
+                  if (oldPrice) {
+                    Object.keys(oldPrice).forEach(field => {
+                      if (newStock[field] !== oldPrice[field]) {
+                        const newValue = parseFloat(newStock[field]);
+                        const oldValue = parseFloat(oldPrice[field]);
+                        if (!isNaN(newValue) && !isNaN(oldValue)) {
+                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
+                        }
+                      }
+                    });
+                  }
+                  
+                  if (oldVolume) {
+                    Object.keys(oldVolume).forEach(field => {
+                      if (newStock[field] !== oldVolume[field]) {
+                        const newValue = parseFloat(newStock[field]);
+                        const oldValue = parseFloat(oldVolume[field]);
+                        if (!isNaN(newValue) && !isNaN(oldValue)) {
+                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
+                        }
+                      }
+                    });
+                  }
+                });
+                
                 setWatchlist(watchlistStocks);
-              } else {
-                console.warn("[SignalR] HNX watchlist data is not an array:", watchlistStocks);
-                setWatchlist([]);
               }
             }
           } catch (error) {
@@ -548,22 +653,54 @@ const WatchlistPage = () => {
     
     // Fetch real chart data from API instead of generating sample data
     const fetchChartData = async () => {
+      if (!selectedStock) return;
+
+      setIsChartLoading(true);
+      setChartError(null);
+
       try {
-        // Call API to get historical data
-        const response = await stockService.getStockHistory(stock.code);
-        if (response && response.value && response.value.data) {
-          setChartData(response.value.data);
+        const token = Cookies.get('auth_token');
+      
+        if (!token) {
+          setChartError('Vui lòng đăng nhập để xem dữ liệu');
+          toast.error('Vui lòng đăng nhập để xem dữ liệu');
+          return;
+        }
+
+        const response = await axios.get(
+          `https://stockmonitoring-api-gateway.onrender.com/api/stock-price-history?ticketSymbol=${selectedStock.stockCode}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': '*/*'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          setChartData(formattedData);
         } else {
           setChartData([]);
-          toast.error("Không thể tải dữ liệu biểu đồ");
+          setChartError('Không có dữ liệu cho mã này');
         }
       } catch (error) {
-        console.error("Error fetching chart data:", error);
+        console.error('Error fetching chart data:', error);
         setChartData([]);
-        toast.error("Có lỗi khi tải dữ liệu biểu đồ");
+        setChartError('Không thể tải dữ liệu biểu đồ');
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      } finally {
+        setIsChartLoading(false);
       }
     };
-    
+
     fetchChartData();
   };
 
@@ -957,6 +1094,71 @@ const WatchlistPage = () => {
     }
   };
 
+  const [isChartLoading, setIsChartLoading] = useState(false);
+  const [chartError, setChartError] = useState(null);
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      if (!selectedStock) return;
+
+      setIsChartLoading(true);
+      setChartError(null);
+
+      try {
+        const token = Cookies.get('auth_token');
+      
+        if (!token) {
+          setChartError('Vui lòng đăng nhập để xem dữ liệu');
+          toast.error('Vui lòng đăng nhập để xem dữ liệu');
+          return;
+        }
+
+        const response = await axios.get(
+          `https://stockmonitoring-api-gateway.onrender.com/api/stock-price-history?ticketSymbol=${selectedStock.stockCode}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': '*/*'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          setChartData(formattedData);
+        } else {
+          setChartData([]);
+          setChartError('Không có dữ liệu cho mã này');
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        setChartData([]);
+        setChartError('Không thể tải dữ liệu biểu đồ');
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      } finally {
+        setIsChartLoading(false);
+      }
+    };
+
+    fetchChartData();
+  }, [selectedStock]);
+
+  // Add helper function to handle null values
+  const formatValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return '--';
+    }
+    return value;
+  };
+
+  // Update the Chart Dialog content
   return (
     <div className="bg-[#0a0a14] min-h-screen">
       {/* Thêm animations vào CSS */}
@@ -1122,59 +1324,61 @@ const WatchlistPage = () => {
                       watchlist.map((stock) => (
                         <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
                           <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2`} onClick={() => handleStockClick(stock)}>
-                            {stock.stockCode}
+                            {formatValue(stock.stockCode)}
                           </td>
-                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.ceilPrice}</td>
-                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.floorPrice}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{stock.priorClosePrice}</td>
+                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.ceilPrice)}</td>
+                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.floorPrice)}</td>
+                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.priorClosePrice)}</td>
                           <td className={getCellClasses(stock, 'price3Buy')}>
-                            {stock.price3Buy}
+                            {formatValue(stock.price3Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'volume3Buy')}>
-                            {stock.volume3Buy}
+                            {formatValue(stock.volume3Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'price2Buy')}>
-                            {stock.price2Buy}
+                            {formatValue(stock.price2Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'volume2Buy')}>
-                            {stock.volume2Buy}
+                            {formatValue(stock.volume2Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'price1Buy')}>
-                            {stock.price1Buy}
+                            {formatValue(stock.price1Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'volume1Buy')}>
-                            {stock.volume1Buy}
+                            {formatValue(stock.volume1Buy)}
                           </td>
                           <td className={getCellClasses(stock, 'matchPrice')}>
-                            {stock.matchPrice}
+                            {formatValue(stock.matchPrice)}
                           </td>
                           <td className={getCellClasses(stock, 'volumeAccumulation')}>
-                            {stock.volumeAccumulation}
+                            {formatValue(stock.volumeAccumulation)}
                           </td>
                           <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
-                            {stock.plusMinus !== '--' ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--'}
+                            {stock.plusMinus !== null && stock.plusMinus !== undefined && stock.plusMinus !== '--' ? 
+                              `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : 
+                              '--'}
                           </td>
                           <td className={getCellClasses(stock, 'price1Sell')}>
-                            {stock.price1Sell}
+                            {formatValue(stock.price1Sell)}
                           </td>
                           <td className={getCellClasses(stock, 'volume1Sell')}>
-                            {stock.volume1Sell}
+                            {formatValue(stock.volume1Sell)}
                           </td>
                           <td className={getCellClasses(stock, 'price2Sell')}>
-                            {stock.price2Sell}
+                            {formatValue(stock.price2Sell)}
                           </td>
                           <td className={getCellClasses(stock, 'volume2Sell')}>
-                            {stock.volume2Sell}
+                            {formatValue(stock.volume2Sell)}
                           </td>
                           <td className={getCellClasses(stock, 'price3Sell')}>
-                            {stock.price3Sell}
+                            {formatValue(stock.price3Sell)}
                           </td>
                           <td className={getCellClasses(stock, 'volume3Sell')}>
-                            {stock.volume3Sell}
+                            {formatValue(stock.volume3Sell)}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.matchedOrderVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignBuyVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{stock.foreignSellVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.matchedOrderVolume)}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignBuyVolume)}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignSellVolume)}</td>
                           <td className="text-center py-2">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
@@ -1562,7 +1766,7 @@ const WatchlistPage = () => {
             <div className="flex items-center justify-between px-4 py-2 border-b border-[#2a2e39]">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg">{selectedStock?.code}</span>
+                  <span className="font-bold text-lg">{selectedStock?.stockCode}</span>
                   <span className={`text-base ${
                     selectedStock?.matchChange?.includes('+') 
                       ? 'text-[#26a69a]' 
@@ -1579,19 +1783,37 @@ const WatchlistPage = () => {
                   <div>C <span className="text-white">{selectedStock?.matchPrice}</span></div>
                 </div>
               </div>
-              <button className="hover:bg-[#2a2e39] p-2 rounded" onClick={() => setIsDialogOpen(false)}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
             {/* Chart Area */}
             <div className="flex-1 bg-[#131722] min-h-[500px]">
-              <CandlestickChart 
-                stockCode={selectedStock?.code}
-                data={chartData}
-              />
+              {isChartLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <span className="text-[#888] text-sm">Đang tải dữ liệu biểu đồ...</span>
+                  </div>
+                </div>
+              ) : chartError ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center px-4">
+                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                    <span className="text-[#888] text-sm">{chartError}</span>
+                  </div>
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center px-4">
+                    <Info className="w-8 h-8 text-blue-500" />
+                    <span className="text-[#888] text-sm">Không có dữ liệu biểu đồ cho mã này</span>
+                  </div>
+                </div>
+              ) : (
+                <CandlestickChart 
+                  stockCode={selectedStock?.stockCode}
+                  data={chartData}
+                />
+              )}
             </div>
 
             {/* Chart Footer */}
