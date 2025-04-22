@@ -52,7 +52,14 @@ const Register = () => {
   };
 
   const validationSchema = Yup.object().shape({
-    email: Yup.string().email("Email không hợp lệ").required("Email là bắt buộc"),
+    email: Yup.string()
+      .email("Email không hợp lệ")
+      .required("Email là bắt buộc")
+      .test("valid-domain", "Email phải có domain là @gmail.com, @yahoo.com", (value) => {
+        if (!value) return false;
+        const validDomains = ["@gmail.com", "@yahoo.com", "@outlook.com"];
+        return validDomains.some(domain => value.toLowerCase().endsWith(domain));
+      }),
     name: Yup.string()
       .min(2, "Tên phải có ít nhất 2 ký tự")
       .max(50, "Tên không được vượt quá 50 ký tự")

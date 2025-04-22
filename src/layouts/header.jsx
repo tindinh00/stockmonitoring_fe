@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Search, Menu, X, LogOut, User, Crown } from "lucide-react";
+import { Search, Menu, X, LogOut, User, Crown } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "../Authentication/AuthContext";
 import { toast } from "sonner"; // Import toast từ sonner
@@ -148,7 +148,7 @@ const Header = () => {
             </div>
             <div className="relative group">
               <a
-                href="/analysis"
+                href="/contact"
                 className="text-[#CFCFCF] hover:text-[#46DFB1] transition-colors duration-300 font-semibold text-sm uppercase tracking-wide"
               >
                 Liên Hệ
@@ -159,14 +159,6 @@ const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hover:bg-[#15919B] transition-colors duration-200"
-            >
-              <Bell className="h-5 w-5 text-[#CFCFCF]" />
-            </Button>
-
             {/* Desktop: Buy Button */}
             <div className="hidden md:flex space-x-3">
               <motion.div
@@ -268,7 +260,7 @@ const Header = () => {
                 </div>
                 <div className="relative group">
                   <a
-                    href="/analysis"
+                    href="/contact"
                     className="text-[#CFCFCF] hover:text-[#46DFB1] transition-colors duration-200 font-semibold"
                   >
                     Liên Hệ

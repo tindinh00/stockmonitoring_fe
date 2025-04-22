@@ -51,6 +51,7 @@ import PaymentCancelPayOSPage from './pages/PaymentCancelPayOSPage';
 import HeaderNewsPage from './pages/HeaderNewsPage';
 import DataManagementPage from "./pages/manager/DataManagementPage";
 import StockInfoManagementPage from "./pages/manager/StockInfoManagementPage";
+import ContactPage from '@/pages/ContactPage';
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -579,6 +580,20 @@ function App() {
           } 
         />
 
+        <Route 
+          path="/header-news" 
+          element={
+            <div className="flex flex-col min-h-screen">
+              <Header />
+              <main className="flex-grow mt-16">
+                <HeaderNewsPage />
+                <Toaster position="top-right" richColors />
+              </main>
+              <Footer />
+            </div>
+          } 
+        />
+
         {/* Regular routes with Header and Footer */}
         <Route path="*" element={
           <div className="flex flex-col min-h-screen">
@@ -593,7 +608,8 @@ function App() {
                 <Route path="/forgot-password" element={<ForgotPassword/>} />
                 <Route path="/reset-password" element={<ResetPassword/>} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
-                <Route path="/header-news" element={<HeaderNewsPage/>} />
+                <Route path="/header-news" element={<HeaderNewsPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="*" element={<NotFound/>} />
               </Routes>
               <Toaster position="top-right" richColors />

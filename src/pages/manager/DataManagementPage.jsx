@@ -462,7 +462,7 @@ export default function DataManagementPage() {
                   </div>
                   <div ref={scrollAreaRef} className="relative">
                     <ScrollArea 
-                      className="h-[calc(100vh-220px)] sm:h-[calc(100vh-250px)] w-full"
+                      className="h-[calc(100vh-400px)] sm:h-[calc(100vh-450px)] w-full"
                     >
                       <div className="p-4 bg-[#0a0a14] font-mono text-sm">
                         {logs.length === 0 ? (

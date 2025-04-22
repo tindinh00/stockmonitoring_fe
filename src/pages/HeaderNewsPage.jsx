@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { apiService } from '@/api/Api';
 import signalRService from '@/api/signalRService';
+import axios from 'axios';
 
 // Placeholder image
 const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
@@ -17,7 +18,6 @@ const HeaderNewsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
   const [failedImages, setFailedImages] = useState({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [articleDetail, setArticleDetail] = useState(null);
@@ -67,10 +67,10 @@ const HeaderNewsPage = () => {
   const fetchNewsData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await apiService.getNews('cafef');
+      const response = await axios.get('https://stockmonitoring-api-gateway.onrender.com/api/news?src=cafef');
       
-      if (response && Array.isArray(response)) {
-        const processedNews = response.map(item => ({
+      if (response?.data?.value?.data && Array.isArray(response.data.value.data)) {
+        const processedNews = response.data.value.data.map(item => ({
           id: item.id || Math.random().toString(36).substr(2, 9),
           title: item.title || 'No title',
           timeAgo: item.time || 'Gần đây',
@@ -134,13 +134,13 @@ const HeaderNewsPage = () => {
         } else {
           // Try to set up the listener
           try {
-            signalRService.on('ReceiveCafefNewsUpdate', handleNewsUpdate);
+            signalRService.on('ReceiveNewsUpdate', handleNewsUpdate);
             console.log('Successfully set up SignalR event listener for news');
             
             // Save cleanup function for SignalR connection
             cleanupFunction = () => {
               try {
-                signalRService.off('ReceiveCafefNewsUpdate', handleNewsUpdate);
+                signalRService.off('ReceiveNewsUpdate', handleNewsUpdate);
                 console.log('Cleaned up SignalR event listener for news');
               } catch (err) {
                 console.error('Error cleaning up SignalR:', err);
@@ -196,9 +196,13 @@ const HeaderNewsPage = () => {
     if (article.url) {
       setLoadingDetail(true);
       try {
-        const detail = await apiService.getNewsDetail(article.url);
-        if (detail) {
-          setArticleDetail(detail);
+        const response = await axios.get('https://stockmonitoring-api-gateway.onrender.com/api/news/detail', {
+          params: {
+            link: article.url
+          }
+        });
+        if (response?.data?.value?.data) {
+          setArticleDetail(response.data.value.data);
         }
       } catch (error) {
         console.error("Error fetching article detail:", error);
@@ -207,15 +211,6 @@ const HeaderNewsPage = () => {
         setLoadingDetail(false);
       }
     }
-  };
-
-  // Toggle bookmark
-  const toggleBookmark = (articleId) => {
-    setBookmarkedArticles(prev => 
-      prev.includes(articleId) 
-        ? prev.filter(id => id !== articleId)
-        : [...prev, articleId]
-    );
   };
 
   // Share article
@@ -303,10 +298,6 @@ const HeaderNewsPage = () => {
                     <Clock className="w-4 h-4" />
                     <span className="text-sm font-medium">Mới nhất</span>
                   </button>
-                  <div className="h-4 w-px bg-[#333]"></div>
-                  <button className="p-2 rounded-full hover:bg-[#1a1a1a] transition-colors">
-                    <Bookmark className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -345,21 +336,6 @@ const HeaderNewsPage = () => {
                           <span>{currentItems[0].timeAgo}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleBookmark(currentItems[0].id);
-                            }}
-                            className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                          >
-                            <Bookmark 
-                              className={`w-4 h-4 ${
-                                bookmarkedArticles.includes(currentItems[0].id)
-                                  ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -406,21 +382,6 @@ const HeaderNewsPage = () => {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleBookmark(item.id);
-                            }}
-                            className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                          >
-                            <Bookmark 
-                              className={`w-3 h-3 ${
-                                bookmarkedArticles.includes(item.id)
-                                  ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
                               shareArticle(item);
                             }}
                             className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
@@ -451,21 +412,6 @@ const HeaderNewsPage = () => {
                         <span>{item.timeAgo}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleBookmark(item.id);
-                          }}
-                          className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Bookmark 
-                            className={`w-3 h-3 ${
-                              bookmarkedArticles.includes(item.id)
-                                ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                : 'text-gray-400'
-                            }`}
-                          />
-                        </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -548,18 +494,6 @@ const HeaderNewsPage = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <button 
-                              onClick={() => toggleBookmark(selectedArticle.id)}
-                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
-                            >
-                              <Bookmark 
-                                className={`w-4 h-4 ${
-                                  bookmarkedArticles.includes(selectedArticle.id)
-                                    ? 'fill-[#09D1C7] text-[#09D1C7]'
-                                    : 'text-gray-400'
-                                }`}
-                              />
-                            </button>
-                            <button 
                               onClick={() => shareArticle(selectedArticle)}
                               className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
                             >
@@ -605,7 +539,9 @@ const HeaderNewsPage = () => {
                       className="prose prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ 
                         __html: articleDetail && articleDetail.content 
-                          ? articleDetail.content 
+                          ? articleDetail.content.split('\n').map(paragraph => 
+                              paragraph.trim() ? `<p>${paragraph}</p>` : ''
+                            ).join('')
                           : (selectedArticle.description || '<p>Không có nội dung chi tiết</p>')
                       }}
                     />
