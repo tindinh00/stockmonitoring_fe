@@ -267,63 +267,6 @@ const ProfilePage = () => {
     return colors[colorIndex];
   };
 
-  // Xác định màu sắc và nội dung của badge dựa trên role và tier
-  const getBadgeForRole = (role) => {
-    // Ưu tiên hiển thị theo subscription nếu có
-    if (subscription) {      
-      return (
-        <Badge 
-          className="absolute -top-1 -right-1"
-          style={{ 
-            backgroundColor: subscription.packageName?.toLowerCase().includes('premium') ? '#f59e0b' : 
-                             subscription.packageName?.toLowerCase().includes('vip') ? '#2563eb' : 
-                             subscription.packageName?.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                             subscription.packageName?.toLowerCase().includes('platinum') ? '#9333ea' : 
-                             '#10b981',
-            color: 'white',
-            borderColor: 'transparent'
-          }}
-        > 
-          {subscription.packageName}
-        </Badge>
-      );
-    }
-    
-    // Nếu không có subscription, kiểm tra tier từ userInfo
-    if (userInfo.tier && userInfo.tier !== 'Free') {
-      return (
-        <Badge 
-          className="absolute -top-1 -right-1"
-          style={{ 
-            backgroundColor: userInfo.tier.toLowerCase().includes('premium') ? '#f59e0b' : 
-                             userInfo.tier.toLowerCase().includes('vip') ? '#2563eb' : 
-                             userInfo.tier.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                             userInfo.tier.toLowerCase().includes('platinum') ? '#9333ea' : 
-                             '#10b981',
-            color: 'white',
-            borderColor: 'transparent'
-          }}
-        > 
-          {userInfo.tier}
-        </Badge>
-      );
-    }
-    
-    // Kiểm tra role nếu không có tier
-    if (role) {
-      const roleLower = role.toLowerCase();
-      switch (roleLower) {
-        case "admin":
-          return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#ef4444', color: 'white', borderColor: 'transparent' }}>Admin</Badge>;
-        case "manager":
-          return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#3b82f6', color: 'white', borderColor: 'transparent' }}>Manager</Badge>;
-      }
-    }
-    
-    // Mặc định là Free
-    return <Badge className="absolute -top-1 -right-1" style={{ backgroundColor: '#10b981', color: 'white', borderColor: 'transparent' }}>Free</Badge>;
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserInfo(prev => ({
@@ -486,597 +429,667 @@ const ProfilePage = () => {
   };
   
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <h1 className="text-3xl font-bold mb-8 text-center text-white">Hồ sơ người dùng</h1>
+    <div className="relative min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#0f172a]">
+      {/* Animated gradient overlay */}
+      <div 
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: `
+            radial-gradient(circle at 20% 20%, rgba(9, 209, 199, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(76, 29, 149, 0.15) 0%, transparent 50%)
+          `,
+          animation: 'gradient 15s ease infinite',
+        }}
+      ></div>
       
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="md:col-span-1">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4 relative">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={avatarPreview || userInfo.avatar} />
-                  <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                    {getInitials(userInfo.name)}
-                  </AvatarFallback>
-                </Avatar>
-                {isEditing && activeTab === "profile" && (
-                  <div className="absolute bottom-0 right-0">
-                    <Label htmlFor="avatar-upload" className="cursor-pointer">
-                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                        <Camera className="h-4 w-4" />
-                      </div>
-                    </Label>
-                    <Input 
-                      id="avatar-upload" 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleAvatarChange}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center justify-center mb-2">
-                {getBadgeForRole(userInfo.role)}
-              </div>
-              <CardTitle>{userInfo.name}</CardTitle>
-              <CardDescription>{userInfo.email}</CardDescription>
-              {/* Component hiển thị trong sidebar */}
-              {loadingSubscription ? (
-                <div className="text-xs text-muted-foreground mt-2">Đang tải thông tin gói...</div>
-              ) : subscription ? (
-                <div className="mt-2">
-                  <Badge 
-                    style={{ 
-                      backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
-                                        userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
-                                        userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                                        userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
-                                        '#10b981',
-                      color: 'white',
-                      borderColor: 'transparent'
-                    }}
-                  >
-                    {subscription.packageName || userInfo.tier || "Free"}
-                  </Badge>
-                  <div className="flex items-center justify-center mt-1 text-xs">
-                    <div className="flex items-center text-muted-foreground">
-                      <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
-                      Đang hoạt động
+      {/* Pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-5"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundSize: '30px 30px'
+        }}
+      ></div>
+
+      {/* Moving light effect */}
+      <div 
+        className="absolute inset-0 opacity-20"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(9, 209, 199, 0.2), transparent)',
+          animation: 'slide-right 3s linear infinite'
+        }}
+      ></div>
+
+      <style jsx>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes slide-right {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(100%); }
+        }
+      `}</style>
+
+      <div className="container mx-auto py-8 px-4 md:px-6 relative">
+        <h1 className="text-3xl font-bold mb-8 text-center text-white relative">
+          Hồ sơ người dùng
+          <div className="absolute inset-0 bg-[#09D1C7]/20 blur-xl -z-10"></div>
+        </h1>
+      
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Sidebar */}
+          <div className="md:col-span-1">
+            <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+              <CardHeader className="text-center">
+                <div className="flex justify-center mb-4 relative">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={avatarPreview || userInfo.avatar} />
+                    <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                      {getInitials(userInfo.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {isEditing && activeTab === "profile" && (
+                    <div className="absolute bottom-0 right-0">
+                      <Label htmlFor="avatar-upload" className="cursor-pointer">
+                        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                          <Camera className="h-4 w-4" />
+                        </div>
+                      </Label>
+                      <Input 
+                        id="avatar-upload" 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarChange}
+                      />
                     </div>
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <div className="mt-2">
-                  <Badge 
-                    style={{ 
-                      backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
-                                        userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
-                                        userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                                        userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
-                                        '#10b981',
-                      color: 'white',
-                      borderColor: 'transparent'
-                    }}
-                  >
-                    {userInfo.tier || "Free"}
-                  </Badge>
-                  <div className="flex items-center justify-center mt-1">
-                    <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
-                    <span className="text-xs text-muted-foreground">Đang hoạt động</span>
+                <CardTitle>{userInfo.name}</CardTitle>
+                <CardDescription>{userInfo.email}</CardDescription>
+                {/* Component hiển thị trong sidebar */}
+                {loadingSubscription ? (
+                  <div className="text-xs text-muted-foreground mt-2 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] p-4 rounded-lg">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
+                      Đang tải thông tin gói...
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <nav className="space-y-2">
-                <Button 
-                  variant={activeTab === "profile" ? "default" : "ghost"} 
-                  className="w-full justify-start" 
-                  onClick={() => handleTabChange("profile")}
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Thông tin cá nhân
-                </Button>
-                <Button 
-                  variant={activeTab === "subscriptions" ? "default" : "ghost"} 
-                  className="w-full justify-start" 
-                  onClick={() => handleTabChange("subscriptions")}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Dịch vụ & Giao dịch
-                </Button>
-              </nav>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={() => setIsPasswordDialogOpen(true)}
-              >
-                <Lock className="h-4 w-4 mr-2" />
-                Đổi mật khẩu
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-        
-        {/* Main Content */}
-        <div className="md:col-span-3">
-          {/* Thông tin cá nhân */}
-          {activeTab === "profile" && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Thông tin cá nhân</CardTitle>
-                    <CardDescription>
-                      {isEditing 
-                        ? "Chỉnh sửa thông tin cá nhân của bạn" 
-                        : "Xem thông tin cá nhân của bạn"}
-                    </CardDescription>
-                  </div>
-                  <Button 
-                    variant={isEditing ? "destructive" : "outline"} 
-                    onClick={handleEditToggle}
-                  >
-                    {isEditing ? (
-                      <>
-                        <X className="h-4 w-4 mr-2" />
-                        Hủy chỉnh sửa
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Chỉnh sửa thông tin
-                      </>
-                    )}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Họ và tên</Label>
-                        <div className="flex">
-                          <User className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                          <Input
-                            id="name"
-                            name="name"
-                            value={userInfo.name}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isLoading}
-                            placeholder="Họ và tên"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <div className="flex">
-                          <Mail className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                          <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            value={userInfo.email}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isLoading}
-                            placeholder="Email"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Số điện thoại</Label>
-                        <div className="flex">
-                          <Phone className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                          <Input
-                            id="phone"
-                            name="phone"
-                            value={userInfo.phone}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isLoading}
-                            placeholder="Số điện thoại"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="role">Loại tài khoản</Label>
-                        <div className="flex items-center">
-                          <div className="flex gap-2 items-center">
-                            {getBadgeForRole(userInfo.role)}
-                            <span>{userInfo.role || "Customer"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="dateOfBirth">Ngày sinh</Label>
-                        <div className="flex">
-                          <Calendar className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                          <Input
-                            id="dateOfBirth"
-                            name="dateOfBirth"
-                            type="date"
-                            value={userInfo.dateOfBirth && userInfo.dateOfBirth !== "" ? 
-                              (userInfo.dateOfBirth.includes('T') ? 
-                                userInfo.dateOfBirth.split('T')[0] : 
-                                userInfo.dateOfBirth) : 
-                              ''}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isLoading}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 mt-4">
-                      <Label htmlFor="address">Địa chỉ</Label>
-                      <div className="flex">
-                        <MapPin className="h-4 w-4 mr-2 mt-3 text-muted-foreground" />
-                        <Input
-                          id="address"
-                          name="address"
-                          value={userInfo.address}
-                          onChange={handleInputChange}
-                          disabled={!isEditing || isLoading}
-                          placeholder="Địa chỉ"
-                        />
-                      </div>
-                    </div>
-                  </form>
-                </CardContent>
-                {isEditing && (
-                  <CardFooter>
-                    <Button 
-                      className="ml-auto" 
-                      onClick={handleSaveProfile}
-                      disabled={isLoading}
+                ) : subscription ? (
+                  <div className="mt-2">
+                    <Badge 
+                      style={{ 
+                        backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                          userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                          userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                          userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                          '#10b981',
+                        color: 'white',
+                        borderColor: 'transparent'
+                      }}
                     >
-                      {isLoading ? (
-                        <>
-                          <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-r-0 border-white rounded-full"></div>
-                          Đang lưu...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          Lưu thông tin
-                        </>
-                      )}
-                    </Button>
-                  </CardFooter>
-                )}
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Lịch sử hoạt động</CardTitle>
-                  <CardDescription>
-                    Các hoạt động gần đây của bạn
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">Đăng nhập</p>
-                        <p className="text-sm text-muted-foreground">Từ 192.168.1.1</p>
+                      {subscription.packageName || userInfo.tier || "Free"}
+                    </Badge>
+                    <div className="flex items-center justify-center mt-1 text-xs">
+                      <div className="flex items-center text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
+                        Đang hoạt động
                       </div>
-                      <p className="text-sm text-muted-foreground">Hôm nay, 10:30</p>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">Cập nhật thông tin</p>
-                        <p className="text-sm text-muted-foreground">Thay đổi số điện thoại</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Hôm qua, 15:45</p>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">Đăng nhập</p>
-                        <p className="text-sm text-muted-foreground">Từ 192.168.1.1</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Hôm qua, 09:15</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                ) : (
+                  <div className="mt-2">
+                    <Badge 
+                      style={{ 
+                        backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                          userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                          userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                          userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                          '#10b981',
+                        color: 'white',
+                        borderColor: 'transparent'
+                      }}
+                    >
+                      {userInfo.tier || "Free"}
+                    </Badge>
+                    <div className="flex items-center justify-center mt-1">
+                      <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
+                      <span className="text-xs text-muted-foreground">Đang hoạt động</span>
+                    </div>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent>
+                <nav className="space-y-2">
+                  <Button 
+                    variant={activeTab === "profile" ? "default" : "ghost"} 
+                    className={`w-full justify-start ${
+                      activeTab === "profile" 
+                        ? "bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white" 
+                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7]"
+                    }`}
+                    onClick={() => handleTabChange("profile")}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Thông tin cá nhân
+                  </Button>
+                  <Button 
+                    variant={activeTab === "subscriptions" ? "default" : "ghost"} 
+                    className={`w-full justify-start ${
+                      activeTab === "subscriptions" 
+                        ? "bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white" 
+                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7]"
+                    }`}
+                    onClick={() => handleTabChange("subscriptions")}
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Dịch vụ & Giao dịch
+                  </Button>
+                </nav>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="outline" 
+                  className="w-full bg-[#1a1a2e] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
+                  onClick={() => setIsPasswordDialogOpen(true)}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Đổi mật khẩu
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
           
-          {/* Gói dịch vụ và Lịch sử giao dịch */}
-          {activeTab === "subscriptions" && (
-            <div className="space-y-6">
-              {/* Component hiển thị gói dịch vụ hiện tại */}
-              {!loadingSubscription && (
-                <Card className="bg-[#111121] border border-[#1f1f30] overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div style={{ 
-                          backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
-                                           userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
-                                           userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                                           userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
-                                           '#10b981',
-                          padding: '0.5rem',
-                          borderRadius: '0.375rem'
-                        }}>
-                          <Star className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-bold text-white">Gói dịch vụ hiện tại</CardTitle>
-                          <CardDescription className="text-gray-400">Thông tin gói dịch vụ bạn đang sử dụng</CardDescription>
-                        </div>
-                      </div>
+          {/* Main Content */}
+          <div className="md:col-span-3">
+            {/* Thông tin cá nhân */}
+            {activeTab === "profile" && (
+              <div className="space-y-6">
+                <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                  <CardHeader>
+                    <div className="flex flex-col items-center text-center mb-4">
+                      <CardTitle>Thông tin cá nhân</CardTitle>
+                      <CardDescription>
+                        {isEditing 
+                          ? "Chỉnh sửa thông tin cá nhân của bạn" 
+                          : "Xem thông tin cá nhân của bạn"}
+                      </CardDescription>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button 
+                        onClick={handleEditToggle}
+                        className={`${
+                          isEditing 
+                            ? "bg-red-500 hover:bg-red-600 text-white" 
+                            : "bg-[#1a1a2e] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white"
+                        } transition-colors duration-200`}
+                      >
+                        {isEditing ? (
+                          <>
+                            <X className="h-4 w-4 mr-2" />
+                            Hủy chỉnh sửa
+                          </>
+                        ) : (
+                          <>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Chỉnh sửa thông tin
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </CardHeader>
-                  
-                  <CardContent className="p-0">
-                    {userInfo.tier === 'Free' || !userInfo.tier ? (
-                      <div className="flex items-center justify-between bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-yellow-500/20 p-2 rounded-full">
-                            <AlertCircle className="w-5 h-5 text-yellow-500" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-white">Bạn đang dùng gói Free</h3>
-                            <p className="text-sm text-gray-400">Vui lòng chọn một gói dịch vụ phù hợp để nâng cấp tài khoản</p>
-                          </div>
-                        </div>
-                        <Button 
-                          className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 whitespace-nowrap"
-                          onClick={() => navigate('/upgrade-package')}
-                        >
-                          Nâng cấp ngay
-                        </Button>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ 
-                          backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
-                                           userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
-                                           userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
-                                           userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
-                                           '#10b981',
-                          padding: '0.75rem 1rem',
-                          color: 'white'
-                        }}>
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <div className="bg-white/20 p-1.5 rounded-full">
-                                <CreditCard className="w-4 h-4" />
-                              </div>
-                              <h3 className="font-bold text-white">
-                                Gói {userInfo.tier}
-                              </h3>
-                            </div>
+                  <CardContent>
+                    <form className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="name" className="text-gray-400 text-left block pl-7">Họ và tên</Label>
+                          <div className="flex items-center space-x-3">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <Input
+                              id="name"
+                              name="name"
+                              value={userInfo.name}
+                              onChange={handleInputChange}
+                              disabled={!isEditing || isLoading}
+                              placeholder="Họ và tên"
+                              className="flex-1"
+                            />
                           </div>
                         </div>
                         
-                        <div className="p-4">
-                          {/* Thông tin thời gian */}
-                          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-[#171727] p-3 rounded-md">
-                              <span className="text-sm text-gray-400">Ngày thanh toán</span>
-                              <p className="font-medium text-white">
-                                {subscription?.createdAt ? new Date(subscription.createdAt).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
-                              </p>
-                            </div>
-                            <div className="bg-[#171727] p-3 rounded-md">
-                              <span className="text-sm text-gray-400">Ngày hết hạn</span>
-                              <p className="font-medium text-white">
-                                {subscription?.expireDate ? new Date(subscription.expireDate).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
-                              </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="email" className="text-gray-400 text-left block pl-7">Email</Label>
+                          <div className="flex items-center space-x-3">
+                            <Mail className="h-4 w-4 text-gray-500" />
+                            <Input
+                              id="email"
+                              name="email"
+                              type="email"
+                              value={userInfo.email}
+                              disabled={true}
+                              placeholder="Email"
+                              className="flex-1 cursor-not-allowed opacity-60"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="phone" className="text-gray-400 text-left block pl-7">Số điện thoại</Label>
+                          <div className="flex items-center space-x-3">
+                            <Phone className="h-4 w-4 text-gray-500" />
+                            <Input
+                              id="phone"
+                              name="phone"
+                              value={userInfo.phone}
+                              onChange={handleInputChange}
+                              disabled={!isEditing || isLoading}
+                              placeholder="Số điện thoại"
+                              className="flex-1"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="role" className="text-gray-400 text-left block pl-7">Loại tài khoản</Label>
+                          <div className="flex items-center space-x-3">
+                            <Crown className="h-4 w-4 text-gray-500" />
+                            <div className="flex items-center space-x-2">
+                              {/* getBadgeForRole(userInfo.role) */}
+                              <span className="text-gray-300">{userInfo.role || "Customer"}</span>
                             </div>
                           </div>
+                        </div>
 
-                          <h4 className="text-sm font-medium text-gray-400 mb-3">Tính năng của gói:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {Array.isArray(userInfo.features) && userInfo.features.length > 0 ? 
-                              userInfo.features.map((feature, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                  <span className="text-sm">{feature}</span>
-                                </div>
-                              )) : 
-                              (
-                                <div className="col-span-2 text-center text-gray-400">
-                                  <p>Không có thông tin về tính năng gói</p>
-                                </div>
-                              )
-                            }
+                        <div className="space-y-2">
+                          <Label htmlFor="dateOfBirth" className="text-gray-400 text-left block pl-7">Ngày sinh</Label>
+                          <div className="flex items-center space-x-3">
+                            <Calendar className="h-4 w-4 text-gray-500" />
+                            <Input
+                              id="dateOfBirth"
+                              name="dateOfBirth"
+                              type="date"
+                              value={userInfo.dateOfBirth && userInfo.dateOfBirth !== "" ? 
+                                (userInfo.dateOfBirth.includes('T') ? 
+                                  userInfo.dateOfBirth.split('T')[0] : 
+                                  userInfo.dateOfBirth) : 
+                                ''}
+                              onChange={handleInputChange}
+                              disabled={!isEditing || isLoading}
+                              className="flex-1"
+                            />
                           </div>
-                          
-                          <div className="mt-4 flex justify-end">
-                            <Button 
-                              className="bg-[#09D1C7] hover:bg-[#09D1C7]/90"
-                              onClick={() => navigate('/upgrade-package')}
-                            >
-                              Nâng cấp gói
-                            </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="address" className="text-gray-400 text-left block pl-7">Địa chỉ</Label>
+                          <div className="flex items-center space-x-3">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <Input
+                              id="address"
+                              name="address"
+                              value={userInfo.address}
+                              onChange={handleInputChange}
+                              disabled={!isEditing || isLoading}
+                              placeholder="Địa chỉ"
+                              className="flex-1"
+                            />
                           </div>
                         </div>
                       </div>
-                    )}
+                    </form>
+                  </CardContent>
+                  {isEditing && (
+                    <CardFooter>
+                      <Button 
+                        className="ml-auto bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white" 
+                        onClick={handleSaveProfile}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-r-0 border-white rounded-full"></div>
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Lưu thông tin
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  )}
+                </Card>
+                
+                <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                  <CardHeader>
+                    <CardTitle className="text-xl">Lịch sử hoạt động</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Các hoạt động gần đây của bạn
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-[#171727] rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="font-medium text-white">Đăng nhập</p>
+                            <p className="text-sm text-gray-400">Từ 192.168.1.1</p>
+                          </div>
+                          <p className="text-sm text-gray-400">Hôm nay, 10:30</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-[#171727] rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="font-medium text-white">Cập nhật thông tin</p>
+                            <p className="text-sm text-gray-400">Thay đổi số điện thoại</p>
+                          </div>
+                          <p className="text-sm text-gray-400">Hôm qua, 15:45</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-[#171727] rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="font-medium text-white">Đăng nhập</p>
+                            <p className="text-sm text-gray-400">Từ 192.168.1.1</p>
+                          </div>
+                          <p className="text-sm text-gray-400">Hôm qua, 09:15</p>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              )}
-              
-              {/* Thêm lịch sử giao dịch */}
-              <TransactionHistory className="bg-[#111121] border border-[#1f1f30] rounded-md overflow-hidden" />
-            </div>
-          )}
-          
-          {/* Cài đặt */}
-          {activeTab === "settings" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Cài đặt tài khoản</CardTitle>
-                <CardDescription>Quản lý cài đặt và tùy chọn cho tài khoản của bạn</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Thông báo</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p>Thông báo qua email</p>
-                      <p className="text-sm text-muted-foreground">Nhận thông báo qua email</p>
-                    </div>
-                    <div>
-                      <input type="checkbox" id="email-notifications" className="toggle" defaultChecked />
-                    </div>
-                  </div>
-                  <Separator className="my-4" />
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p>Thông báo về giao dịch</p>
-                      <p className="text-sm text-muted-foreground">Nhận thông báo khi có giao dịch mới</p>
-                    </div>
-                    <div>
-                      <input type="checkbox" id="transaction-notifications" className="toggle" defaultChecked />
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Bảo mật</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p>Xác thực hai yếu tố</p>
-                        <p className="text-sm text-muted-foreground">Bảo vệ tài khoản bằng xác thực hai yếu tố</p>
+              </div>
+            )}
+            
+            {/* Gói dịch vụ và Lịch sử giao dịch */}
+            {activeTab === "subscriptions" && (
+              <div className="space-y-6">
+                {/* Component hiển thị gói dịch vụ hiện tại */}
+                {!loadingSubscription && (
+                  <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div style={{ 
+                            backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                             userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                             userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                             userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                             '#10b981',
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem'
+                          }}>
+                            <Star className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg font-bold text-white">Gói dịch vụ hiện tại</CardTitle>
+                            <CardDescription className="text-gray-400">Thông tin gói dịch vụ bạn đang sử dụng</CardDescription>
+                          </div>
+                        </div>
                       </div>
-                      <Button variant="outline">Thiết lập</Button>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p>Phiên đăng nhập</p>
-                        <p className="text-sm text-muted-foreground">Quản lý các phiên đăng nhập của bạn</p>
-                      </div>
-                      <Button variant="outline">Quản lý</Button>
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Ngôn ngữ và khu vực</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="language">Ngôn ngữ</Label>
-                      <Select defaultValue="vi">
-                        <SelectTrigger id="language">
-                          <SelectValue placeholder="Chọn ngôn ngữ" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="vi">Tiếng Việt</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">Múi giờ</Label>
-                      <Select defaultValue="asia_ho_chi_minh">
-                        <SelectTrigger id="timezone">
-                          <SelectValue placeholder="Chọn múi giờ" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="asia_ho_chi_minh">Asia/Ho_Chi_Minh (GMT+7)</SelectItem>
-                          <SelectItem value="asia_bangkok">Asia/Bangkok (GMT+7)</SelectItem>
-                          <SelectItem value="america_new_york">America/New_York (GMT-5)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="ml-auto">Lưu cài đặt</Button>
-              </CardFooter>
-            </Card>
-          )}
-        </div>
-      </div>
-      
-      {/* Dialog đổi mật khẩu */}
-      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Đổi mật khẩu</DialogTitle>
-            <DialogDescription>
-              Nhập mật khẩu hiện tại và mật khẩu mới để thay đổi
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleChangePassword}>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
-                <Input
-                  id="currentPassword"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordChange}
-                  required
-                />
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Mật khẩu mới</Label>
-                <Input
-                  id="newPassword"
-                  name="newPassword"
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={handlePasswordChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordChange}
-                  required
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Hủy
-                </Button>
-              </DialogClose>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-r-0 border-white rounded-full"></div>
-                    Đang xử lý...
-                  </>
-                ) : (
-                  "Đổi mật khẩu"
+                    </CardHeader>
+                    
+                    <CardContent className="p-0">
+                      {userInfo.tier === 'Free' || !userInfo.tier ? (
+                        <div className="flex items-center justify-between bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-yellow-500/20 p-2 rounded-full">
+                              <AlertCircle className="w-5 h-5 text-yellow-500" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-white">Bạn đang dùng gói Free</h3>
+                              <p className="text-sm text-gray-400">Vui lòng chọn một gói dịch vụ phù hợp để nâng cấp tài khoản</p>
+                            </div>
+                          </div>
+                          <Button 
+                            className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 whitespace-nowrap"
+                            onClick={() => navigate('/upgrade-package')}
+                          >
+                            Nâng cấp ngay
+                          </Button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ 
+                            backgroundColor: userInfo.tier?.toLowerCase().includes('premium') ? '#f59e0b' : 
+                                             userInfo.tier?.toLowerCase().includes('vip') ? '#2563eb' : 
+                                             userInfo.tier?.toLowerCase().includes('standard') ? '#0ea5e9' : 
+                                             userInfo.tier?.toLowerCase().includes('platinum') ? '#9333ea' : 
+                                             '#10b981',
+                            padding: '0.75rem 1rem',
+                            color: 'white'
+                          }}>
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <div className="bg-white/20 p-1.5 rounded-full">
+                                  <CreditCard className="w-4 h-4" />
+                                </div>
+                                <h3 className="font-bold text-white">
+                                  Gói {userInfo.tier}
+                                </h3>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-4">
+                            {/* Thông tin thời gian */}
+                            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-[#171727] p-3 rounded-md">
+                                <span className="text-sm text-gray-400">Ngày thanh toán</span>
+                                <p className="font-medium text-white">
+                                  {subscription?.createdAt ? new Date(subscription.createdAt).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
+                                </p>
+                              </div>
+                              <div className="bg-[#171727] p-3 rounded-md">
+                                <span className="text-sm text-gray-400">Ngày hết hạn</span>
+                                <p className="font-medium text-white">
+                                  {subscription?.expireDate ? new Date(subscription.expireDate).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <h4 className="text-sm font-medium text-gray-400 mb-3">Tính năng của gói:</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {Array.isArray(userInfo.features) && userInfo.features.length > 0 ? 
+                                userInfo.features.map((feature, index) => (
+                                  <div key={index} className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                    <span className="text-sm">{feature}</span>
+                                  </div>
+                                )) : 
+                                (
+                                  <div className="col-span-2 text-center text-gray-400">
+                                    <p>Không có thông tin về tính năng gói</p>
+                                  </div>
+                                )
+                              }
+                            </div>
+                            
+                            <div className="mt-4 flex justify-end">
+                              <Button 
+                                className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white"
+                                onClick={() => navigate('/upgrade-package')}
+                              >
+                                Nâng cấp gói
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                
+                {/* Thêm lịch sử giao dịch */}
+                <TransactionHistory className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 rounded-md overflow-hidden" />
+              </div>
+            )}
+            
+            {/* Cài đặt */}
+            {activeTab === "settings" && (
+              <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                <CardHeader>
+                  <CardTitle>Cài đặt tài khoản</CardTitle>
+                  <CardDescription>Quản lý cài đặt và tùy chọn cho tài khoản của bạn</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium">Thông báo</h3>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p>Thông báo qua email</p>
+                        <p className="text-sm text-muted-foreground">Nhận thông báo qua email</p>
+                      </div>
+                      <div>
+                        <input type="checkbox" id="email-notifications" className="toggle" defaultChecked />
+                      </div>
+                    </div>
+                    <Separator className="my-4" />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p>Thông báo về giao dịch</p>
+                        <p className="text-sm text-muted-foreground">Nhận thông báo khi có giao dịch mới</p>
+                      </div>
+                      <div>
+                        <input type="checkbox" id="transaction-notifications" className="toggle" defaultChecked />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium">Bảo mật</h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p>Xác thực hai yếu tố</p>
+                          <p className="text-sm text-muted-foreground">Bảo vệ tài khoản bằng xác thực hai yếu tố</p>
+                        </div>
+                        <Button variant="outline">Thiết lập</Button>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p>Phiên đăng nhập</p>
+                          <p className="text-sm text-muted-foreground">Quản lý các phiên đăng nhập của bạn</p>
+                        </div>
+                        <Button variant="outline">Quản lý</Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium">Ngôn ngữ và khu vực</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="language">Ngôn ngữ</Label>
+                        <Select defaultValue="vi">
+                          <SelectTrigger id="language">
+                            <SelectValue placeholder="Chọn ngôn ngữ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vi">Tiếng Việt</SelectItem>
+                            <SelectItem value="en">English</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="timezone">Múi giờ</Label>
+                        <Select defaultValue="asia_ho_chi_minh">
+                          <SelectTrigger id="timezone">
+                            <SelectValue placeholder="Chọn múi giờ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="asia_ho_chi_minh">Asia/Ho_Chi_Minh (GMT+7)</SelectItem>
+                            <SelectItem value="asia_bangkok">Asia/Bangkok (GMT+7)</SelectItem>
+                            <SelectItem value="america_new_york">America/New_York (GMT-5)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button className="ml-auto">Lưu cài đặt</Button>
+                </CardFooter>
+              </Card>
+            )}
+          </div>
+        </div>
+        
+        {/* Dialog đổi mật khẩu */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent className="bg-[#111121]/90 backdrop-blur-md border border-[#1f1f30] shadow-xl">
+            <DialogHeader>
+              <DialogTitle>Đổi mật khẩu</DialogTitle>
+              <DialogDescription>
+                Nhập mật khẩu hiện tại và mật khẩu mới để thay đổi
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleChangePassword}>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+                  <Input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">Mật khẩu mới</Label>
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" className="bg-white/5 hover:bg-white/10 border-white/10 text-white hover:text-white transition-colors">
+                    Hủy
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isLoading} className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white">
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-r-0 border-white rounded-full"></div>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Đổi mật khẩu"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };

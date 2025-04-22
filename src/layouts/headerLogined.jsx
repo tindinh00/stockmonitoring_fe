@@ -248,20 +248,20 @@ export default function HeaderLogined() {
   };
 
   return (
-    <header className='bg-[white] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
+    <header className='bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-4 px-4 flex-1 overflow-hidden'>
-        <SidebarTrigger className='-ml-1 text-black' />
-        <Separator orientation='vertical' className='h-4' />
+        <SidebarTrigger className='-ml-1 text-white' />
+        <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
         <Breadcrumb />
         <div className='hidden md:flex'>
           <SearchInput />
         </div>
         <TradingSessionBadge />
-        <Separator orientation='vertical' className='hidden sm:block h-4' />
+        <Separator orientation='vertical' className='hidden sm:block h-4 bg-[#15919B]/30' />
         
         {/* Market Indices */}
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
-          <div className='flex items-center gap-2 border border-gray-200 rounded-md px-3 py-1.5 w-full max-w-[500px] overflow-hidden relative'>
+          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[500px] overflow-hidden relative'>
             <style>{`
               @keyframes scroll {
                 0% { transform: translateX(0); }
@@ -302,8 +302,8 @@ export default function HeaderLogined() {
         <Popover onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <div className="relative">
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <Bell className="w-5 h-5 text-gray-600" />
+              <button className="p-2 hover:bg-[#1a2e3f] rounded-full transition-colors">
+                <Bell className="w-5 h-5 text-gray-300" />
               </button>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
@@ -312,11 +312,11 @@ export default function HeaderLogined() {
               )}
             </div>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0 bg-white" align="end">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <h4 className="font-semibold text-sm text-black">Thông báo giá</h4>
+          <PopoverContent className="w-80 p-0 bg-[#213A51] border-[#15919B]/30" align="end">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#15919B]/30">
+              <h4 className="font-semibold text-sm text-white">Thông báo giá</h4>
               <button 
-                className="text-xs text-blue-600 hover:text-blue-700"
+                className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
                 onClick={markAllAsRead}
               >
                 Đánh dấu tất cả đã đọc
@@ -325,39 +325,39 @@ export default function HeaderLogined() {
             <div className="max-h-[400px] overflow-auto">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#46DFB1]"></div>
                 </div>
               ) : notifications.length > 0 ? (
                 notifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className={`px-4 py-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer border-b border-gray-100 last:border-0 bg-white
-                      ${expandedId === notification.id ? 'bg-gray-50' : ''}`}
+                    className={`px-4 py-3 hover:bg-[#1a2e3f] transition-all duration-200 cursor-pointer border-b border-[#15919B]/30 last:border-0
+                      ${expandedId === notification.id ? 'bg-[#1a2e3f]' : ''}`}
                     onClick={() => handleNotificationClick(notification.id)}
                   >
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
                         {notification.type === 'increase' && (
-                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                            <TrendingUp className="w-4 h-4 text-green-600" />
+                          <div className="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-green-400" />
                           </div>
                         )}
                         {notification.type === 'decrease' && (
-                          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                            <TrendingDown className="w-4 h-4 text-red-600" />
+                          <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center">
+                            <TrendingDown className="w-4 h-4 text-red-400" />
                           </div>
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-black">{notification.title}</p>
+                          <p className="text-sm font-medium text-white">{notification.title}</p>
                           {notification.stockCode && (
                             <Badge 
                               variant="default"
                               className={`text-[10px] px-2 ${
                                 notification.type === 'increase' 
-                                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                  : 'bg-red-100 text-red-800 hover:bg-red-200'
+                                  ? 'bg-green-900/30 text-green-400' 
+                                  : 'bg-red-900/30 text-red-400'
                               }`}
                             >
                               {notification.stockCode}
@@ -366,23 +366,23 @@ export default function HeaderLogined() {
                           {notification.exchange && (
                             <Badge 
                               variant="outline" 
-                              className="text-[10px] px-2 border-gray-300 text-gray-700 bg-gray-50"
+                              className="text-[10px] px-2 border-[#15919B]/30 text-gray-300 bg-[#1a2e3f]"
                             >
                               {notification.exchange}
                             </Badge>
                           )}
                         </div>
-                        <div className={`text-sm text-gray-700 transition-all duration-200 overflow-hidden
+                        <div className={`text-sm text-gray-300 transition-all duration-200 overflow-hidden
                           ${expandedId === notification.id ? 'max-h-[500px]' : 'max-h-[20px]'}`}>
                           <p className={expandedId === notification.id ? '' : 'line-clamp-1'}>
                             {notification.message}
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-500">{notification.time}</p>
+                          <p className="text-xs text-gray-400">{notification.time}</p>
                           {expandedId === notification.id && (
                             <button 
-                              className="text-xs text-blue-600 hover:text-blue-700"
+                              className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setExpandedId(null);
@@ -395,21 +395,21 @@ export default function HeaderLogined() {
                       </div>
                       {!notification.read && (
                         <div className="flex-shrink-0">
-                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                          <div className="w-2 h-2 bg-[#46DFB1] rounded-full"></div>
                         </div>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center text-gray-700 bg-white">
+                <div className="py-8 text-center text-gray-300 bg-[#213A51]">
                   <p>Không có thông báo nào</p>
                 </div>
               )}
             </div>
-            <div className="p-2 text-center border-t border-gray-200 bg-white">
+            <div className="p-2 text-center border-t border-[#15919B]/30 bg-[#213A51]">
               <Link to="/notifications">
-                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                <button className="text-sm text-[#46DFB1] hover:text-[#0ABDB4] font-medium">
                   Xem tất cả thông báo
                 </button>
               </Link>

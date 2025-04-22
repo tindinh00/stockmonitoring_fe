@@ -266,7 +266,7 @@ const UserSubscription = () => {
           
           <CardContent className="p-0">
             {!userSubscription ? (
-              <div className="flex items-center justify-between bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
+              <div className="flex items-center justify-between bg-[#111121] p-4 mx-2 mb-4 rounded-lg border border-[#1f1f30]">
                 <div className="flex items-center gap-3">
                   <div className="bg-yellow-500/20 p-2 rounded-full">
                     <AlertCircle className="w-5 h-5 text-yellow-500" />
@@ -277,7 +277,7 @@ const UserSubscription = () => {
                   </div>
                 </div>
                 <Button 
-                  className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 whitespace-nowrap"
+                  className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 whitespace-nowrap text-white"
                   onClick={() => {
                     const element = document.getElementById('available-packages');
                     if (element) element.scrollIntoView({ behavior: 'smooth' });
@@ -304,16 +304,16 @@ const UserSubscription = () => {
                   </div>
                 </div>
                 
-                <div className="p-4 space-y-4 bg-[#171727] rounded-b-lg">
+                <div className="p-4 space-y-4 bg-[#111121] rounded-b-lg">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                    <div className="bg-[#111121] p-3 rounded-md border border-[#1f1f30]">
                       <div className="flex flex-col">
                         <span className="text-sm text-gray-400">Ngày bắt đầu</span>
                         <p className="font-medium text-white">{formatDate(userSubscription.startDate)}</p>
                       </div>
                     </div>
                     
-                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                    <div className="bg-[#111121] p-3 rounded-md border border-[#1f1f30]">
                       <div className="flex flex-col">
                         <span className="text-sm text-gray-400">Ngày kết thúc</span>
                         <p className="font-medium text-white">
@@ -322,7 +322,7 @@ const UserSubscription = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-[#1a1a2e] p-3 rounded-md">
+                    <div className="bg-[#111121] p-3 rounded-md border border-[#1f1f30]">
                       <div className="flex flex-col">
                         <span className="text-sm text-gray-400">Thời gian còn lại</span>
                         <p className="font-medium text-white">{getTimeRemaining(userSubscription.endDate)}</p>
@@ -347,13 +347,10 @@ const UserSubscription = () => {
                   {userSubscription.status === "Expired" && (
                     <div className="mt-4 flex justify-end">
                       <Button 
-                        className="bg-[#09D1C7] hover:bg-[#09D1C7]/90"
-                        onClick={() => {
-                          const element = document.getElementById('available-packages');
-                          if (element) element.scrollIntoView({ behavior: 'smooth' });
-                        }}
+                        className="bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white whitespace-nowrap"
+                        onClick={() => navigate('/upgrade-package')}
                       >
-                        Gia hạn ngay
+                        Nâng cấp ngay
                       </Button>
                     </div>
                   )}
@@ -412,7 +409,7 @@ const UserSubscription = () => {
                     </div>
                     
                     {/* Phần phải - thông tin chi tiết */}
-                    <div className="flex-grow flex flex-col lg:flex-row bg-[#171727] rounded-lg mt-0.5 lg:mt-0 lg:ml-0.5">
+                    <div className="flex-grow flex flex-col lg:flex-row bg-[#111121] rounded-lg mt-0.5 lg:mt-0 lg:ml-0.5 border border-[#1f1f30]">
                       {/* Giá gói */}
                       <div className="p-4 lg:w-[180px] border-b lg:border-b-0 lg:border-r border-[#1f1f30] h-full">
                         <p className="text-xs text-gray-400">Giá gói:</p>

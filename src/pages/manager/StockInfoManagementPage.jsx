@@ -40,7 +40,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from "@/components/ui/pagination";
-import { Search, Filter, Edit, Check, X, Loader2 } from 'lucide-react';
+import { Search, Filter, Edit, Check, X, Loader2, Upload } from 'lucide-react';
 import { toast } from "sonner";
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -85,6 +85,12 @@ export default function StockInfoManagementPage() {
     newCompanyName: ""
   });
   const [updating, setUpdating] = useState(false);
+  
+  // State for CSV upload
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileType, setFileType] = useState("");
+  const [uploading, setUploading] = useState(false);
   
   // Fetch stock data
   const fetchStocks = async () => {
@@ -257,16 +263,77 @@ export default function StockInfoManagementPage() {
     return stocks;
   }, [stocks]);
   
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === "text/csv") {
+      setSelectedFile(file);
+    } else {
+      toast.error("Vui lòng chọn file CSV");
+      e.target.value = null;
+    }
+  };
+  
+  // Handle file upload
+  const handleUpload = async () => {
+    if (!selectedFile || !fileType) {
+      toast.error("Vui lòng chọn file và loại dữ liệu");
+      return;
+    }
+    
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/file-csv/${fileType}`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+      
+      if (response.data.isSuccess) {
+        toast.success("Tải lên file thành công");
+        setUploadDialogOpen(false);
+        setSelectedFile(null);
+        setFileType("");
+        // Refresh the data
+        fetchStocks();
+      } else {
+        toast.error(response.data.message || "Tải lên file thất bại");
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error("Không thể tải lên file");
+    } finally {
+      setUploading(false);
+    }
+  };
+  
   return (
     <div className="w-full h-full p-2 sm:p-4 md:p-6 bg-gradient-to-b from-background/80 via-background to-background/90">
       <div className="max-w-[1400px] mx-auto">
         <div className="mb-4 md:mb-6">
-          <h1 className="text-xl md:text-2xl font-bold mb-2 text-foreground/90 flex items-center gap-2">
-            <Filter className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-            Quản lý thông tin cổ phiếu
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground/90 flex items-center gap-2">
+              <Filter className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              Quản lý thông tin cổ phiếu
+            </h1>
+            <Button
+              onClick={() => setUploadDialogOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Tải lên CSV
+            </Button>
+          </div>
           <p className="text-sm md:text-base text-muted-foreground">Xem và cập nhật thông tin cổ phiếu, bao gồm tên công ty và ngành</p>
-          <div className="w-20 h-1 bg-primary/70 rounded-full mt-2"></div>
+          
         </div>
 
         <Card className="border-border/40 shadow-xl rounded-md overflow-hidden transition-all duration-300 hover:shadow-2xl">
@@ -421,7 +488,9 @@ export default function StockInfoManagementPage() {
                       onClick={() => handlePageChange(Math.max(1, pagination.pageIndex - 1))}
                       disabled={pagination.pageIndex === 1 || loading}
                       className={pagination.pageIndex === 1 ? "opacity-50 cursor-not-allowed" : ""}
-                    />
+                    >
+                      Trước
+                    </PaginationPrevious>
                   </PaginationItem>
                   
                   {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
@@ -448,7 +517,7 @@ export default function StockInfoManagementPage() {
                           isActive={pageToShow === pagination.pageIndex}
                           onClick={() => handlePageChange(pageToShow)}
                           disabled={loading}
-                          className={pageToShow === pagination.pageIndex ? "bg-primary text-white" : ""}
+                          className={pageToShow === pagination.pageIndex ? "bg-primary text-primary-foreground" : ""}
                         >
                           {pageToShow}
                         </PaginationLink>
@@ -478,7 +547,9 @@ export default function StockInfoManagementPage() {
                       onClick={() => handlePageChange(Math.min(pagination.totalPages, pagination.pageIndex + 1))}
                       disabled={pagination.pageIndex === pagination.totalPages || loading}
                       className={pagination.pageIndex === pagination.totalPages ? "opacity-50 cursor-not-allowed" : ""}
-                    />
+                    >
+                      Sau
+                    </PaginationNext>
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
@@ -570,6 +641,74 @@ export default function StockInfoManagementPage() {
                 <>
                   <Check className="h-4 w-4 mr-2" />
                   <span>Cập nhật</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Tải lên file CSV</DialogTitle>
+            <DialogDescription>
+              Chọn loại dữ liệu và tải lên file CSV tương ứng
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="fileType" className="text-sm font-medium">
+                Loại dữ liệu
+              </label>
+              <Select
+                value={fileType}
+                onValueChange={setFileType}
+              >
+                <SelectTrigger className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                  <SelectValue placeholder="Chọn loại dữ liệu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="index" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Chỉ số</SelectItem>
+                  <SelectItem value="stock" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Cổ phiếu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="csvFile" className="text-sm font-medium">
+                File CSV
+              </label>
+              <Input
+                id="csvFile"
+                type="file"
+                accept=".csv"
+                onChange={handleFileSelect}
+                className="cursor-pointer"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleUpload}
+              disabled={uploading || !selectedFile || !fileType}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span>Đang tải lên...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  <span>Tải lên</span>
                 </>
               )}
             </Button>

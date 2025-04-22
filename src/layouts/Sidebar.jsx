@@ -58,12 +58,6 @@ import { toast } from 'sonner';
 // Mock data for navigation items
 export const navItems = [
   {
-    title: "Dashboard",
-    url: "/manager/dashboard",
-    icon: "layoutDashboard",
-    isActive: true
-  },
-  {
     title: "Kiến thức",
     url: "/manager/knowledge",
     icon: "bookOpen",
@@ -105,7 +99,6 @@ export const company = {
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
-  layoutDashboard: () => <LayoutDashboard className="size-4" />,
   bookOpen: () => <BookOpen className="size-4" />,
   fileText: () => <FileText className="size-4" />,
   database: () => <Database className="size-4" />,

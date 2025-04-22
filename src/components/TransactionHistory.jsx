@@ -11,7 +11,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Calendar
+  Calendar,
+  History
 } from "lucide-react";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -136,34 +137,7 @@ export function TransactionHistory() {
         }
       } else {
         console.error("Payment history error response:", result);
-        // Use mock data if API fails
-        const mockTransactions = [
-          {
-            id: '1',
-            orderCode: 'ORD0001',
-            name: 'Premium',
-            amount: 299000,
-            createdAt: new Date().toISOString(),
-            status: 'SUCCESS',
-            expireDate: new Date(Date.now() + 30*24*60*60*1000).toISOString()
-          },
-          {
-            id: '2',
-            orderCode: 'ORD0002',
-            name: 'VIP',
-            amount: 599000,
-            createdAt: new Date(Date.now() - 7*24*60*60*1000).toISOString(),
-            status: 'PENDING'
-          },
-          {
-            id: '3',
-            orderCode: 'ORD0003',
-            name: 'Premium',
-            amount: 299000,
-            createdAt: new Date(Date.now() - 30*24*60*60*1000).toISOString(),
-            status: 'FAILED'
-          }
-        ];
+       
         
         console.log("Using mock data as fallback");
         setTransactions(mockTransactions);
@@ -173,34 +147,7 @@ export function TransactionHistory() {
     } catch (error) {
       console.error('Error fetching payment history:', error);
       
-      // Use mock data if API throws an exception
-      const mockTransactions = [
-        {
-          id: '1',
-          orderCode: 'ORD0001',
-          name: 'Premium',
-          amount: 299000,
-          createdAt: new Date().toISOString(),
-          status: 'SUCCESS',
-          expireDate: new Date(Date.now() + 30*24*60*60*1000).toISOString()
-        },
-        {
-          id: '2',
-          orderCode: 'ORD0002',
-          name: 'VIP',
-          amount: 599000,
-          createdAt: new Date(Date.now() - 7*24*60*60*1000).toISOString(),
-          status: 'PENDING'
-        },
-        {
-          id: '3',
-          orderCode: 'ORD0003',
-          name: 'Premium',
-          amount: 299000,
-          createdAt: new Date(Date.now() - 30*24*60*60*1000).toISOString(),
-          status: 'FAILED'
-        }
-      ];
+      
       
       console.log("Using mock data as fallback due to exception");
       setTransactions(mockTransactions);
@@ -297,10 +244,10 @@ export function TransactionHistory() {
   };
   
   // Handle status filter change
-  const handleStatusFilterChange = (e) => {
-    setStatusFilter(e.target.value);
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
     setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
-    handleSearch(searchTerm, e.target.value);
+    handleSearch(searchTerm, value);
   };
   
   // Handle search button click - perform search with API
@@ -320,8 +267,13 @@ export function TransactionHistory() {
       const result = await apiService.getUserPaymentHistory(cleanSearchTerm, cleanStatusFilter);
       
       if (result.status === 'success' && Array.isArray(result.data)) {
-        setTransactions(result.data);
-        if (result.data.length === 0) {
+        // Filter transactions based on status if a specific status is selected
+        const filteredData = statusValue === 'ALL' 
+          ? result.data 
+          : result.data.filter(transaction => transaction.status === statusValue);
+        
+        setTransactions(filteredData);
+        if (filteredData.length === 0) {
           setError('Không tìm thấy giao dịch nào phù hợp');
         }
       } else {
@@ -339,22 +291,24 @@ export function TransactionHistory() {
   
   if (loading && transactions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-black text-white">
-        <Loader2 className="h-12 w-12 animate-spin text-[#09D1C7] mb-4" />
-        <p className="text-center text-gray-300">Đang tải lịch sử giao dịch...</p>
+      <div className="flex flex-col items-center justify-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
+          <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
+        </div>
       </div>
     );
   }
   
   if (error && transactions.length === 0) {
     return (
-      <div className="text-center p-8 bg-black text-white">
+      <div className="text-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
         <div className="text-red-500 mb-4">
           {error}
         </div>
         <button 
           onClick={() => fetchPaymentHistory()}
-          className="px-4 py-2 bg-[#09D1C7] text-black rounded hover:bg-opacity-90"
+          className="px-4 py-2 bg-[#09D1C7] text-white rounded hover:bg-opacity-90"
         >
           Tải lại
         </button>
@@ -363,197 +317,200 @@ export function TransactionHistory() {
   }
   
   return (
-    <div className="bg-black text-white rounded-lg shadow p-6 space-y-6">
-      {/* Transaction History Section */}
-      <h2 className="text-2xl font-bold mb-4">Lịch sử giao dịch</h2>
-      
-      {/* Search and Filter Controls */}
-      <div className="mb-6 flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Tìm kiếm giao dịch..."
-            className="pl-8 h-10 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white w-full"
-            value={searchTerm}
-            onChange={handleSearchChange}
-          />
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-        </div>
-        
-        <select
-          className="h-10 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white w-full md:w-48"
-          value={statusFilter}
-          onChange={handleStatusFilterChange}
-        >
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="SUCCESS">Thành công</option>
-          <option value="FAILED">Đã hủy</option>
-        </select>
-      </div>
-      
-      {/* Error message */}
-      {error && (
-        <div className="mb-4 p-4 border border-red-800 bg-red-900 text-red-200 rounded-md flex items-center">
-          <AlertCircle className="h-5 w-5 mr-2" />
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {/* Loading state */}
-      {loading && (
-        <div className="flex justify-center items-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-[#09D1C7]" />
-          <span className="ml-2 text-gray-300">Đang tải dữ liệu...</span>
-        </div>
-      )}
-      
-      {/* No transactions */}
-      {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length === 0 && !error && (
-        <div className="text-center py-12 bg-gray-900 rounded-md border border-gray-800">
-          <Receipt className="mx-auto h-12 w-12 text-gray-600" />
-          <h3 className="mt-4 text-lg font-medium text-gray-300">Không có giao dịch nào</h3>
-          <p className="mt-2 text-sm text-gray-500">Bạn chưa có giao dịch nào trong lịch sử.</p>
+    <Card className="bg-[#111121] border border-[#1f1f30]">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#09D1C7] p-2 rounded-md">
+              <History className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-bold">Lịch sử giao dịch</CardTitle>
+              <CardDescription>Xem lại các giao dịch đã thực hiện</CardDescription>
+            </div>
           </div>
-      )}
+        </div>
+      </CardHeader>
       
-      {/* Transaction list */}
-      {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
-        <div className="bg-gray-900 rounded-md shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-800">
-            <thead className="bg-gray-800">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Mã đơn hàng
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Gói dịch vụ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Số tiền
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Ngày tạo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-gray-900 divide-y divide-gray-800">
-              {currentItems.map((transaction, index) => {
-                const statusDisplay = getStatusDisplay(transaction.status);
+      <CardContent>
+        {/* Search and Filter */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+            <Input
+              placeholder="Tìm kiếm theo mã đơn hàng..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="pl-10 bg-[#111121] border-[#1f1f30]"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+            <SelectTrigger className="w-full md:w-[180px] bg-[#111121] border-[#1f1f30]">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả</SelectItem>
+              <SelectItem value="SUCCESS">Thành công</SelectItem>
+              <SelectItem value="FAILED">Thất bại</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-4 border border-red-800 bg-red-900 text-red-200 rounded-md flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {/* Loading state */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
+              <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
+            </div>
+          </div>
+        )}
+        
+        {/* No transactions */}
+        {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length === 0 && !error && (
+          <div className="text-center py-12 bg-gray-900 rounded-md border border-gray-800">
+            <Receipt className="mx-auto h-12 w-12 text-gray-600" />
+            <h3 className="mt-4 text-lg font-medium text-gray-300">Không có giao dịch nào</h3>
+            <p className="mt-2 text-sm text-gray-500">Bạn chưa có giao dịch nào trong lịch sử.</p>
+          </div>
+        )}
+        
+        {/* Transaction list */}
+        {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
+          <div className="relative overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs uppercase bg-[#111121] border-y border-[#1f1f30]">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-gray-400">Mã đơn hàng</th>
+                  <th scope="col" className="px-4 py-3 text-gray-400">Gói dịch vụ</th>
+                  <th scope="col" className="px-4 py-3 text-gray-400">Số tiền</th>
+                  <th scope="col" className="px-4 py-3 text-gray-400">Ngày tạo</th>
+                  <th scope="col" className="px-4 py-3 text-gray-400">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentItems.map((transaction, index) => {
+                  const statusDisplay = getStatusDisplay(transaction.status);
                   return (
-                  <tr key={transaction.id || index} className="hover:bg-gray-800">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
-                      {transaction.orderCode || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {transaction.name || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {transaction.amount ? `${transaction.amount.toLocaleString()} VND` : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {transaction.createdAt ? formatDate(transaction.createdAt) : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusDisplay.className}`}>
-                        {statusDisplay.text}
-                        </span>
-                    </td>
-                  </tr>
+                    <tr key={transaction.id || index} className="border-b border-[#1f1f30] bg-[#111121]">
+                      <td className="px-4 py-3 font-medium text-white">
+                        {transaction.orderCode || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {transaction.name || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {transaction.amount ? `${transaction.amount.toLocaleString()} VND` : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {transaction.createdAt ? formatDate(transaction.createdAt) : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge 
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusDisplay.className}`}>
+                          {statusDisplay.text}
+                        </Badge>
+                      </td>
+                    </tr>
                   );
                 })}
-            </tbody>
-          </table>
-          
-          {/* Phân trang */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`relative inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
-                    currentPage === 1 
-                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                      : 'bg-gray-800 text-white hover:bg-gray-700'
-                  }`}
-                >
-                  Trước
-                </button>
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={`relative ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
-                    currentPage === totalPages 
-                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                      : 'bg-gray-800 text-white hover:bg-gray-700'
-                  }`}
-                >
-                  Sau
-                </button>
-          </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">
-                    Hiển thị <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến{' '}
-                    <span className="font-medium">
-                      {Math.min(currentPage * itemsPerPage, filteredTransactions.length)}
-                    </span>{' '}
-                    trong tổng số <span className="font-medium">{filteredTransactions.length}</span> kết quả
-          </p>
-        </div>
-                <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    <button
-                      onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-                      className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                        currentPage === 1 
-                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-                      }`}
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    
-                    {/* Hiển thị số trang */}
-                    {Array.from({ length: totalPages }).map((_, idx) => (
+              </tbody>
+            </table>
+            
+            {/* Phân trang */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
+                      currentPage === 1 
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+                        : 'bg-gray-800 text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    Trước
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`relative ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
+                      currentPage === totalPages 
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+                        : 'bg-gray-800 text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    Sau
+                  </button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">
+                      Hiển thị <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến{' '}
+                      <span className="font-medium">
+                        {Math.min(currentPage * itemsPerPage, filteredTransactions.length)}
+                      </span>{' '}
+                      trong tổng số <span className="font-medium">{filteredTransactions.length}</span> kết quả
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                       <button
-                        key={idx}
-                        onClick={() => handlePageChange(idx + 1)}
-                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                          currentPage === idx + 1
-                            ? 'bg-[#09D1C7] text-black'
+                        onClick={() => handlePageChange(1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                          currentPage === 1 
+                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
                         }`}
                       >
-                        {idx + 1}
+                        <ChevronLeft className="h-5 w-5" />
                       </button>
-                    ))}
-                    
-                    <button
-                      onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                        currentPage === totalPages 
-                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-                      }`}
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </nav>
+                      
+                      {/* Hiển thị số trang */}
+                      {Array.from({ length: totalPages }).map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handlePageChange(idx + 1)}
+                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                            currentPage === idx + 1
+                              ? 'bg-[#09D1C7] text-black'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                          }`}
+                        >
+                          {idx + 1}
+                        </button>
+                      ))}
+                      
+                      <button
+                        onClick={() => handlePageChange(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                          currentPage === totalPages 
+                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </nav>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-      
-      <Toaster position="top-center" />
-    </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

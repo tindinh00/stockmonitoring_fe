@@ -205,10 +205,8 @@ function Home() {
                 <motion.div whileHover={{ scale: 1.1, rotate: -3 }} transition={{ type: "spring", stiffness: 400 }}>
                   <Button
                     asChild
-                    variant="outline"
                     size="lg"
-                    style={{ borderColor: "#0ABDB4", color: "#0ABDB4" }}
-                    className="hover:bg-[#0ABDB4]/20 hover:text-[#80EE98] font-semibold w-full sm:w-auto"
+                    className="bg-transparent border-2 border-[#46DFB1] text-[#46DFB1] hover:bg-[#46DFB1]/10 hover:text-white hover:border-[#46DFB1] font-semibold w-full sm:w-auto transition-all duration-300"
                   >
                     <Link to="/tools">Nhận Tư Vấn</Link>
                   </Button>
