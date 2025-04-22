@@ -30,7 +30,7 @@ import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Trash2, Plus, Eye, Search, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, Search, X, ChevronRight } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 import { apiService } from "@/api/Api";
 import Cookies from "js-cookie";
@@ -225,6 +225,17 @@ const ManagerKnowledge = () => {
     article.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calculate pagination
+  const articlesPerPage = 5;
+  const indexOfLastArticle = currentPage * articlesPerPage;
+  const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
+  const currentArticles = filteredArticles.slice(indexOfFirstArticle, indexOfLastArticle);
+  const totalFilteredPages = Math.ceil(filteredArticles.length / articlesPerPage);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -307,7 +318,7 @@ const ManagerKnowledge = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredArticles.map((article, index) => (
+                  currentArticles.map((article, index) => (
                     <TableRow key={article.id} className="hover:bg-muted/50">
                       <TableCell className="text-left">
                         {(currentPage - 1) * 10 + index + 1}
@@ -360,6 +371,85 @@ const ManagerKnowledge = () => {
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {filteredArticles.length > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Hiển thị {indexOfFirstArticle + 1} - {Math.min(indexOfLastArticle, filteredArticles.length)} / {filteredArticles.length} bài viết
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4 rotate-180" />
+                  <ChevronRight className="h-4 w-4 -ml-2 rotate-180" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4 rotate-180" />
+                </Button>
+                <div className="flex items-center">
+                  {Array.from({ length: Math.min(5, totalFilteredPages) }, (_, i) => {
+                    let pageToShow;
+                    if (totalFilteredPages <= 5) {
+                      pageToShow = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageToShow = i + 1;
+                    } else if (currentPage >= totalFilteredPages - 2) {
+                      pageToShow = totalFilteredPages - 4 + i;
+                    } else {
+                      pageToShow = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageToShow}
+                        variant={currentPage === pageToShow ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageToShow)}
+                        className={`h-8 w-8 p-0 mx-0.5 ${
+                          currentPage === pageToShow 
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                            : ""
+                        }`}
+                      >
+                        {pageToShow}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalFilteredPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(totalFilteredPages)}
+                  disabled={currentPage === totalFilteredPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 -ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -1620,10 +1620,10 @@ export default function StockDerivatives() {
                               {/* Update padding for all cells */}
                               <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
                               <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
-                              <td className={`${getCellClass(stock, 'matchPrice', 'price')} ${priceChangeColors[stock.code] || ''}`}>{stock.matchPrice}</td>
+                              <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
                               <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
                               <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
-                              <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td>
+                              <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td> 
                               <td className={`${getCellClass(stock, 'buyVolume2', 'volume')} px-2 py-1.5`}>{stock.buyVolume2}</td>
                               <td className={`${getCellClass(stock, 'buyPrice1', 'price')} px-2 py-1.5`}>{stock.buyPrice1}</td>
                               <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
@@ -1632,7 +1632,7 @@ export default function StockDerivatives() {
                               <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
                               <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
                               <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
-                              <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td>
+                              <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td> 
                               <td className={`${getCellClass(stock, 'sellVolume2', 'volume')} px-2 py-1.5`}>{stock.sellVolume2}</td>
                               <td className={`${getCellClass(stock, 'sellPrice3', 'price')} px-2 py-1.5`}>{stock.sellPrice3}</td>
                               <td className={`${getCellClass(stock, 'sellVolume3', 'volume')} px-2 py-1.5`}>{stock.sellVolume3}</td>

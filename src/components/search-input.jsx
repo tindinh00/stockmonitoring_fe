@@ -1,18 +1,14 @@
-import React from 'react';
-import { Search } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
-export default function SearchInput({ darkMode = false }) {
+export default function SearchInput() {
   return (
-    <div className="relative">
-      <Search className={`absolute left-2.5 top-2.5 h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-      <input
+    <div className="relative w-full max-w-sm">
+      <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+      <Input
         type="search"
-        placeholder="Search..."
-        className={`h-9 w-64 rounded-md pl-8 pr-4 text-sm outline-none focus:ring-1 ${
-          darkMode 
-            ? 'bg-[#131325] border-[#1f1f30] text-white placeholder:text-gray-500 focus:border-indigo-600 focus:ring-indigo-600/20' 
-            : 'bg-white border-gray-200 text-gray-900 focus:border-gray-300 focus:ring-gray-300'
-        } border`}
+        placeholder="Tìm kiếm..."
+        className="w-full bg-[#213A51] border-[#15919B]/30 pl-8 text-gray-300 placeholder:text-gray-400 focus:border-[#46DFB1] focus:ring-1 focus:ring-[#46DFB1]"
       />
     </div>
   );
