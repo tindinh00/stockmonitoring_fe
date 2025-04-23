@@ -24,22 +24,43 @@ const OtpPage = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Kiểm tra xem đây là quên mật khẩu hay đăng ký
+    // Kiểm tra và log loại flow hiện tại
     const resetPasswordEmail = localStorage.getItem("resetPasswordEmail");
     const registerEmail = localStorage.getItem("registerEmail");
     
+    console.log("Checking flow type:");
+    console.log("- Reset password email:", resetPasswordEmail);
+    console.log("- Register email:", registerEmail);
+    
     if (resetPasswordEmail) {
+      console.log("→ This is a PASSWORD RESET flow");
       setEmail(resetPasswordEmail);
       setIsPasswordReset(true);
     } else if (registerEmail) {
+      console.log("→ This is a REGISTRATION flow");
       setEmail(registerEmail);
       setIsPasswordReset(false);
     } else {
-      // Nếu không có email nào, chuyển hướng về trang đăng ký
+      console.log("→ No email found, redirecting to register page");
+      toast.error("Không tìm thấy thông tin email. Vui lòng thử lại.", {
+        duration: 3000
+      });
       navigate("/register");
       return;
     }
+
+    // Log current state after setting
+    console.log("Current state:", {
+      email: email,
+      isPasswordReset: isPasswordReset,
+      flowType: resetPasswordEmail ? "Password Reset" : registerEmail ? "Registration" : "Unknown"
+    });
   }, [navigate]);
+
+  // Add debug log when isPasswordReset changes
+  useEffect(() => {
+    console.log("Flow type changed:", isPasswordReset ? "Password Reset" : "Registration");
+  }, [isPasswordReset]);
 
   // Add countdown timer effect
   useEffect(() => {
@@ -81,15 +102,20 @@ const OtpPage = () => {
 
     setLoading(true);
     try {
-      console.log("Submitting OTP:", otpValue, "for email:", email);
+      // Log current flow type before submitting
+      console.log("Submitting OTP for:", isPasswordReset ? "Password Reset" : "Registration");
+      console.log("Email:", email);
+      console.log("OTP:", otpValue);
       
+      let response;
       // Xử lý khác nhau cho đăng ký và quên mật khẩu
       if (isPasswordReset) {
-        // Xử lý OTP cho quên mật khẩu
-        const response = await apiService.verifyOtp(email, otpValue);
-        console.log("OTP verification response (reset password):", response);
+        console.log("Calling password reset verification API...");
+        response = await apiService.verifyResetPasswordOtp(email, otpValue);
+        console.log("Password reset verification response:", response);
         
-        if (response.success || response.status === 200 || response.statusCode === 200) {
+        // Kiểm tra response theo đúng cấu trúc API trả về
+        if (response?.value?.status === 200 || response?.value?.message === "Xác nhận thành công") {
           localStorage.removeItem("resetPasswordEmail");
           localStorage.setItem("otpVerified", "true");
           localStorage.setItem("verifiedEmail", email);
@@ -103,17 +129,18 @@ const OtpPage = () => {
             navigate("/reset-password");
           }, 2000);
         } else {
-          toast.error(response.message || "Mã OTP không chính xác!", {
+          toast.error(response?.value?.message || "Mã OTP không chính xác!", {
             position: "top-right",
             duration: 5000,
           });
         }
       } else {
-        // Xử lý OTP cho đăng ký
-        const response = await apiService.verifyOtp(email, otpValue);
-        console.log("OTP verification response (register):", response);
+        console.log("Calling registration verification API...");
+        response = await apiService.verifyRegistrationOtp(email, otpValue);
+        console.log("Registration verification response:", response);
         
-        if (response.success || response.status === 200 || response.statusCode === 200) {
+        // Kiểm tra response theo đúng cấu trúc API trả về
+        if (response?.value?.status === 200 || response?.value?.message === "Xác nhận thành công") {
           localStorage.removeItem("registerEmail");
           toast.success("Xác thực email thành công!", {
             position: "top-right",
@@ -123,7 +150,7 @@ const OtpPage = () => {
             navigate("/login");
           }, 2000);
         } else {
-          toast.error(response.message || "Mã OTP không chính xác!", {
+          toast.error(response?.value?.message || "Mã OTP không chính xác!", {
             position: "top-right",
             duration: 5000,
           });

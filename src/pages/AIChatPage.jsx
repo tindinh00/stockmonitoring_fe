@@ -225,6 +225,21 @@ const AIChatPage = () => {
                     onKeyPress={handleKeyPress}
                     className="w-full h-16 pl-14 pr-4 bg-transparent border-0 text-white placeholder:text-[#666] text-lg focus:ring-0 focus:outline-none rounded-2xl"
                   />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute right-16 bg-transparent border-0 text-[#09D1C7] hover:text-[#09D1C7] hover:bg-transparent transition-colors opacity-50 group-hover:opacity-100"
+                  >
+                    <ImageIcon className="h-5 w-5" />
+                  </Button>
                   <Sparkles className="absolute right-4 text-[#09D1C7] h-5 w-5 opacity-50 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>

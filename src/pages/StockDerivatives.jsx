@@ -1065,7 +1065,7 @@ export default function StockDerivatives() {
       
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
-        await axios.delete(
+        const response = await axios.delete(
           `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
@@ -1083,7 +1083,7 @@ export default function StockDerivatives() {
         toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
       } else {
         // Add to watchlist with correct request format
-        await axios.post(
+        const response = await axios.post(
           `${APP_BASE_URL}/api/watchlist-stock`,
           {
             userId: userId,
@@ -1097,13 +1097,31 @@ export default function StockDerivatives() {
             }
           }
         );
+
+        // Kiểm tra nếu có thông báo đã tồn tại trong watchlist
+        if (response.data?.value?.message?.includes("already in the watchlist")) {
+          toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
+          return;
+        }
         
         setWatchlist([...watchlist, stock]);
         toast.success(`Đã thêm ${stock.code} vào danh sách theo dõi`);
       }
     } catch (error) {
       console.error('Error updating watchlist:', error);
-      toast.error("Không thể cập nhật danh sách theo dõi, vui lòng thử lại sau");
+      if (error.response?.data?.value?.message?.includes("already in the watchlist")) {
+        toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
+      } else if (error.response?.status === 401) {
+        toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
+      } else if (error.response?.status === 403) {
+        toast.error("Bạn không có quyền thực hiện thao tác này");
+      } else if (error.response?.status === 404) {
+        toast.error("Không tìm thấy dữ liệu yêu cầu");
+      } else if (error.response?.status >= 500) {
+        toast.error("Lỗi hệ thống. Vui lòng thử lại sau");
+      } else {
+        toast.error("Không thể cập nhật danh sách theo dõi. Vui lòng thử lại sau");
+      }
     }
   };
 
@@ -1158,13 +1176,13 @@ export default function StockDerivatives() {
     const currentPrice = parseFloat(selectedAlertStock.matchPrice);
 
     // Kiểm tra logic giá cảnh báo
-    if (alertType === 'above' && price <= currentPrice) {
-      toast.error('Giá cảnh báo phải cao hơn giá hiện tại');
+    if (alertType === 'above' && price < currentPrice) {
+      toast.error('Giá cảnh báo phải bằng hoặc cao hơn giá hiện tại');
       return;
     }
 
-    if (alertType === 'below' && price >= currentPrice) {
-      toast.error('Giá cảnh báo phải thấp hơn giá hiện tại');
+    if (alertType === 'below' && price > currentPrice) {
+      toast.error('Giá cảnh báo phải bằng hoặc thấp hơn giá hiện tại');
       return;
     }
 

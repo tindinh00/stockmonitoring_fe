@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle, Info } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -37,7 +37,7 @@ const WatchlistPage = () => {
   const [sectorToDelete, setSectorToDelete] = useState(null);
   const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState(null);
-  const [lastTimestamp, setLastTimestamp] = useState(null);
+  const [lastTimestamp, setLastTimestamp] = useState(new Date());
   
   // Add new states for add stock feature
   const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
@@ -1158,6 +1158,15 @@ const WatchlistPage = () => {
     return value;
   };
 
+  // Add useEffect for real-time timestamp update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLastTimestamp(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Update the Chart Dialog content
   return (
     <div className="bg-[#0a0a14] min-h-screen">
@@ -1172,10 +1181,15 @@ const WatchlistPage = () => {
             <p className="text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333]">
-              <span className="text-[#666]">Cập nhật:</span>
-              <span className="text-[#09D1C7] font-medium">
-                {new Date().toLocaleTimeString('vi-VN')}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333] min-w-[120px]">
+              <Clock className="w-4 h-4 text-[#666]" />
+              <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
+                {lastTimestamp.toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                })}
               </span>
             </div>
             <Button

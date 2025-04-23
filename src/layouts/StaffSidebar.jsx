@@ -55,12 +55,6 @@ import { toast } from 'sonner';
 // Mock data for navigation items
 export const navItems = [
   {
-    title: "Dashboard",
-    url: "/staff/dashboard",
-    icon: "layoutDashboard",
-    isActive: true
-  },
-  {
     title: "Chat với khách hàng",
     url: "/staff/chat",
     icon: "messageSquare",
@@ -72,11 +66,7 @@ export const navItems = [
     icon: "fileText",
     isActive: true
   },
-  {
-    title: "Cài đặt",
-    url: "/staff/settings",
-    icon: "settings"
-  }
+
 ];
 
 // Mock company data
