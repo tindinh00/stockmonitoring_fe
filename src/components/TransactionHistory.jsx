@@ -291,7 +291,7 @@ export function TransactionHistory() {
   
   if (loading && transactions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+      <div className="flex flex-col items-center justify-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
         <div className="flex items-center gap-2">
           <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
           <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
@@ -302,7 +302,7 @@ export function TransactionHistory() {
   
   if (error && transactions.length === 0) {
     return (
-      <div className="text-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+      <div className="text-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
         <div className="text-red-500 mb-4">
           {error}
         </div>
@@ -317,7 +317,7 @@ export function TransactionHistory() {
   }
   
   return (
-    <Card className="bg-[#111121] border border-[#1f1f30]">
+    <Card className="bg-[#1a1a1a] border border-[#1f1f30]">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -341,11 +341,11 @@ export function TransactionHistory() {
               placeholder="Tìm kiếm theo mã đơn hàng..."
               value={searchTerm}
               onChange={handleSearchChange}
-              className="pl-10 bg-[#111121] border-[#1f1f30]"
+              className="pl-10 bg-[#1a1a1a] border-[#1f1f30]"
             />
           </div>
           <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-            <SelectTrigger className="w-full md:w-[180px] bg-[#111121] border-[#1f1f30]">
+            <SelectTrigger className="w-full md:w-[180px] bg-[#1a1a1a] border-[#1f1f30]">
               <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
             <SelectContent>
@@ -366,7 +366,7 @@ export function TransactionHistory() {
         
         {/* Loading state */}
         {loading && (
-          <div className="flex flex-col items-center justify-center p-8 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+          <div className="flex flex-col items-center justify-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
             <div className="flex items-center gap-2">
               <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
               <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
@@ -387,7 +387,7 @@ export function TransactionHistory() {
         {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
           <div className="relative overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase bg-[#111121] border-y border-[#1f1f30]">
+              <thead className="text-xs uppercase bg-[#1a1a1a] border-y border-[#1f1f30]">
                 <tr>
                   <th scope="col" className="px-4 py-3 text-gray-400">Mã đơn hàng</th>
                   <th scope="col" className="px-4 py-3 text-gray-400">Gói dịch vụ</th>
@@ -400,7 +400,7 @@ export function TransactionHistory() {
                 {currentItems.map((transaction, index) => {
                   const statusDisplay = getStatusDisplay(transaction.status);
                   return (
-                    <tr key={transaction.id || index} className="border-b border-[#1f1f30] bg-[#111121]">
+                    <tr key={transaction.id || index} className="border-b border-[#1f1f30] bg-[#1a1a1a]">
                       <td className="px-4 py-3 font-medium text-white">
                         {transaction.orderCode || 'N/A'}
                       </td>
@@ -427,15 +427,15 @@ export function TransactionHistory() {
             
             {/* Phân trang */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6">
+              <div className="flex items-center justify-between border-t border-gray-800 bg-[#1a1a1a] px-4 py-3 sm:px-6">
                 <div className="flex flex-1 justify-between sm:hidden">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className={`relative inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
                       currentPage === 1 
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                        : 'bg-gray-800 text-white hover:bg-gray-700'
+                        ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
+                        : 'bg-[#1a1a1a] text-white hover:bg-gray-700'
                     }`}
                   >
                     Trước
@@ -445,8 +445,8 @@ export function TransactionHistory() {
                     disabled={currentPage === totalPages}
                     className={`relative ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
                       currentPage === totalPages 
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                        : 'bg-gray-800 text-white hover:bg-gray-700'
+                        ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
+                        : 'bg-[#1a1a1a] text-white hover:bg-gray-700'
                     }`}
                   >
                     Sau
@@ -469,8 +469,8 @@ export function TransactionHistory() {
                         disabled={currentPage === 1}
                         className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
                           currentPage === 1 
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                            ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
+                            : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
                         }`}
                       >
                         <ChevronLeft className="h-5 w-5" />
@@ -484,7 +484,7 @@ export function TransactionHistory() {
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === idx + 1
                               ? 'bg-[#09D1C7] text-black'
-                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                              : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
                           }`}
                         >
                           {idx + 1}
@@ -496,8 +496,8 @@ export function TransactionHistory() {
                         disabled={currentPage === totalPages}
                         className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
                           currentPage === totalPages 
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                            ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
+                            : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
                         }`}
                       >
                         <ChevronRight className="h-5 w-5" />

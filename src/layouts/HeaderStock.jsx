@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 
 export default function StockHeader() {
   return (
-    <header className="w-full bg-[#1A202C] text-white p-4 border-b border-gray-700 shadow-lg">
+    <header className="w-full bg-[#0a0a14] text-white p-4 border-b border-gray-700 shadow-lg">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex space-x-4">
           <span className="text-lg font-bold">iSTOCK</span>
