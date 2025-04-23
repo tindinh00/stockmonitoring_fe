@@ -1203,33 +1203,33 @@ const WatchlistPage = () => {
       </div>
 
       <div className="p-4 md:p-6">
-        <div className="flex flex-col lg:flex-row gap-6">
+        {/* Exchange Tabs - Moved outside the grid to align tables */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setActiveTab('hsx')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'hsx'
+                ? 'bg-[#09D1C7] text-white'
+                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+            }`}
+          >
+            HOSE
+          </button>
+          <button
+            onClick={() => setActiveTab('hnx')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'hnx'
+                ? 'bg-[#09D1C7] text-white'
+                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+            }`}
+          >
+            HNX
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left section - Stock Table */}
-          <div className="w-full lg:w-[70%] space-y-4">
-            {/* Exchange Tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab('hsx')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'hsx'
-                    ? 'bg-[#09D1C7] text-white'
-                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
-                }`}
-              >
-                HOSE
-              </button>
-              <button
-                onClick={() => setActiveTab('hnx')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'hnx'
-                    ? 'bg-[#09D1C7] text-white'
-                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
-                }`}
-              >
-                HNX
-              </button>
-            </div>
-
+          <div className="lg:col-span-8">
             {/* Stock Table */}
             <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
               <div className="overflow-x-auto">
@@ -1411,10 +1411,10 @@ const WatchlistPage = () => {
           </div>
 
           {/* Right section - Industries */}
-          <div className="w-full lg:w-[30%] space-y-6">
+          <div className="lg:col-span-4 flex flex-col gap-6">
             {/* Industries List */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
-              <div className="p-4 border-b border-[#333]">
+            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+              <div className="p-4 border-b border-[#333] sticky top-0 bg-[#1a1a1a] z-10">
                 <h2 className="text-xl font-semibold text-white">Ngành theo dõi</h2>
               </div>
 
@@ -1522,9 +1522,9 @@ const WatchlistPage = () => {
                 )}
               </div>
             </div>
-
+            
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-auto">
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
                 <h3 className="text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
                 <p className="text-xl font-semibold text-white">{watchlist.length}</p>
