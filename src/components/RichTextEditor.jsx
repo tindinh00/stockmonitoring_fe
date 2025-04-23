@@ -51,7 +51,7 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleBold().run())}
-        className={editor.isActive('bold') ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('bold') ? 'bg-primary/20 text-primary' : ''}`}
         title="Bold"
         type="button"
       >
@@ -61,7 +61,7 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleItalic().run())}
-        className={editor.isActive('italic') ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('italic') ? 'bg-primary/20 text-primary' : ''}`}
         title="Italic"
         type="button"
       >
@@ -71,18 +71,18 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleUnderline().run())}
-        className={editor.isActive('underline') ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('underline') ? 'bg-primary/20 text-primary' : ''}`}
         title="Underline"
         type="button"
       >
         <UnderlineIcon className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+      <div className="w-px h-6 bg-border mx-1"></div>
       <Button
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-        className={editor.isActive('heading', { level: 1 }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('heading', { level: 1 }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Heading 1"
         type="button"
       >
@@ -92,7 +92,7 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-        className={editor.isActive('heading', { level: 2 }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('heading', { level: 2 }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Heading 2"
         type="button"
       >
@@ -102,18 +102,18 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-        className={editor.isActive('heading', { level: 3 }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive('heading', { level: 3 }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Heading 3"
         type="button"
       >
         <Heading3 className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+      <div className="w-px h-6 bg-border mx-1"></div>
       <Button
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().setTextAlign('left').run())}
-        className={editor.isActive({ textAlign: 'left' }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive({ textAlign: 'left' }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Align Left"
         type="button"
       >
@@ -123,7 +123,7 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().setTextAlign('center').run())}
-        className={editor.isActive({ textAlign: 'center' }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive({ textAlign: 'center' }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Align Center"
         type="button"
       >
@@ -133,18 +133,19 @@ const MenuBar = ({ editor }) => {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().setTextAlign('right').run())}
-        className={editor.isActive({ textAlign: 'right' }) ? 'bg-gray-200' : ''}
+        className={`text-foreground hover:bg-accent hover:text-accent-foreground ${editor.isActive({ textAlign: 'right' }) ? 'bg-primary/20 text-primary' : ''}`}
         title="Align Right"
         type="button"
       >
         <AlignRight className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+      <div className="w-px h-6 bg-border mx-1"></div>
       <Button
         variant="ghost"
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().undo().run())}
         disabled={!editor.can().undo()}
+        className="text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
         title="Undo"
         type="button"
       >
@@ -155,6 +156,7 @@ const MenuBar = ({ editor }) => {
         size="sm"
         onClick={handleButtonClick(() => editor.chain().focus().redo().run())}
         disabled={!editor.can().redo()}
+        className="text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
         title="Redo"
         type="button"
       >
@@ -173,6 +175,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
+        defaultAlignment: 'left',
       }),
       Underline,
       SlashCommandExtension,
@@ -180,6 +183,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
     content: value,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
+    },
+    onCreate: ({ editor }) => {
+      // Set default text alignment to left when editor is created
+      editor.commands.setTextAlign('left');
     },
     editorProps: {
       attributes: {
@@ -254,7 +261,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
         </div>
       )}
       <div className="mt-2 text-xs text-gray-500">
-        Tip: Type "/" for formatting options
+      Mẹo: Nhập "/" để định dạng các tùy chọn
       </div>
     </div>
   );

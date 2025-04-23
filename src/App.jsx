@@ -52,6 +52,7 @@ import HeaderNewsPage from './pages/HeaderNewsPage';
 import DataManagementPage from "./pages/manager/DataManagementPage";
 import StockInfoManagementPage from "./pages/manager/StockInfoManagementPage";
 import ContactPage from '@/pages/ContactPage';
+import SendEmailPage from "./pages/manager/SendEmailPage";
 
 // Function to get sidebar state from cookie
 const getSidebarStateFromCookie = () => {
@@ -168,6 +169,13 @@ function App() {
                           <Route path="scraper" element={<ScraperManagementPage />} />
                           <Route path="data" element={<DataManagementPage />} />
                           <Route path="stock-info" element={<StockInfoManagementPage />} />
+                          <Route path="send-email" element={
+                            <ProtectedRoute>
+                              <FeatureGuard role="Manager">
+                                <SendEmailPage />
+                              </FeatureGuard>
+                            </ProtectedRoute>
+                          } />
                         </Routes>
                         <Toaster position="top-right" richColors />
                       </div>

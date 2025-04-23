@@ -120,10 +120,10 @@ function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           {/* Hero Content */}
-          <div className="space-y-10">
+          <div className="space-y-8">
             <AnimatedSection direction="left" delay={0.2}>
               <h1
-                className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.2] text-center"
+                className="text-4xl md:text-4.75xl font-extrabold tracking-tight leading-[1.2] text-left"
                 style={{ 
                   background: "linear-gradient(to right, #80EE98, #0ABDB4)", 
                   WebkitBackgroundClip: "text", 
@@ -131,11 +131,11 @@ function Home() {
                   padding: "0.6rem 0"
                 }}
               >
-                Đầu Tư Chứng<br className="hidden md:inline" /> Khoán Thông Minh
+                StockFlow - Đầu tư chứng khoán <br className="hidden md:inline" /> thông minh
               </h1>
             </AnimatedSection>
             <AnimatedSection direction="right" delay={0.4}>
-              <p className="text-xl text-[#CFCFCF] max-w-lg mx-auto text-center">
+              <p className="text-xl text-[#CFCFCF] max-w-lg text-left">
                 Tăng trưởng tài sản với phân tích chuyên sâu, chiến lược đầu tư sáng tạo và quản lý rủi ro tối ưu.
               </p>
             </AnimatedSection>
@@ -152,7 +152,7 @@ function Home() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="text-center">
-                      <p className="text-sm text-[#CFCFCF]">Dữ liệu real-time, xu hướng rõ ràng</p>
+                      <p className="text-sm text-[#CFCFCF]">Dữ liệu thời gian thực, <br className="hidden md:inline" /> xu hướng rõ ràng</p>
                     </CardContent>
                   </Card>
                 </motion.div>
