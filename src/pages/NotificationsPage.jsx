@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import { toast } from "sonner";
-import { Loader2, Bell, AlertTriangle, ArrowUpDown, ArrowDown, ArrowUp, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Bell, AlertTriangle, ArrowUpDown, ArrowDown, ArrowUp, Trash2, Pencil, Check, ChevronsUpDown, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -33,9 +46,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils"
 import signalRService from "@/api/signalRService";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParams } from 'react-router-dom';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
+  const [notificationHistory, setNotificationHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -58,6 +84,13 @@ const NotificationsPage = () => {
   const [deletingIds, setDeletingIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredStocks, setFilteredStocks] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
+  const itemsPerHistoryPage = 10;
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'active';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     const filtered = watchlistStocks.filter(stock =>
@@ -69,6 +102,7 @@ const NotificationsPage = () => {
   useEffect(() => {
     fetchNotifications();
     fetchWatchlistStocks();
+    fetchNotificationHistory();
     
     const setupNotificationListener = async () => {
       try {
@@ -163,7 +197,7 @@ const NotificationsPage = () => {
       }
 
       const data = {
-        tickerSymbol: newNotification.tickerSymbol.toLowerCase(),
+        tickerSymbol: newNotification.tickerSymbol.toUpperCase(),
         userId: userId,
         price: parseFloat(newNotification.price),
         type: newNotification.type.toLowerCase()
@@ -287,7 +321,7 @@ const NotificationsPage = () => {
     try {
       setIsUpdating(true);
       const data = {
-        tickerSymbol: editingNotification.tickerSymbol,
+        tickerSymbol: editingNotification.tickerSymbol.toUpperCase(),
         userId: editingNotification.userId,
         price: parseFloat(newPrice),
         type: editingNotification.type
@@ -336,6 +370,74 @@ const NotificationsPage = () => {
     }
   };
 
+  const totalPages = Math.ceil(notifications.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentNotifications = notifications.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              onClick={() => handlePageChange(currentPage - 1)}
+              className={`cursor-pointer ${currentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-[#252525]'}`}
+            />
+          </PaginationItem>
+          
+          {[...Array(totalPages)].map((_, index) => {
+            const pageNumber = index + 1;
+            if (
+              pageNumber <= 3 ||
+              pageNumber > totalPages - 3 ||
+              Math.abs(pageNumber - currentPage) <= 1
+            ) {
+              return (
+                <PaginationItem key={pageNumber}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(pageNumber)}
+                    isActive={currentPage === pageNumber}
+                    className={`cursor-pointer ${
+                      currentPage === pageNumber
+                        ? 'bg-[#09D1C7] text-white hover:bg-[#09D1C7]/90'
+                        : 'hover:bg-[#252525]'
+                    }`}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                </PaginationItem>
+              );
+            } else if (
+              (pageNumber === 4 && currentPage < totalPages - 3) ||
+              (pageNumber === totalPages - 3 && currentPage > 4)
+            ) {
+              return (
+                <PaginationItem key={pageNumber}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              );
+            }
+            return null;
+          })}
+
+          <PaginationItem>
+            <PaginationNext 
+              onClick={() => handlePageChange(currentPage + 1)}
+              className={`cursor-pointer ${currentPage === totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-[#252525]'}`}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
+
   const renderTable = () => {
     if (isLoading) {
       return (
@@ -374,10 +476,10 @@ const NotificationsPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {notifications.map((notification, index) => (
+              {currentNotifications.map((notification, index) => (
                 <TableRow key={notification.id} className="hover:bg-[#252525] transition-colors">
                   <TableCell className="text-white text-center font-medium">
-                    {index + 1}
+                    {startIndex + index + 1}
                   </TableCell>
                   <TableCell className="text-white text-center font-medium">
                     {notification.tickerSymbol.toUpperCase()}
@@ -392,14 +494,14 @@ const NotificationsPage = () => {
                     <div className="flex items-center justify-center gap-2">
                       <Button 
                         variant="ghost" 
-                        className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-500/10"
+                        className="h-8 w-8 p-0 text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20"
                         onClick={() => handleEditPrice(notification)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-500/10"
+                        className="h-8 w-8 p-0 text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20"
                         onClick={() => handleDeleteClick(notification)}
                         disabled={deletingIds.includes(notification.id)}
                       >
@@ -415,8 +517,175 @@ const NotificationsPage = () => {
               ))}
             </TableBody>
           </Table>
+          {renderPagination()}
         </div>
       </div>
+    );
+  };
+
+  const fetchNotificationHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const userId = getUserId();
+      const cookies = document.cookie.split(';');
+      const authToken = cookies
+        .find(cookie => cookie.trim().startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      if (!authToken) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const response = await fetch(`https://stockmonitoring-api-gateway.onrender.com/api/notifications/${userId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data?.value?.data) {
+        setNotificationHistory(data.value.data);
+      }
+    } catch (error) {
+      console.error("Error fetching notification history:", error);
+      toast.error("Không thể tải lịch sử thông báo");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const renderHistory = () => {
+    if (isLoadingHistory) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
+          <p className="text-[#999]">Đang tải lịch sử thông báo...</p>
+        </div>
+      );
+    }
+
+    if (notificationHistory.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-4">
+            <Bell className="h-8 w-8 text-[#666]" />
+          </div>
+          <h3 className="text-white font-medium mb-2">Chưa có thông báo nào</h3>
+          <p className="text-[#666] max-w-md">
+            Bạn chưa nhận được thông báo nào. Các thông báo sẽ xuất hiện khi giá cổ phiếu đạt đến mức mục tiêu.
+          </p>
+        </div>
+      );
+    }
+
+    const startIndex = (currentHistoryPage - 1) * itemsPerHistoryPage;
+    const endIndex = startIndex + itemsPerHistoryPage;
+    const currentHistoryItems = notificationHistory.slice(startIndex, endIndex);
+    const totalHistoryPages = Math.ceil(notificationHistory.length / itemsPerHistoryPage);
+
+    return (
+      <>
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-[800px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-white w-16 text-center">STT</TableHead>
+                  <TableHead className="text-white text-left">Nội dung thông báo</TableHead>
+                  <TableHead className="text-white w-48 text-left">Thời gian</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {currentHistoryItems.map((notification, index) => (
+                  <TableRow key={notification.id} className="hover:bg-[#252525] transition-colors">
+                    <TableCell className="text-white text-center font-medium">
+                      {startIndex + index + 1}
+                    </TableCell>
+                    <TableCell className="text-white text-left">
+                      {notification.message}
+                    </TableCell>
+                    <TableCell className="text-white text-left">
+                      {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {totalHistoryPages > 1 && (
+          <Pagination className="mt-4">
+            <PaginationContent>
+              <PaginationItem>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "cursor-pointer hover:bg-[#252525] border-[#333] text-white h-9 px-4",
+                    currentHistoryPage === 1 && "pointer-events-none opacity-50"
+                  )}
+                  onClick={() => setCurrentHistoryPage(prev => Math.max(prev - 1, 1))}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Trang trước
+                </Button>
+              </PaginationItem>
+
+              {[...Array(totalHistoryPages)].map((_, index) => {
+                const pageNumber = index + 1;
+                if (
+                  pageNumber <= 3 ||
+                  pageNumber > totalHistoryPages - 3 ||
+                  Math.abs(pageNumber - currentHistoryPage) <= 1
+                ) {
+                  return (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationLink
+                        onClick={() => setCurrentHistoryPage(pageNumber)}
+                        isActive={currentHistoryPage === pageNumber}
+                        className={cn(
+                          "cursor-pointer",
+                          currentHistoryPage === pageNumber
+                            ? "bg-[#09D1C7] text-white hover:bg-[#09D1C7]/90"
+                            : "hover:bg-[#252525]"
+                        )}
+                      >
+                        {pageNumber}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                } else if (
+                  (pageNumber === 4 && currentHistoryPage < totalHistoryPages - 3) ||
+                  (pageNumber === totalHistoryPages - 3 && currentHistoryPage > 4)
+                ) {
+                  return (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+
+              <PaginationItem>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "cursor-pointer hover:bg-[#252525] border-[#333] text-white h-9 px-4",
+                    currentHistoryPage === totalHistoryPages && "pointer-events-none opacity-50"
+                  )}
+                  onClick={() => setCurrentHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                >
+                  Trang sau
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </>
     );
   };
 
@@ -447,50 +716,71 @@ const NotificationsPage = () => {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="stock">Mã cổ phiếu</Label>
-                    <Select
-                      value={newNotification.tickerSymbol}
-                      onValueChange={(value) => setNewNotification(prev => ({ ...prev, tickerSymbol: value }))}
-                    >
-                      <SelectTrigger className="bg-[#0a0a14] border-[#333] text-white">
-                        <SelectValue placeholder="Tìm kiếm mã cổ phiếu..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a1a] border-[#333]">
-                        <div className="p-2">
-                          <Input
-                            type="text"
-                            placeholder="Tìm kiếm mã cổ phiếu..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setSearchQuery(e.target.value);
-                            }}
-                            onKeyDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            className="bg-[#0a0a14] border-[#333] text-white mb-2"
-                          />
+                    <Dialog open={open} onOpenChange={setOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between bg-[#0a0a14] border-[#333] text-white hover:bg-[#252525]"
+                        >
+                          {newNotification.tickerSymbol
+                            ? watchlistStocks.find((stock) => stock.ticketSymbol === newNotification.tickerSymbol)?.ticketSymbol
+                            : "Chọn mã cổ phiếu..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] bg-[#1a1a1a] text-white border-[#333] p-0">
+                        <div className="p-4 border-b border-[#333]">
+                          <div className="flex items-center gap-2">
+                            <Search className="h-4 w-4 text-[#666]" />
+                            <Input
+                              placeholder="Tìm kiếm mã cổ phiếu..."
+                              value={searchQuery}
+                              onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                const filtered = watchlistStocks.filter(stock =>
+                                  stock.ticketSymbol.toLowerCase().includes(e.target.value.toLowerCase())
+                                );
+                                setFilteredStocks(filtered);
+                              }}
+                              className="border-0 p-0 text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                          </div>
                         </div>
-                        <div className="max-h-[200px] overflow-auto">
-                          {filteredStocks.map((stock) => (
-                            <SelectItem 
-                              key={stock.id} 
-                              value={stock.ticketSymbol}
-                              className="text-white hover:bg-[#252525] focus:bg-[#252525]"
-                            >
-                              {stock.ticketSymbol}
-                            </SelectItem>
-                          ))}
-                          {filteredStocks.length === 0 && (
-                            <div className="text-[#666] p-2 text-center">
+                        <div className="max-h-[300px] overflow-y-auto p-2">
+                          {filteredStocks.length === 0 ? (
+                            <div className="text-[#666] py-6 text-center text-sm">
                               Không tìm thấy mã cổ phiếu
                             </div>
+                          ) : (
+                            filteredStocks.map((stock) => (
+                              <div
+                                key={stock.id}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-sm px-3 py-2 text-sm cursor-pointer hover:bg-[#252525] transition-colors",
+                                  newNotification.tickerSymbol === stock.ticketSymbol ? "bg-[#252525]" : ""
+                                )}
+                                onClick={() => {
+                                  setNewNotification(prev => ({
+                                    ...prev,
+                                    tickerSymbol: stock.ticketSymbol
+                                  }));
+                                  setOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4",
+                                    newNotification.tickerSymbol === stock.ticketSymbol ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span>{stock.ticketSymbol}</span>
+                              </div>
+                            ))
                           )}
                         </div>
-                      </SelectContent>
-                    </Select>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="type">Loại thông báo</Label>
@@ -573,19 +863,72 @@ const NotificationsPage = () => {
       </div>
 
       <div className="p-4">
-        <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
-          <div className="p-4 border-b border-[#333] flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Danh sách lệnh thông báo</h2>
-            <div className="flex items-center gap-2 text-sm text-[#999]">
-              <span>Tổng số lệnh:</span>
-              <span className="text-white font-medium">{notifications.length}</span>
+        <Tabs defaultValue={initialTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
+          <TabsList className="bg-transparent border-b border-[#333] p-0 h-12 relative overflow-hidden rounded-t-lg">
+            <div className="absolute bottom-0 left-0 h-full bg-[#09D1C7] transition-all duration-300 ease-in-out rounded-t-lg" 
+                 style={{
+                   width: '50%',
+                   transform: `translateX(${activeTab === 'history' ? '100%' : '0'})`
+                 }}
+            />
+            <TabsTrigger 
+              value="active" 
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-[#666] hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tl-lg"
+            >
+              Lệnh đang theo dõi
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-[#666] hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tr-lg"
+            >
+              Lịch sử thông báo
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent 
+            value="active" 
+            className="mt-4 transition-all duration-500 ease-in-out data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 data-[state=inactive]:translate-x-[-20px] data-[state=active]:translate-x-0 data-[state=inactive]:scale-95 data-[state=active]:scale-100"
+          >
+            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden transform">
+              <div className="p-4 border-b border-[#333] flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-white">Danh sách lệnh thông báo</h2>
+                <div className="flex items-center gap-2 text-sm text-[#999]">
+                  <span>Tổng số lệnh:</span>
+                  <span className="text-white font-medium">{notifications.length}</span>
+                </div>
+              </div>
+              <div className="p-4">
+                {renderTable()}
+              </div>
             </div>
-          </div>
-          
-          <div className="p-4">
-            {renderTable()}
-          </div>
-        </div>
+          </TabsContent>
+          <TabsContent 
+            value="history" 
+            className="mt-4 transition-all duration-500 ease-in-out data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 data-[state=inactive]:translate-x-[20px] data-[state=active]:translate-x-0 data-[state=inactive]:scale-95 data-[state=active]:scale-100"
+          >
+            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden transform">
+              <div className="p-4 border-b border-[#333] flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-white">Lịch sử thông báo</h2>
+                <Button
+                  onClick={fetchNotificationHistory}
+                  className="bg-[#252525] hover:bg-[#333] text-white px-4 py-2 rounded-lg"
+                  disabled={isLoadingHistory}
+                >
+                  {isLoadingHistory ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang tải...
+                    </>
+                  ) : (
+                    'Làm mới'
+                  )}
+                </Button>
+              </div>
+              <div className="p-4">
+                {renderHistory()}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

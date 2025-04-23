@@ -18,6 +18,7 @@ import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import TradingSessionBadge from '@/components/TradingSessionBadge';
 import signalRService from '@/api/signalRService';
+import axios from 'axios';
 
 export default function HeaderLogined() {
   // State to store notifications
@@ -25,6 +26,52 @@ export default function HeaderLogined() {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [isTradingHours, setIsTradingHours] = useState(false);
+  const [marketIndices, setMarketIndices] = useState([]);
+  const [isLoadingIndices, setIsLoadingIndices] = useState(true);
+
+  // Function to check if current time is within trading hours
+  const checkTradingHours = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours * 60 + minutes; // Convert to minutes since midnight
+
+    // Morning session: 9:00 - 11:30 (540 - 690 minutes)
+    // Afternoon session: 13:00 - 15:00 (780 - 900 minutes)
+    const isMorningSession = currentTime >= 540 && currentTime <= 690;
+    const isAfternoonSession = currentTime >= 780 && currentTime <= 900;
+
+    setIsTradingHours(isMorningSession || isAfternoonSession);
+  };
+
+  // Fetch market indices
+  const fetchMarketIndices = async () => {
+    try {
+      const response = await axios.get('https://stockmonitoring-api-gateway.onrender.com/api/stock/indexes/latest');
+      if (response?.data?.value?.data) {
+        setMarketIndices(response.data.value.data);
+      }
+    } catch (error) {
+      console.error('Error fetching market indices:', error);
+    } finally {
+      setIsLoadingIndices(false);
+    }
+  };
+
+  // Update trading hours status every minute
+  useEffect(() => {
+    checkTradingHours(); // Initial check
+    const interval = setInterval(checkTradingHours, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch market indices initially and update every minute
+  useEffect(() => {
+    fetchMarketIndices();
+    const interval = setInterval(fetchMarketIndices, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch notifications when popup opens
   const fetchNotifications = async () => {
@@ -253,10 +300,13 @@ export default function HeaderLogined() {
         <SidebarTrigger className='-ml-1 text-white' />
         <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
         <Breadcrumb />
-        <div className='hidden md:flex'>
-          <SearchInput />
+        <div className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+          isTradingHours 
+            ? 'bg-green-900/30 text-green-400' 
+            : 'bg-red-900/30 text-red-400'
+        }`}>
+          {isTradingHours ? 'Đang trong phiên' : 'Hết giờ'}
         </div>
-        <TradingSessionBadge />
         <Separator orientation='vertical' className='hidden sm:block h-4 bg-[#15919B]/30' />
         
         {/* Market Indices */}
@@ -278,14 +328,42 @@ export default function HeaderLogined() {
             `}</style>
             <div className="scroll-container">
               <div className='flex items-center gap-6'>
-                <span className='text-[#00FF00] whitespace-nowrap'>VN30: 1,335.68 +2.72 (+0.2%)</span>
-                <span className='text-[#FF4A4A] whitespace-nowrap'>HNX30: 495.07 -1.31 (-0.26%)</span>
-                <span className='text-[#FF4A4A] whitespace-nowrap'>VNXALL: 2,186.07 -5.22 (-0.24%)</span>
+                {isLoadingIndices ? (
+                  <span className="text-[#666]">Đang tải...</span>
+                ) : (
+                  marketIndices.map((index) => (
+                    <span 
+                      key={index.id} 
+                      className={`whitespace-nowrap ${
+                        index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                        index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
+                        'text-[#F4BE37]'
+                      }`}
+                    >
+                      {index.market}: {index.close} {' '}
+                      {index.arrow === 'icon-arrow-up' ? '↑' : 
+                       index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
+                      {index.change}
+                    </span>
+                  ))
+                )}
               </div>
               <div className='flex items-center gap-6'>
-                <span className='text-[#00FF00] whitespace-nowrap'>VN30: 1,335.68 +2.72 (+0.2%)</span>
-                <span className='text-[#FF4A4A] whitespace-nowrap'>HNX30: 495.07 -1.31 (-0.26%)</span>
-                <span className='text-[#FF4A4A] whitespace-nowrap'>VNXALL: 2,186.07 -5.22 (-0.24%)</span>
+                {!isLoadingIndices && marketIndices.map((index) => (
+                  <span 
+                    key={`${index.id}-duplicate`}
+                    className={`whitespace-nowrap ${
+                      index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                      index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
+                      'text-[#F4BE37]'
+                    }`}
+                  >
+                    {index.market}: {index.close} {' '}
+                    {index.arrow === 'icon-arrow-up' ? '↑' : 
+                     index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
+                    {index.change}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -408,7 +486,7 @@ export default function HeaderLogined() {
               )}
             </div>
             <div className="p-2 text-center border-t border-[#15919B]/30 bg-[#213A51]">
-              <Link to="/notifications">
+              <Link to="/notifications?tab=history">
                 <button className="text-sm text-[#46DFB1] hover:text-[#0ABDB4] font-medium">
                   Xem tất cả thông báo
                 </button>

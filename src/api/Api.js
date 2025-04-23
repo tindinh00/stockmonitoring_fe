@@ -469,20 +469,29 @@ export const apiService = {
     }
   },
   
-  resetPassword: async (email, code, newPassword) => {
+  resetPassword: async (email, password) => {
     try {
-      const response = await axiosInstance.put("/api/auth/reset-password", {
-        email: email,
-        code: code.toString(),
-        newPassword: newPassword
+      const response = await axiosInstance.put('/api/auth/reset-password', {
+        email,
+        Password: password // Viết hoa chữ P theo yêu cầu của API
       });
-      return response.data;
+      
+      console.log("Reset password response:", response.data);
+      
+      if (response.data?.value?.status === 200) {
+        return {
+          success: true,
+          message: response.data.value.message
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.data?.value?.message || "Không thể đặt lại mật khẩu"
+      };
     } catch (error) {
       console.error("Reset password error:", error);
-      if (error.response?.status === 404) {
-        throw new Error("Không tìm thấy API đặt lại mật khẩu. Vui lòng kiểm tra lại đường dẫn API.");
-      }
-      throw error.response?.data || error;
+      throw error.response?.data || error.message;
     }
   },
 
@@ -1746,6 +1755,34 @@ export const apiService = {
     } catch (error) {
       console.error("Get current user error:", error);
       throw error;
+    }
+  },
+
+  // Xác thực OTP cho đăng ký
+  verifyRegistrationOtp: async (email, otp) => {
+    try {
+      const response = await axiosInstance.post('/api/otp/verify-registration', {
+        email,
+        code: otp
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Verify registration OTP error:", error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Xác thực OTP cho quên mật khẩu
+  verifyResetPasswordOtp: async (email, otp) => {
+    try {
+      const response = await axiosInstance.post('/api/otp/verify-reset-password', {
+        email,
+        code: otp
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Verify reset password OTP error:", error);
+      throw error.response?.data || error.message;
     }
   },
 };

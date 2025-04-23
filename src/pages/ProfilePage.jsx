@@ -429,7 +429,7 @@ const ProfilePage = () => {
   };
   
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#0f172a]">
+    <div className="relative min-h-screen bg-[#09090B]">
       {/* Animated gradient overlay */}
       <div 
         className="absolute inset-0 opacity-30"
@@ -481,7 +481,7 @@ const ProfilePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="md:col-span-1">
-            <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+            <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
               <CardHeader className="text-center">
                 <div className="flex justify-center mb-4 relative">
                   <Avatar className="h-24 w-24">
@@ -511,7 +511,7 @@ const ProfilePage = () => {
                 <CardDescription>{userInfo.email}</CardDescription>
                 {/* Component hiển thị trong sidebar */}
                 {loadingSubscription ? (
-                  <div className="text-xs text-muted-foreground mt-2 bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] p-4 rounded-lg">
+                  <div className="text-xs text-muted-foreground mt-2 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] p-4 rounded-lg">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin h-4 w-4 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
                       Đang tải thông tin gói...
@@ -589,14 +589,22 @@ const ProfilePage = () => {
                   </Button>
                 </nav>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-col space-y-2">
                 <Button 
                   variant="outline" 
-                  className="w-full bg-[#1a1a2e] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
+                  className="w-full bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
                   onClick={() => setIsPasswordDialogOpen(true)}
                 >
                   <Lock className="h-4 w-4 mr-2" />
                   Đổi mật khẩu
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
+                  onClick={() => navigate('/stock')}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Về trang chính
                 </Button>
               </CardFooter>
             </Card>
@@ -607,7 +615,7 @@ const ProfilePage = () => {
             {/* Thông tin cá nhân */}
             {activeTab === "profile" && (
               <div className="space-y-6">
-                <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
                   <CardHeader>
                     <div className="flex flex-col items-center text-center mb-4">
                       <CardTitle>Thông tin cá nhân</CardTitle>
@@ -623,7 +631,7 @@ const ProfilePage = () => {
                         className={`${
                           isEditing 
                             ? "bg-red-500 hover:bg-red-600 text-white" 
-                            : "bg-[#1a1a2e] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white"
+                            : "bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white"
                         } transition-colors duration-200`}
                       >
                         {isEditing ? (
@@ -690,17 +698,6 @@ const ProfilePage = () => {
                             />
                           </div>
                         </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="role" className="text-gray-400 text-left block pl-7">Loại tài khoản</Label>
-                          <div className="flex items-center space-x-3">
-                            <Crown className="h-4 w-4 text-gray-500" />
-                            <div className="flex items-center space-x-2">
-                              {/* getBadgeForRole(userInfo.role) */}
-                              <span className="text-gray-300">{userInfo.role || "Customer"}</span>
-                            </div>
-                          </div>
-                        </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="dateOfBirth" className="text-gray-400 text-left block pl-7">Ngày sinh</Label>
@@ -722,7 +719,7 @@ const ProfilePage = () => {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="address" className="text-gray-400 text-left block pl-7">Địa chỉ</Label>
                           <div className="flex items-center space-x-3">
                             <MapPin className="h-4 w-4 text-gray-500" />
@@ -762,46 +759,6 @@ const ProfilePage = () => {
                     </CardFooter>
                   )}
                 </Card>
-                
-                <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
-                  <CardHeader>
-                    <CardTitle className="text-xl">Lịch sử hoạt động</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Các hoạt động gần đây của bạn
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="p-4 bg-[#171727] rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <p className="font-medium text-white">Đăng nhập</p>
-                            <p className="text-sm text-gray-400">Từ 192.168.1.1</p>
-                          </div>
-                          <p className="text-sm text-gray-400">Hôm nay, 10:30</p>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-[#171727] rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <p className="font-medium text-white">Cập nhật thông tin</p>
-                            <p className="text-sm text-gray-400">Thay đổi số điện thoại</p>
-                          </div>
-                          <p className="text-sm text-gray-400">Hôm qua, 15:45</p>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-[#171727] rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <p className="font-medium text-white">Đăng nhập</p>
-                            <p className="text-sm text-gray-400">Từ 192.168.1.1</p>
-                          </div>
-                          <p className="text-sm text-gray-400">Hôm qua, 09:15</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             )}
             
@@ -810,7 +767,7 @@ const ProfilePage = () => {
               <div className="space-y-6">
                 {/* Component hiển thị gói dịch vụ hiện tại */}
                 {!loadingSubscription && (
-                  <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                  <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
@@ -925,13 +882,13 @@ const ProfilePage = () => {
                 )}
                 
                 {/* Thêm lịch sử giao dịch */}
-                <TransactionHistory className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 rounded-md overflow-hidden" />
+                <TransactionHistory className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 rounded-md overflow-hidden" />
               </div>
             )}
             
             {/* Cài đặt */}
             {activeTab === "settings" && (
-              <Card className="bg-[#111121]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+              <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
                 <CardHeader>
                   <CardTitle>Cài đặt tài khoản</CardTitle>
                   <CardDescription>Quản lý cài đặt và tùy chọn cho tài khoản của bạn</CardDescription>
@@ -1025,7 +982,7 @@ const ProfilePage = () => {
         
         {/* Dialog đổi mật khẩu */}
         <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-          <DialogContent className="bg-[#111121]/90 backdrop-blur-md border border-[#1f1f30] shadow-xl">
+          <DialogContent className="bg-[#1a1a1a]/90 backdrop-blur-md border border-[#1f1f30] shadow-xl">
             <DialogHeader>
               <DialogTitle>Đổi mật khẩu</DialogTitle>
               <DialogDescription>

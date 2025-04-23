@@ -93,6 +93,7 @@ export default function StockDerivatives() {
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
   const [userWatchlist, setUserWatchlist] = useState([]);
   const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
+  // const tableContainerRef = useRef(null);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -338,10 +339,12 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(0, 255, 0, 0.3);
         transform: scale(1.1);
+        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
+        border-right: 1px solid #333;
       }
     }
 
@@ -349,10 +352,12 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(255, 0, 0, 0.3);
         transform: scale(1.1);
+        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
+        border-right: 1px solid #333;
       }
     }
 
@@ -360,10 +365,12 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(244, 190, 55, 0.3);
         transform: scale(1.1);
+        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
+        border-right: 1px solid #333;
       }
     }
 
@@ -886,6 +893,91 @@ export default function StockDerivatives() {
     }
 
     ${priceChangeAnimation}
+    
+    /* Sticky header styles */
+    .stock-table-container {
+      height: calc(83vh - 132px);
+      overflow: auto;
+      position: relative;
+    }
+    
+    .stock-table-container thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stock-table-container th {
+      background-color: #1a1a1a;
+    }
+    
+    /* Đảm bảo header luôn cố định trên cùng và không bị ẩn khi scroll */
+    .stock-table-container thead tr:first-child th {
+      position: sticky;
+      background-color: #1a1a1a;
+      top: 0;
+      padding-bottom: 10px;
+    }
+    
+    /* Đảm bảo header row thứ hai hiển thị đúng */
+    .stock-table-container thead tr:nth-child(2) th {
+      position: sticky;
+      top: 38px; /* Chiều cao của header row đầu tiên */
+      background-color: #1a1a1a;
+      padding-top: 10px;
+      border-top: none !important;
+    }
+    
+    /* Force inline borders to display */
+    [style*="border-bottom"] {
+      border-bottom-style: solid !important;
+    }
+    
+    /* Tạo các line header cố định */
+    .stock-table-container .header-benmua::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #444;
+      z-index: 11;
+    }
+    
+    .stock-table-container .header-khoplеnh::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #444;
+      z-index: 11;
+    }
+    
+    .stock-table-container .header-benban::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #444;
+      z-index: 11;
+    }
+    
+    .stock-table-container .header-dtnn::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #444;
+      z-index: 11;
+    }
   `;
 
   // Fetch watchlist when component mounts
@@ -973,7 +1065,7 @@ export default function StockDerivatives() {
       
       if (isAlreadyInWatchlist) {
         // Remove from watchlist
-        await axios.delete(
+        const response = await axios.delete(
           `${APP_BASE_URL}/api/watchlist-stock`,
           {
             params: {
@@ -991,7 +1083,7 @@ export default function StockDerivatives() {
         toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
       } else {
         // Add to watchlist with correct request format
-        await axios.post(
+        const response = await axios.post(
           `${APP_BASE_URL}/api/watchlist-stock`,
           {
             userId: userId,
@@ -1005,13 +1097,31 @@ export default function StockDerivatives() {
             }
           }
         );
+
+        // Kiểm tra nếu có thông báo đã tồn tại trong watchlist
+        if (response.data?.value?.message?.includes("already in the watchlist")) {
+          toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
+          return;
+        }
         
         setWatchlist([...watchlist, stock]);
         toast.success(`Đã thêm ${stock.code} vào danh sách theo dõi`);
       }
     } catch (error) {
       console.error('Error updating watchlist:', error);
-      toast.error("Không thể cập nhật danh sách theo dõi, vui lòng thử lại sau");
+      if (error.response?.data?.value?.message?.includes("already in the watchlist")) {
+        toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
+      } else if (error.response?.status === 401) {
+        toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
+      } else if (error.response?.status === 403) {
+        toast.error("Bạn không có quyền thực hiện thao tác này");
+      } else if (error.response?.status === 404) {
+        toast.error("Không tìm thấy dữ liệu yêu cầu");
+      } else if (error.response?.status >= 500) {
+        toast.error("Lỗi hệ thống. Vui lòng thử lại sau");
+      } else {
+        toast.error("Không thể cập nhật danh sách theo dõi. Vui lòng thử lại sau");
+      }
     }
   };
 
@@ -1066,13 +1176,13 @@ export default function StockDerivatives() {
     const currentPrice = parseFloat(selectedAlertStock.matchPrice);
 
     // Kiểm tra logic giá cảnh báo
-    if (alertType === 'above' && price <= currentPrice) {
-      toast.error('Giá cảnh báo phải cao hơn giá hiện tại');
+    if (alertType === 'above' && price < currentPrice) {
+      toast.error('Giá cảnh báo phải bằng hoặc cao hơn giá hiện tại');
       return;
     }
 
-    if (alertType === 'below' && price >= currentPrice) {
-      toast.error('Giá cảnh báo phải thấp hơn giá hiện tại');
+    if (alertType === 'below' && price > currentPrice) {
+      toast.error('Giá cảnh báo phải bằng hoặc thấp hơn giá hiện tại');
       return;
     }
 
@@ -1484,246 +1594,271 @@ export default function StockDerivatives() {
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden p-4 animate-[fadeIn_0.3s_ease-in-out]">
         {activeTab === 'price' && (
-          <div className="h-full relative">
-            <div className="h-[calc(83vh-132px)] overflow-auto">
-              <div className="min-h-full flex flex-col">
-                <div className="flex-grow overflow-x-auto">
-                  {/* Responsive table wrapper */}
-                  <div className="min-w-[1400px] w-full">
-                    <table className="w-full border-collapse">
-                      <colgroup>
-                        <col className="w-[80px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[60px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[80px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[70px]" />
-                        <col className="w-[100px]" />
-                      </colgroup>
+          <div className="h-full">
+            <div className="stock-table-container">
+              <div className="min-w-[1400px]">
+                <table className="w-full border-collapse" style={{ borderCollapse: 'collapse' }}>
+                  <colgroup>
+                    <col className="w-[80px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[70px]" />
+                    <col className="w-[100px]" />
+                  </colgroup>
 
-                      {/* Table header with sticky positioning */}
-                      <thead className="sticky top-0 bg-[#1a1a1a] z-50">
-                        <tr>
-                          <th 
-                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                            rowSpan={2}
-                            onClick={() => handleSort('code')}
+                  {/* Table header with sticky positioning */}
+                  <thead>
+                    <tr className="border-b border-[#333]">
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        rowSpan={2}
+                        onClick={() => handleSort('code')}
+                      >
+                        Mã CK <SortIndicator columnKey="code" />
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        rowSpan={2}
+                        onClick={() => handleSort('ceiling')}
+                      >
+                        Trần <SortIndicator columnKey="ceiling" />
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        rowSpan={2}
+                        onClick={() => handleSort('floor')}
+                      >
+                        Sàn <SortIndicator columnKey="floor" />
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        rowSpan={2}
+                        onClick={() => handleSort('ref')}
+                      >
+                        TC <SortIndicator columnKey="ref" />
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-benmua relative" 
+                        colSpan={6}
+                      >
+                        Bên mua
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-khoplеnh relative" 
+                        colSpan={3}
+                      >
+                        Khớp lệnh
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-benban relative" 
+                        colSpan={6}
+                      >
+                        Bên bán
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" 
+                        rowSpan={2}
+                      >
+                        Tổng KL
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-dtnn relative" 
+                        colSpan={2}
+                      >
+                        ĐTNN
+                      </th>
+                      <th 
+                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" 
+                        rowSpan={2}
+                      >
+                        Thao tác
+                      </th>
+                    </tr>
+                    <tr>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Bán</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="26" className="text-center py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : realTimeStockData.length === 0 ? (
+                      <tr>
+                        <td colSpan="26" className="text-center py-8">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 text-gray-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
+                              <p className="text-sm text-gray-500 mt-1">
+                                Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      getFilteredData().map((stock) => (
+                        <tr 
+                          key={stock.code} 
+                          className="hover:bg-[#1a1a1a] transition-colors"
+                        >
+                          <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer px-2 py-1.5 ${getCellClass(stock, 'matchPrice', 'price')}`}
+                            onClick={() => handleStockClick(stock)}
                           >
-                            Mã CK <SortIndicator columnKey="code" />
-                          </th>
-                          <th 
-                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                            rowSpan={2}
-                            onClick={() => handleSort('ceiling')}
-                          >
-                            Trần <SortIndicator columnKey="ceiling" />
-                          </th>
-                          <th 
-                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                            rowSpan={2}
-                            onClick={() => handleSort('floor')}
-                          >
-                            Sàn <SortIndicator columnKey="floor" />
-                          </th>
-                          <th 
-                            className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
-                            rowSpan={2}
-                            onClick={() => handleSort('ref')}
-                          >
-                            TC <SortIndicator columnKey="ref" />
-                          </th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
-                          <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
-                        </tr>
-                        <tr>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                          <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-                          <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {isLoading ? (
-                          <tr>
-                            <td colSpan="26" className="text-center py-8">
-                              <div className="flex flex-col items-center gap-2">
-                                <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : realTimeStockData.length === 0 ? (
-                          <tr>
-                            <td colSpan="26" className="text-center py-8">
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 text-gray-400">
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </div>
-                                <div className="text-center">
-                                  <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          getFilteredData().map((stock) => (
-                            <tr 
-                              key={stock.code} 
-                              className="hover:bg-[#1a1a1a] transition-colors"
-                            >
-                              <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer px-2 py-1.5 ${getCellClass(stock, 'matchPrice', 'price')}`}
-                                onClick={() => handleStockClick(stock)}
+                            {stock.code}
+                          </td>
+                          {/* Update padding for all cells */}
+                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
+                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
+                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
+                          <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
+                          <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
+                          <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td> 
+                          <td className={`${getCellClass(stock, 'buyVolume2', 'volume')} px-2 py-1.5`}>{stock.buyVolume2}</td>
+                          <td className={`${getCellClass(stock, 'buyPrice1', 'price')} px-2 py-1.5`}>{stock.buyPrice1}</td>
+                          <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
+                          <td className={`${getCellClass(stock, 'matchPrice', 'price')} px-2 py-1.5`}>{stock.matchPrice}</td>
+                          <td className={`${getCellClass(stock, 'matchVolume', 'volume')} px-2 py-1.5`}>{stock.totalVolume}</td>
+                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
+                          <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
+                          <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
+                          <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td> 
+                          <td className={`${getCellClass(stock, 'sellVolume2', 'volume')} px-2 py-1.5`}>{stock.sellVolume2}</td>
+                          <td className={`${getCellClass(stock, 'sellPrice3', 'price')} px-2 py-1.5`}>{stock.sellPrice3}</td>
+                          <td className={`${getCellClass(stock, 'sellVolume3', 'volume')} px-2 py-1.5`}>{stock.sellVolume3}</td>
+                          <td className={`${getCellClass(stock, 'totalVolume', 'volume')} px-2 py-1.5`}>{stock.matchVolume}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignBuy}</td>
+                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignSell}</td>
+                          <td className="text-center px-2 py-1.5">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  
+                                  // Kiểm tra quyền truy cập tính năng
+                                  if (hasFeature("Quản lý danh mục theo dõi cổ phiếu")) {
+                                    handleAddToWatchlist(stock);
+                                  } else {
+                                    // Hiển thị thông báo tính năng cao cấp
+                                    setFeatureMessageInfo({
+                                      name: 'Danh sách theo dõi',
+                                      returnPath: '/stock'
+                                    });
+                                    setShowFeatureMessage(true);
+                                  }
+                                }}
+                                className={`p-1.5 rounded relative ${hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                  ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-500" 
+                                  : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                title={hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
+                                  ? "Thêm vào danh sách theo dõi" 
+                                  : "Tính năng của gói nâng cao"}
                               >
-                                {stock.code}
-                              </td>
-                              {/* Update padding for all cells */}
-                              <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
-                              <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
-                              <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
-                              <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
-                              <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
-                              <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td> 
-                              <td className={`${getCellClass(stock, 'buyVolume2', 'volume')} px-2 py-1.5`}>{stock.buyVolume2}</td>
-                              <td className={`${getCellClass(stock, 'buyPrice1', 'price')} px-2 py-1.5`}>{stock.buyPrice1}</td>
-                              <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
-                              <td className={`${getCellClass(stock, 'matchPrice', 'price')} px-2 py-1.5`}>{stock.matchPrice}</td>
-                              <td className={`${getCellClass(stock, 'matchVolume', 'volume')} px-2 py-1.5`}>{stock.totalVolume}</td>
-                              <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
-                              <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
-                              <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
-                              <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td> 
-                              <td className={`${getCellClass(stock, 'sellVolume2', 'volume')} px-2 py-1.5`}>{stock.sellVolume2}</td>
-                              <td className={`${getCellClass(stock, 'sellPrice3', 'price')} px-2 py-1.5`}>{stock.sellPrice3}</td>
-                              <td className={`${getCellClass(stock, 'sellVolume3', 'volume')} px-2 py-1.5`}>{stock.sellVolume3}</td>
-                              <td className={`${getCellClass(stock, 'totalVolume', 'volume')} px-2 py-1.5`}>{stock.matchVolume}</td>
-                              <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignBuy}</td>
-                              <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignSell}</td>
-                              <td className="text-center px-2 py-1.5">
-                                <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      
-                                      // Kiểm tra quyền truy cập tính năng
-                                      if (hasFeature("Quản lý danh mục theo dõi cổ phiếu")) {
-                                        handleAddToWatchlist(stock);
-                                      } else {
-                                        // Hiển thị thông báo tính năng cao cấp
-                                        setFeatureMessageInfo({
-                                          name: 'Danh sách theo dõi',
-                                          returnPath: '/stock'
-                                        });
-                                        setShowFeatureMessage(true);
-                                      }
-                                    }}
-                                    className={`p-1.5 rounded relative ${hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
-                                      ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-500" 
-                                      : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
-                                    title={hasFeature("Quản lý danh mục theo dõi cổ phiếu") 
-                                      ? "Thêm vào danh sách theo dõi" 
-                                      : "Tính năng của gói nâng cao"}
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                    </svg>
-                                    {!hasFeature("Quản lý danh mục theo dõi cổ phiếu") && (
-                                      <img 
-                                        src="/icons/workspace_premium.svg" 
-                                        alt="Premium" 
-                                        className="w-4 h-4 absolute -top-2 -right-2" 
-                                      />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSetPriceAlert(stock);
-                                    }}
-                                    className={`p-1.5 rounded relative ${hasFeature("Quản lý thông báo theo nhu cầu") 
-                                      ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500" 
-                                      : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
-                                    title={hasFeature("Quản lý thông báo theo nhu cầu") 
-                                      ? "Cài đặt thông báo giá" 
-                                      : "Tính năng của gói nâng cao"}
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                    {!hasFeature("Quản lý thông báo theo nhu cầu") && (
-                                      <img 
-                                        src="/icons/workspace_premium.svg" 
-                                        alt="Premium" 
-                                        className="w-4 h-4 absolute -top-2 -right-2" 
-                                      />
-                                    )}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Footer with exchange information - Now sticky */}
-                <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4 mt-4">
-                  <div className="text-xs text-[#999] text-right px-4">
-                    {selectedExchange === 'HOSE' && (
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="text-[#00C087] font-medium">HOSE:</span>
-                        <span>Đơn vị giá: 1.000 VND, Khối lượng: 100 CP</span>
-                      </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                </svg>
+                                {!hasFeature("Quản lý danh mục theo dõi cổ phiếu") && (
+                                  <img 
+                                    src="/icons/workspace_premium.svg" 
+                                    alt="Premium" 
+                                    className="w-4 h-4 absolute -top-2 -right-2" 
+                                  />
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetPriceAlert(stock);
+                                }}
+                                className={`p-1.5 rounded relative ${hasFeature("Quản lý thông báo theo nhu cầu") 
+                                  ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500" 
+                                  : "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20 transition-colors"}`}
+                                title={hasFeature("Quản lý thông báo theo nhu cầu") 
+                                  ? "Cài đặt thông báo giá" 
+                                  : "Tính năng của gói nâng cao"}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                {!hasFeature("Quản lý thông báo theo nhu cầu") && (
+                                  <img 
+                                    src="/icons/workspace_premium.svg" 
+                                    alt="Premium" 
+                                    className="w-4 h-4 absolute -top-2 -right-2" 
+                                  />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
                     )}
-                    {selectedExchange === 'HNX' && (
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="text-[#00B4D8] font-medium">HNX:</span>
-                        <span>Đơn vị giá: 1.000 VNĐ, Đơn vị khối lượng: 1.000 CP</span>
-                      </div>
-                    )}
-                  </div>
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Footer with exchange information - Now sticky */}
+              <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4 mt-4">
+                <div className="text-xs text-[#999] text-right px-4">
+                  {selectedExchange === 'HOSE' && (
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-[#00C087] font-medium">HOSE:</span>
+                      <span>Đơn vị giá: 1.000 VND, Khối lượng: 100 CP</span>
+                    </div>
+                  )}
+                  {selectedExchange === 'HNX' && (
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-[#00B4D8] font-medium">HNX:</span>
+                      <span>Đơn vị giá: 1.000 VNĐ, Đơn vị khối lượng: 1.000 CP</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

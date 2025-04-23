@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle, Info } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -37,7 +37,7 @@ const WatchlistPage = () => {
   const [sectorToDelete, setSectorToDelete] = useState(null);
   const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState(null);
-  const [lastTimestamp, setLastTimestamp] = useState(null);
+  const [lastTimestamp, setLastTimestamp] = useState(new Date());
   
   // Add new states for add stock feature
   const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
@@ -1158,6 +1158,15 @@ const WatchlistPage = () => {
     return value;
   };
 
+  // Add useEffect for real-time timestamp update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLastTimestamp(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Update the Chart Dialog content
   return (
     <div className="bg-[#0a0a14] min-h-screen">
@@ -1172,10 +1181,15 @@ const WatchlistPage = () => {
             <p className="text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333]">
-              <span className="text-[#666]">Cập nhật:</span>
-              <span className="text-[#09D1C7] font-medium">
-                {new Date().toLocaleTimeString('vi-VN')}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333] min-w-[120px]">
+              <Clock className="w-4 h-4 text-[#666]" />
+              <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
+                {lastTimestamp.toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                })}
               </span>
             </div>
             <Button
@@ -1203,33 +1217,33 @@ const WatchlistPage = () => {
       </div>
 
       <div className="p-4 md:p-6">
-        <div className="flex flex-col lg:flex-row gap-6">
+        {/* Exchange Tabs - Moved outside the grid to align tables */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setActiveTab('hsx')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'hsx'
+                ? 'bg-[#09D1C7] text-white'
+                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+            }`}
+          >
+            HOSE
+          </button>
+          <button
+            onClick={() => setActiveTab('hnx')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'hnx'
+                ? 'bg-[#09D1C7] text-white'
+                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+            }`}
+          >
+            HNX
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left section - Stock Table */}
-          <div className="w-full lg:w-[70%] space-y-4">
-            {/* Exchange Tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab('hsx')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'hsx'
-                    ? 'bg-[#09D1C7] text-white'
-                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
-                }`}
-              >
-                HOSE
-              </button>
-              <button
-                onClick={() => setActiveTab('hnx')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'hnx'
-                    ? 'bg-[#09D1C7] text-white'
-                    : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
-                }`}
-              >
-                HNX
-              </button>
-            </div>
-
+          <div className="lg:col-span-8">
             {/* Stock Table */}
             <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
               <div className="overflow-x-auto">
@@ -1411,10 +1425,10 @@ const WatchlistPage = () => {
           </div>
 
           {/* Right section - Industries */}
-          <div className="w-full lg:w-[30%] space-y-6">
+          <div className="lg:col-span-4 flex flex-col gap-6">
             {/* Industries List */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
-              <div className="p-4 border-b border-[#333]">
+            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+              <div className="p-4 border-b border-[#333] sticky top-0 bg-[#1a1a1a] z-10">
                 <h2 className="text-xl font-semibold text-white">Ngành theo dõi</h2>
               </div>
 
@@ -1522,9 +1536,9 @@ const WatchlistPage = () => {
                 )}
               </div>
             </div>
-
+            
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-auto">
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
                 <h3 className="text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
                 <p className="text-xl font-semibold text-white">{watchlist.length}</p>
