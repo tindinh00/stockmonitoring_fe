@@ -17,7 +17,8 @@ import {
   BookOpen,
   Database,
   LineChart,
-  BarChart3
+  BarChart3,
+  Mail
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -87,6 +88,12 @@ export const navItems = [
     icon: "lineChart",
     isActive: true
   },
+  {
+    title: "Gửi Email",
+    url: "/manager/send-email",
+    icon: "mail",
+    isActive: true
+  },
 ];
 
 // Mock company data
@@ -99,12 +106,13 @@ export const company = {
 // Mock Icons component
 export const Icons = {
   logo: GalleryVerticalEnd,
-  bookOpen: () => <BookOpen className="size-4" />,
-  fileText: () => <FileText className="size-4" />,
-  database: () => <Database className="size-4" />,
-  barChart: () => <BarChart3 className="size-4" />,
-  lineChart: () => <LineChart className="size-4" />,
-  settings: () => <Settings className="size-4" />
+  bookOpen: ({ isActive }) => <BookOpen className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  fileText: ({ isActive }) => <FileText className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  database: ({ isActive }) => <Database className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  barChart: ({ isActive }) => <BarChart3 className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  lineChart: ({ isActive }) => <LineChart className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  settings: ({ isActive }) => <Settings className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />,
+  mail: ({ isActive }) => <Mail className={`size-4 ${isActive ? 'text-[#09D1C7]' : ''}`} />
 };
 
 // Custom sidebar trigger component
@@ -164,6 +172,7 @@ export default function AppSidebar() {
           <SidebarMenu>
             {navItems.map((item) => {
               const Icon = item.icon ? Icons[item.icon] : Icons.logo;
+              const isActive = pathname === item.url;
               return item?.items && item?.items?.length > 0 ? (
                 <Collapsible
                   key={item.title}
@@ -175,14 +184,14 @@ export default function AppSidebar() {
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
                         tooltip={item.title}
-                        isActive={pathname === item.url}
+                        isActive={isActive}
                         className={
-                          pathname === item.url 
+                          isActive 
                             ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
                             : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
                         }
                       >
-                        {item.icon && <Icon />}
+                        {item.icon && <Icon isActive={isActive} />}
                         <span>{item.title}</span>
                         <ChevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
                       </SidebarMenuButton>
@@ -215,15 +224,15 @@ export default function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
-                    isActive={pathname === item.url}
+                    isActive={isActive}
                     className={
-                      pathname === item.url 
+                      isActive 
                         ? 'transition-all duration-300 bg-[#09D1C7]/10 text-[#09D1C7] font-medium'
                         : 'transition-all duration-300 text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'
                     }
                   >
                     <a href={item.url}>
-                      <Icon />
+                      <Icon isActive={isActive} />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>

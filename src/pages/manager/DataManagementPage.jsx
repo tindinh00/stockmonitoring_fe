@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Trash2, Terminal, Settings, Save, RefreshCw, Clock, ToggleLeft, ToggleRight, X, Edit, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
+import { Trash2, Terminal, Settings, Save, RefreshCw, Clock, ToggleLeft, ToggleRight, X, Edit, CheckCircle2, AlertCircle, ChevronRight, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
@@ -56,6 +56,8 @@ export default function DataManagementPage() {
   const [editingConfig, setEditingConfig] = useState(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [editedValues, setEditedValues] = useState({});
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Sử dụng DOM trực tiếp để cuộn xuống dưới
   const scrollToBottom = () => {
@@ -386,6 +388,30 @@ export default function DataManagementPage() {
       : `${hours} giờ`;
   };
 
+  const handleResetSystem = async () => {
+    try {
+      setIsResetting(true);
+      const token = Cookies.get('auth_token');
+      const response = await axios.get(`${API_URL}/api/remote/reset-background-service/linux`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && response.data.value && response.data.value.status === 200) {
+        toast.success("Đã khởi động lại hệ thống cào dữ liệu thành công");
+        setResetDialogOpen(false);
+      } else {
+        toast.error("Không thể khởi động lại hệ thống cào dữ liệu");
+      }
+    } catch (error) {
+      console.error("Error resetting scraping system:", error);
+      toast.error("Đã xảy ra lỗi khi khởi động lại hệ thống cào dữ liệu");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="w-full h-full p-2 sm:p-4 md:p-6 bg-gradient-to-b from-background/80 via-background to-background/90">
       <div className="max-w-[1400px] mx-auto">
@@ -510,16 +536,27 @@ export default function DataManagementPage() {
                     <Settings className="h-5 w-5 mr-2 text-primary" />
                     <span>Cấu hình hệ thống thu thập dữ liệu</span>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="border-primary/30 hover:border-primary transition-all duration-200 rounded-full px-4"
-                    onClick={fetchScraperConfigs}
-                    disabled={loadingConfigs}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-2 text-primary ${loadingConfigs ? 'animate-spin' : ''}`} />
-                    Làm mới
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-primary/30 hover:border-primary transition-all duration-200 rounded-full px-4"
+                      onClick={fetchScraperConfigs}
+                      disabled={loadingConfigs}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 text-primary ${loadingConfigs ? 'animate-spin' : ''}`} />
+                      Làm mới
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200 rounded-full px-4"
+                      onClick={() => setResetDialogOpen(true)}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Khởi động lại
+                    </Button>
+                  </div>
                 </CardTitle>
                 <CardDescription>
                   Quản lý cấu hình thu thập dữ liệu tự động của hệ thống
@@ -851,14 +888,72 @@ export default function DataManagementPage() {
                 {updatingConfig ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="hidden xs:inline">Đang lưu...</span>
-                    <span className="inline xs:hidden">Lưu...</span>
+                    <span>Đang lưu...</span>
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    <span className="hidden xs:inline">Lưu thay đổi</span>
-                    <span className="inline xs:hidden">Lưu</span>
+                    <span>Lưu thay đổi</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset System Dialog */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-w-[90vw] rounded-md border-border/50 shadow-xl backdrop-blur-sm animate-in fade-in-50 zoom-in-95 duration-300">
+          <DialogHeader className="border-b pb-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-full bg-red-600/10 flex items-center justify-center">
+                <RotateCcw className="h-4 w-4 text-red-600" />
+              </div>
+              <DialogTitle className="text-lg">
+                Khởi động lại hệ thống cào dữ liệu
+              </DialogTitle>
+            </div>
+            <DialogDescription>
+              Hệ thống sẽ tạm dừng và khởi động lại quá trình thu thập dữ liệu. Hành động này có thể mất vài phút.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="flex items-start space-x-3 bg-amber-50 dark:bg-amber-950/30 p-4 rounded-md border border-amber-200 dark:border-amber-900/50">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-400 mb-1">Lưu ý quan trọng</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300/80">
+                  Việc khởi động lại hệ thống sẽ tạm dừng quá trình thu thập dữ liệu. Dữ liệu có thể bị gián đoạn trong thời gian này. Bạn có chắc chắn muốn tiếp tục?
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t pt-3 sm:pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="text-xs text-muted-foreground flex items-center bg-muted/40 p-2 rounded-md">
+              <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              Quá trình này có thể mất vài phút
+            </div>
+            <div className="flex items-center space-x-2">
+              <DialogClose asChild>
+                <Button variant="outline" className="rounded-md h-9 min-w-[80px]">Hủy</Button>
+              </DialogClose>
+              <Button 
+                onClick={handleResetSystem} 
+                disabled={isResetting}
+                className="bg-red-600 hover:bg-red-700 rounded-md h-9 min-w-[120px] hover:shadow-md transition-all duration-200 text-white"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    <span>Khởi động lại</span>
                   </>
                 )}
               </Button>

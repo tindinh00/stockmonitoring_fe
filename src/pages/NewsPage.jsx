@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import signalRService from '@/api/signalRService';
 import { apiService } from '@/api/Api';
+import NewsContent from '@/components/NewsContent';
 
 // Placeholder image nội bộ để tránh gọi liên tục đến placeholder.com
 const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
@@ -574,14 +575,11 @@ const NewsPage = () => {
                       />
                     </div>
 
-                    <div 
-                      className="prose prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ 
-                        __html: newsDetail && newsDetail.content 
-                          ? newsDetail.content 
-                          : (selectedArticle.content || '<p>Không có nội dung chi tiết</p>')
-                      }}
-                    />
+                    <div className="prose prose-invert max-w-none">
+                      <NewsContent 
+                        content={newsDetail ? newsDetail.content : selectedArticle.content} 
+                      />
+                    </div>
                   </>
                 )}
               </div>

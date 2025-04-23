@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { apiService } from '@/api/Api';
 import signalRService from '@/api/signalRService';
 import axios from 'axios';
+import NewsContent from '@/components/NewsContent';
 
 // Placeholder image
 const DEFAULT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTFhIiAvPgogICAgPHRleHQgeD0iNDAwIiB5PSIyMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhN2E3YSI+S2jDtG5nIGPDsyDhuqNuaDwvdGV4dD4KPC9zdmc+';
@@ -535,16 +536,11 @@ const HeaderNewsPage = () => {
                       />
                     </div>
 
-                    <div 
-                      className="prose prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ 
-                        __html: articleDetail && articleDetail.content 
-                          ? articleDetail.content.split('\n').map(paragraph => 
-                              paragraph.trim() ? `<p>${paragraph}</p>` : ''
-                            ).join('')
-                          : (selectedArticle.description || '<p>Không có nội dung chi tiết</p>')
-                      }}
-                    />
+                    <div className="prose prose-invert max-w-none">
+                      <NewsContent 
+                        content={articleDetail ? articleDetail.content : selectedArticle.content} 
+                      />
+                    </div>
                   </>
                 )}
               </div>

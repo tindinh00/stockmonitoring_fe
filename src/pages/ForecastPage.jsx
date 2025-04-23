@@ -567,7 +567,7 @@ const ForecastPage = () => {
           <div className="text-xs text-[#666] space-y-1.5 bg-[#1a1a1a] border border-[#333] rounded-lg p-3">
             <div className="flex items-start gap-2">
               <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-              <p>Dự đoán được thực hiện dựa trên mô hình học máy và phân tích kỹ thuật.</p>
+              <p>Các phân tích trên chỉ mang tính chất tham khảo. Nhà đầu tư cần cân nhắc kỹ trước khi đưa ra quyết định.</p>
             </div>
             <div className="flex items-start gap-2">
               <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />

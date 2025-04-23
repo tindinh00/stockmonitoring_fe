@@ -88,10 +88,10 @@ const ResetPassword = () => {
     try {
       console.log("Resetting password for:", email);
       
-      const result = await apiService.resetPassword(email, data.password);
-      console.log("Reset password result:", result);
+      const response = await apiService.resetPassword(email, data.password);
+      console.log("Reset password response:", response);
       
-      if (result.success) {
+      if (response?.success || response?.value?.status === 200) {
         setResetSuccess(true);
         // Xóa dữ liệu xác thực OTP
         localStorage.removeItem("otpVerified");
@@ -106,7 +106,7 @@ const ResetPassword = () => {
           navigate("/login");
         }, 3000);
       } else {
-        toast.error(result.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại sau.", {
+        toast.error(response?.message || response?.value?.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại sau.", {
           position: "top-right",
           duration: 5000,
         });
