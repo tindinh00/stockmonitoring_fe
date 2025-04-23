@@ -5,8 +5,7 @@ import {
   Bell, 
   ChevronsUpDown, 
   CreditCard, 
-  LogOut, 
-  Settings, 
+  LogOut,
   User,
   Wallet,
   Star,
@@ -113,12 +112,6 @@ export function UserNav() {
           >
             <CreditCard className="mr-2 h-4 w-4" />
             <span>Gói dịch vụ {user?.tier && `(${user.tier})`}</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={() => handleNavigate('/profile?tab=settings')}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Cài đặt</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

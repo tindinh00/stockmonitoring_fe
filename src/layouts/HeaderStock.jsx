@@ -39,7 +39,6 @@ export default function StockHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#1A202C] text-white border-gray-700">
               <DropdownMenuItem className="hover:bg-gray-700">Đăng xuất</DropdownMenuItem>
-              <DropdownMenuItem className="hover:bg-gray-700">Cài đặt</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
