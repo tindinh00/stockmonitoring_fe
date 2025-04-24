@@ -1,23 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  BadgeCheck, 
-  Bell, 
-  ChevronsUpDown, 
-  CreditCard, 
+  ChevronDown, 
   LogOut,
   User,
-  Wallet,
-  Star,
-  MessageSquare
+  CreditCard
 } from 'lucide-react';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
@@ -29,10 +23,6 @@ import { toast } from 'sonner';
 export function UserNav() {
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
-
-  const handleNavigate = (path) => {
-    navigate(path);
-  };
 
   const handleLogout = async () => {
     try {
@@ -57,6 +47,37 @@ export function UserNav() {
     return user.name.charAt(0).toUpperCase();
   };
 
+  // Chuyển đổi role thành tiếng Việt
+  const translateRole = (role) => {
+    if (!role) return "";
+    
+    switch(role.toLowerCase()) {
+      case "customer": return "Hội viên";
+      case "staff": return "Nhân viên";
+      case "manager": return "Quản lý";
+      case "admin": return "Quản trị viên";
+      default: return role;
+    }
+  };
+
+  // Kiểm tra xem người dùng có phải là khách hàng không
+  const isCustomer = () => {
+    return !user?.role || user.role.toLowerCase() === "customer";
+  };
+
+  // Xử lý hiển thị tên - chỉ cắt bớt nếu tên quá dài (> 15 ký tự hoặc > 3 từ)
+  const getDisplayName = () => {
+    if (!user?.name) return "Người dùng";
+    
+    const words = user.name.split(' ');
+    if (words.length > 3 || user.name.length > 15) {
+      // Nếu tên quá dài, hiển thị kèm dấu ...
+      return user.name;
+    }
+    
+    return user.name;
+  };
+
   // Nếu chưa đăng nhập, hiển thị nút đăng nhập
   if (!isAuthenticated) {
     return (
@@ -73,55 +94,76 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" className="relative flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#213A51] hover:bg-[#192b3c] text-white border-0">
           <Avatar className="h-8 w-8">
             {user?.avatar ? (
               <AvatarImage src={user.avatar} alt={user.name || "User"} />
             ) : null}
             <AvatarFallback className="bg-teal-500 text-white">{getInitials()}</AvatarFallback>
           </Avatar>
-          {user?.isVerified && (
-            <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-teal-500 flex items-center justify-center">
-              <BadgeCheck className="h-3 w-3 text-white" />
-            </span>
-          )}
+          <span className="text-sm font-medium hidden md:inline truncate max-w-[150px]">{getDisplayName()}</span>
+          <ChevronDown className="h-4 w-4 text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 bg-[#0a0a14] border-[#1f1f30]" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user?.name || "Người dùng"}</p>
-            <p className="text-xs leading-none text-muted-foreground">{user?.email || "email@example.com"}</p>
+      <DropdownMenuContent className="w-64 bg-[#0a0a14] border-[#1f1f30]" align="start" sideOffset={5} forceMount>
+        <div className="flex items-center gap-4 p-4 border-b border-[#1f1f30]">
+          <Avatar className="h-10 w-10">
+            {user?.avatar ? (
+              <AvatarImage src={user.avatar} alt={user.name || "User"} />
+            ) : null}
+            <AvatarFallback className="bg-teal-500 text-white">{getInitials()}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-medium leading-none text-white">{user?.name || "Người dùng"}</p>
+            <p className="text-xs text-gray-400 mt-1">{user?.email || "email@example.com"}</p>
             {user?.role && (
               <p className="text-xs leading-none text-teal-500 mt-1">
-                {user.role === "admin" ? "Quản trị viên" : user.role}
+                {translateRole(user.role)}
               </p>
             )}
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem 
-            onClick={() => handleNavigate('/profile')}
-          >
-            <User className="mr-2 h-4 w-4" />
-            <span>Hồ sơ</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={() => handleNavigate('/profile?tab=subscriptions')}
-          >
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Gói dịch vụ {user?.tier && `(${user.tier})`}</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          onClick={handleLogout}
-          className="text-red-600 focus:text-red-600 focus:bg-red-100"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Đăng xuất</span>
-        </DropdownMenuItem>
+        </div>
+        
+        {isCustomer() ? (
+          <>
+            <DropdownMenuGroup className="p-2">
+              <DropdownMenuItem 
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#1f1f30] rounded-md"
+              >
+                <User className="mr-2 h-4 w-4" />
+                <span>Hồ sơ</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => navigate('/profile?tab=subscriptions')}
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#1f1f30] rounded-md"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span>Dịch vụ & Giao dịch</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator className="bg-[#1f1f30]" />
+            <div className="p-2">
+              <DropdownMenuItem 
+                onClick={handleLogout}
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-900/20 rounded-md text-red-500"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Đăng xuất</span>
+              </DropdownMenuItem>
+            </div>
+          </>
+        ) : (
+          <div className="py-2">
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-900/20 rounded-md text-red-500 mx-2"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Đăng xuất</span>
+            </DropdownMenuItem>
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -5,20 +5,26 @@ import { Separator } from '@/components/ui/separator';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import SearchInput from '@/components/search-input';
 import { UserNav } from '@/components/layouts/user-nav';
-import ThemeToggle from '@/components/layouts/ThemeToggle/theme-toggle';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Bell, Check, AlertCircle, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import TradingSessionBadge from '@/components/TradingSessionBadge';
 import signalRService from '@/api/signalRService';
 import axios from 'axios';
+import { useAuth } from '@/Authentication/AuthContext';
 
 export default function HeaderLogined() {
   // State to store notifications
@@ -29,6 +35,7 @@ export default function HeaderLogined() {
   const [isTradingHours, setIsTradingHours] = useState(false);
   const [marketIndices, setMarketIndices] = useState([]);
   const [isLoadingIndices, setIsLoadingIndices] = useState(true);
+  const { user } = useAuth();
 
   // Function to check if current time is within trading hours
   const checkTradingHours = () => {
@@ -164,9 +171,13 @@ export default function HeaderLogined() {
     // Setup SignalR listener for real-time notifications
     const setupNotificationListener = async () => {
       try {
-        const connection = await signalRService.getConnection();
-        if (!connection) {
-          console.error("[SignalR] No active connection available");
+        // Wait for connection to be established
+        await signalRService.getConnection();
+        
+        // Setup notification listeners
+        const result = await signalRService.setupNotificationListeners();
+        if (!result.success) {
+          console.error("[SignalR] Failed to setup notification listeners:", result.message);
           return;
         }
 
@@ -232,10 +243,6 @@ export default function HeaderLogined() {
         // Add event listener
         window.addEventListener('stockNotification', handleNotification);
 
-        // Setup SignalR notification listeners
-        await signalRService.setupNotificationListeners();
-        console.log("[SignalR] Notification listener setup complete");
-
         // Handle connection status changes
         const handleConnectionStatus = (event) => {
           const { status } = event.detail;
@@ -254,6 +261,8 @@ export default function HeaderLogined() {
         };
       } catch (error) {
         console.error("[SignalR] Error setting up notification listener:", error);
+        // Retry connection after 5 seconds
+        setTimeout(() => setupNotificationListener(), 5000);
       }
     };
 
@@ -295,11 +304,10 @@ export default function HeaderLogined() {
   };
 
   return (
-    <header className='bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
+    <header className='header-logined bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-4 px-4 flex-1 overflow-hidden'>
         <SidebarTrigger className='-ml-1 text-white' />
         <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
-        <Breadcrumb />
         <div className={`px-3 py-1.5 rounded-md text-sm font-medium ${
           isTradingHours 
             ? 'bg-green-900/30 text-green-400' 
@@ -311,7 +319,7 @@ export default function HeaderLogined() {
         
         {/* Market Indices */}
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
-          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[500px] overflow-hidden relative'>
+          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
             <style>{`
               @keyframes scroll {
                 0% { transform: translateX(0); }
@@ -327,7 +335,7 @@ export default function HeaderLogined() {
               }
             `}</style>
             <div className="scroll-container">
-              <div className='flex items-center gap-6'>
+              <div className='flex items-center gap-8'>
                 {isLoadingIndices ? (
                   <span className="text-[#666]">Đang tải...</span>
                 ) : (
@@ -348,7 +356,7 @@ export default function HeaderLogined() {
                   ))
                 )}
               </div>
-              <div className='flex items-center gap-6'>
+              <div className='flex items-center gap-8'>
                 {!isLoadingIndices && marketIndices.map((index) => (
                   <span 
                     key={`${index.id}-duplicate`}
@@ -494,6 +502,33 @@ export default function HeaderLogined() {
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Language Switcher */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1 p-2 hover:bg-[#1a2e3f] rounded-md transition-colors text-gray-300 text-sm">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold">
+                <span>VN</span>
+              </div>
+              <span className="hidden sm:inline">Tiếng Việt</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-[#213A51] border-[#15919B]/30">
+            <DropdownMenuItem className="flex items-center gap-2 text-gray-300">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold">
+                <span>VN</span>
+              </div>
+              <span>Tiếng Việt</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="flex items-center gap-2 text-gray-300">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-800 text-white text-xs font-bold">
+                <span>EN</span>
+              </div>
+              <span>English</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <UserNav />
       </div>
