@@ -64,15 +64,34 @@ const CandlestickChart = ({ stockCode, data }) => {
   // Format dữ liệu và sắp xếp theo thời gian
   const formatAndSortData = (rawData) => {
     if (!rawData || rawData.length === 0) return [];
-    return rawData
+    
+    // Tạo Map để lưu trữ dữ liệu theo timestamp, tự động loại bỏ trùng lặp
+    const dataMap = new Map();
+    
+    rawData.forEach(item => {
+      // Nếu đã có dữ liệu cho timestamp này, chỉ cập nhật nếu dữ liệu mới hơn
+      if (!dataMap.has(item.time) || item.time > dataMap.get(item.time).time) {
+        dataMap.set(item.time, {
+          time: item.time,
+          open: parseFloat(item.open),
+          high: parseFloat(item.high),
+          low: parseFloat(item.low),
+          close: parseFloat(item.close),
+        });
+      }
+    });
+    
+    // Chuyển Map thành mảng và sắp xếp theo thời gian tăng dần
+    return Array.from(dataMap.values())
+      .sort((a, b) => a.time - b.time)
       .map(item => ({
-        time: item.time,
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      }))
-      .sort((a, b) => a.time - b.time);
+        ...item,
+        // Đảm bảo các giá trị là số
+        open: Number(item.open),
+        high: Number(item.high),
+        low: Number(item.low),
+        close: Number(item.close),
+      }));
   };
 
   // Toggle chart interaction
