@@ -6,7 +6,7 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import SearchInput from '@/components/search-input';
 import { UserNav } from '@/components/layouts/user-nav';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, AlertCircle, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { Bell, Check, AlertCircle, TrendingUp, TrendingDown, ChevronDown, Sun, Moon } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -35,7 +35,32 @@ export default function HeaderLogined() {
   const [isTradingHours, setIsTradingHours] = useState(false);
   const [marketIndices, setMarketIndices] = useState([]);
   const [isLoadingIndices, setIsLoadingIndices] = useState(true);
+  const [theme, setTheme] = useState('dark');
   const { user } = useAuth();
+
+  // Initialize theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme);
+    applyTheme(savedTheme);
+  }, []);
+
+  // Toggle between light and dark mode
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    applyTheme(newTheme);
+  };
+
+  // Apply theme to the document
+  const applyTheme = (theme) => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   // Function to check if current time is within trading hours
   const checkTradingHours = () => {
@@ -304,9 +329,9 @@ export default function HeaderLogined() {
   };
 
   return (
-    <header className='header-logined bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
+    <header className='header-logined bg-gray-200 dark:bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-4 px-4 flex-1 overflow-hidden'>
-        <SidebarTrigger className='-ml-1 text-white' />
+        <SidebarTrigger className='-ml-1 text-gray-900 dark:text-white' />
         <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
         <div className={`px-3 py-1.5 rounded-md text-sm font-medium ${
           isTradingHours 
@@ -319,7 +344,7 @@ export default function HeaderLogined() {
         
         {/* Market Indices */}
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
-          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
+          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-gray-300 dark:bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
             <style>{`
               @keyframes scroll {
                 0% { transform: translateX(0); }
@@ -388,8 +413,8 @@ export default function HeaderLogined() {
         <Popover onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <div className="relative">
-              <button className="p-2 hover:bg-[#1a2e3f] rounded-full transition-colors">
-                <Bell className="w-5 h-5 text-gray-300" />
+              <button className="p-2 hover:bg-gray-200 dark:hover:bg-[#1a2e3f] rounded-full transition-colors">
+                <Bell className="w-5 h-5 text-gray-900 dark:text-gray-300" />
               </button>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
@@ -398,9 +423,9 @@ export default function HeaderLogined() {
               )}
             </div>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0 bg-[#213A51] border-[#15919B]/30" align="end">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#15919B]/30">
-              <h4 className="font-semibold text-sm text-white">Thông báo giá</h4>
+          <PopoverContent className="w-80 p-0 bg-white dark:bg-[#213A51] border-gray-200 dark:border-[#15919B]/30" align="end">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#15919B]/30">
+              <h4 className="font-semibold text-sm text-gray-900 dark:text-white">Thông báo giá</h4>
               <button 
                 className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
                 onClick={markAllAsRead}
@@ -417,8 +442,8 @@ export default function HeaderLogined() {
                 notifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className={`px-4 py-3 hover:bg-[#1a2e3f] transition-all duration-200 cursor-pointer border-b border-[#15919B]/30 last:border-0
-                      ${expandedId === notification.id ? 'bg-[#1a2e3f]' : ''}`}
+                    className={`px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a2e3f] transition-all duration-200 cursor-pointer border-b border-gray-200 dark:border-[#15919B]/30 last:border-0
+                      ${expandedId === notification.id ? 'bg-gray-100 dark:bg-[#1a2e3f]' : ''}`}
                     onClick={() => handleNotificationClick(notification.id)}
                   >
                     <div className="flex gap-3">
@@ -436,7 +461,9 @@ export default function HeaderLogined() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-white">{notification.title}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {notification.title}
+                          </p>
                           {notification.stockCode && (
                             <Badge 
                               variant="default"
@@ -452,20 +479,20 @@ export default function HeaderLogined() {
                           {notification.exchange && (
                             <Badge 
                               variant="outline" 
-                              className="text-[10px] px-2 border-[#15919B]/30 text-gray-300 bg-[#1a2e3f]"
+                              className="text-[10px] px-2 border-gray-300 dark:border-[#15919B]/30 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#1a2e3f]"
                             >
                               {notification.exchange}
                             </Badge>
                           )}
                         </div>
-                        <div className={`text-sm text-gray-300 transition-all duration-200 overflow-hidden
+                        <div className={`text-sm text-gray-700 dark:text-gray-300 transition-all duration-200 overflow-hidden
                           ${expandedId === notification.id ? 'max-h-[500px]' : 'max-h-[20px]'}`}>
                           <p className={expandedId === notification.id ? '' : 'line-clamp-1'}>
                             {notification.message}
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-400">{notification.time}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{notification.time}</p>
                           {expandedId === notification.id && (
                             <button 
                               className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
@@ -488,12 +515,12 @@ export default function HeaderLogined() {
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center text-gray-300 bg-[#213A51]">
+                <div className="py-8 text-center text-gray-700 dark:text-gray-300 bg-white dark:bg-[#213A51]">
                   <p>Không có thông báo nào</p>
                 </div>
               )}
             </div>
-            <div className="p-2 text-center border-t border-[#15919B]/30 bg-[#213A51]">
+            <div className="p-2 text-center border-t border-gray-200 dark:border-[#15919B]/30 bg-white dark:bg-[#213A51]">
               <Link to="/notifications?tab=history">
                 <button className="text-sm text-[#46DFB1] hover:text-[#0ABDB4] font-medium">
                   Xem tất cả thông báo
@@ -503,32 +530,18 @@ export default function HeaderLogined() {
           </PopoverContent>
         </Popover>
 
-        {/* Language Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-1 p-2 hover:bg-[#1a2e3f] rounded-md transition-colors text-gray-300 text-sm">
-              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold">
-                <span>VN</span>
-              </div>
-              <span className="hidden sm:inline">Tiếng Việt</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-[#213A51] border-[#15919B]/30">
-            <DropdownMenuItem className="flex items-center gap-2 text-gray-300">
-              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold">
-                <span>VN</span>
-              </div>
-              <span>Tiếng Việt</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex items-center gap-2 text-gray-300">
-              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-800 text-white text-xs font-bold">
-                <span>EN</span>
-              </div>
-              <span>English</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Theme Switcher */}
+        <button 
+          onClick={toggleTheme}
+          className="p-2 hover:bg-gray-200 dark:hover:bg-[#1a2e3f] rounded-full transition-colors"
+          title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-5 h-5 text-gray-300" />
+          ) : (
+            <Moon className="w-5 h-5 text-gray-900" />
+          )}
+        </button>
 
         <UserNav />
       </div>

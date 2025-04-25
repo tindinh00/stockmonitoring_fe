@@ -94,7 +94,7 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#213A51] hover:bg-[#192b3c] text-white border-0">
+        <Button variant="ghost" className="relative flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-200 dark:bg-[#213A51] hover:bg-gray-300 dark:hover:bg-[#192b3c] text-gray-900 dark:text-white border-0">
           <Avatar className="h-8 w-8">
             {user?.avatar ? (
               <AvatarImage src={user.avatar} alt={user.name || "User"} />
@@ -102,11 +102,11 @@ export function UserNav() {
             <AvatarFallback className="bg-teal-500 text-white">{getInitials()}</AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium hidden md:inline truncate max-w-[150px]">{getDisplayName()}</span>
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64 bg-[#0a0a14] border-[#1f1f30]" align="start" sideOffset={5} forceMount>
-        <div className="flex items-center gap-4 p-4 border-b border-[#1f1f30]">
+      <DropdownMenuContent className="w-64 bg-white dark:bg-[#0a0a14] border-gray-200 dark:border-[#1f1f30]" align="start" sideOffset={5} forceMount>
+        <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-[#1f1f30]">
           <Avatar className="h-10 w-10">
             {user?.avatar ? (
               <AvatarImage src={user.avatar} alt={user.name || "User"} />
@@ -114,8 +114,8 @@ export function UserNav() {
             <AvatarFallback className="bg-teal-500 text-white">{getInitials()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium leading-none text-white">{user?.name || "Người dùng"}</p>
-            <p className="text-xs text-gray-400 mt-1">{user?.email || "email@example.com"}</p>
+            <p className="text-sm font-medium leading-none text-gray-900 dark:text-white">{user?.name || "Người dùng"}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{user?.email || "email@example.com"}</p>
             {user?.role && (
               <p className="text-xs leading-none text-teal-500 mt-1">
                 {translateRole(user.role)}
@@ -129,24 +129,24 @@ export function UserNav() {
             <DropdownMenuGroup className="p-2">
               <DropdownMenuItem 
                 onClick={() => navigate('/profile')}
-                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#1f1f30] rounded-md"
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1f1f30] rounded-md text-gray-900 dark:text-white"
               >
                 <User className="mr-2 h-4 w-4" />
                 <span>Hồ sơ</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => navigate('/profile?tab=subscriptions')}
-                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#1f1f30] rounded-md"
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1f1f30] rounded-md text-gray-900 dark:text-white"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Dịch vụ & Giao dịch</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator className="bg-[#1f1f30]" />
+            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#1f1f30]" />
             <div className="p-2">
               <DropdownMenuItem 
                 onClick={handleLogout}
-                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-900/20 rounded-md text-red-500"
+                className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/20 rounded-md text-red-500"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Đăng xuất</span>
@@ -157,7 +157,7 @@ export function UserNav() {
           <div className="py-2">
             <DropdownMenuItem 
               onClick={handleLogout}
-              className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-900/20 rounded-md text-red-500 mx-2"
+              className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/20 rounded-md text-red-500 mx-2"
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Đăng xuất</span>

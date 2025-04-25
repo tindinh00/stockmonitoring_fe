@@ -387,16 +387,16 @@ export default function StockDerivatives() {
     }
   `;
 
-  // Hàm xác định màu sắc dựa trên giá
+  // Cập nhật hàm getPriceColor để hỗ trợ cả light và dark mode
   const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
     // Xử lý trường hợp giá trị là "--" (chuỗi đại diện cho giá trị null)
     if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--') {
-      return 'text-white';
+      return 'text-gray-900 dark:text-white';
     }
     
     // Xử lý trường hợp null, undefined hoặc giá trị không phải số
     if (price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-      return 'text-white';
+      return 'text-gray-900 dark:text-white';
     }
     
     // Chuyển đổi sang số để so sánh, nhưng không làm tròn
@@ -406,7 +406,7 @@ export default function StockDerivatives() {
     let numFloorPrice = parseFloat(floorPrice);
 
     if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-      return 'text-white';
+      return 'text-gray-900 dark:text-white';
     }
 
     // So sánh với sai số
@@ -419,7 +419,7 @@ export default function StockDerivatives() {
     if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
     if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
     
-    return 'text-white';
+    return 'text-gray-900 dark:text-white';
   };
 
   // Hàm xác định animation class
@@ -444,14 +444,14 @@ export default function StockDerivatives() {
     return '';
   };
 
-  // Hàm kết hợp màu sắc và animation
+  // Cập nhật hàm getCellClass để hỗ trợ cả light và dark mode
   const getCellClass = (stock, field, type = 'price') => {
     // Kiểm tra stock và field tồn tại
-    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
     
     // Kiểm tra trường đặc biệt (tổng khối lượng luôn màu trắng)
     if (field === 'totalVolume') {
-      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+      return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
     }
     
     // Kiểm tra giá trị field
@@ -469,14 +469,14 @@ export default function StockDerivatives() {
             stock.ceiling,
             stock.floor
           );
-          return `${colorClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+          return `${colorClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2`;
         }
       }
-      return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+      return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
     }
 
     // Xác định màu sắc
-    let colorClass = 'text-white';
+    let colorClass = 'text-gray-900 dark:text-white';
     
     if (type === 'price') {
       colorClass = getPriceColor(
@@ -507,7 +507,7 @@ export default function StockDerivatives() {
       type
     );
 
-    return `${colorClass} ${animationClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+    return `${colorClass} ${animationClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2`;
   };
 
   // Hàm ánh xạ từ trường khối lượng sang trường giá
@@ -905,28 +905,45 @@ export default function StockDerivatives() {
       position: sticky;
       top: 0;
       z-index: 10;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
     }
     
     .stock-table-container th {
-      background-color: #1a1a1a;
+      background-color: #f9fafb; /* light mode background */
+    }
+    
+    /* Dark mode styles */
+    .dark .stock-table-container th {
+      background-color: #1a1a1a; /* dark mode background */
+    }
+    
+    .dark .stock-table-container {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
     
     /* Đảm bảo header luôn cố định trên cùng và không bị ẩn khi scroll */
     .stock-table-container thead tr:first-child th {
       position: sticky;
-      background-color: #1a1a1a;
+      background-color: #f9fafb;
       top: 0;
       padding-bottom: 10px;
+    }
+    
+    .dark .stock-table-container thead tr:first-child th {
+      background-color: #1a1a1a;
     }
     
     /* Đảm bảo header row thứ hai hiển thị đúng */
     .stock-table-container thead tr:nth-child(2) th {
       position: sticky;
       top: 38px; /* Chiều cao của header row đầu tiên */
-      background-color: #1a1a1a;
+      background-color: #f9fafb;
       padding-top: 10px;
       border-top: none !important;
+    }
+    
+    .dark .stock-table-container thead tr:nth-child(2) th {
+      background-color: #1a1a1a;
     }
     
     /* Force inline borders to display */
@@ -942,8 +959,12 @@ export default function StockDerivatives() {
       left: 0;
       right: 0;
       height: 2px;
-      background-color: #444;
+      background-color: #e5e7eb;
       z-index: 11;
+    }
+    
+    .dark .stock-table-container .header-benmua::after {
+      background-color: #444;
     }
     
     .stock-table-container .header-khoplеnh::after {
@@ -953,8 +974,12 @@ export default function StockDerivatives() {
       left: 0;
       right: 0;
       height: 2px;
-      background-color: #444;
+      background-color: #e5e7eb;
       z-index: 11;
+    }
+    
+    .dark .stock-table-container .header-khoplеnh::after {
+      background-color: #444;
     }
     
     .stock-table-container .header-benban::after {
@@ -964,8 +989,12 @@ export default function StockDerivatives() {
       left: 0;
       right: 0;
       height: 2px;
-      background-color: #444;
+      background-color: #e5e7eb;
       z-index: 11;
+    }
+    
+    .dark .stock-table-container .header-benban::after {
+      background-color: #444;
     }
     
     .stock-table-container .header-dtnn::after {
@@ -975,8 +1004,12 @@ export default function StockDerivatives() {
       left: 0;
       right: 0;
       height: 2px;
-      background-color: #444;
+      background-color: #e5e7eb;
       z-index: 11;
+    }
+    
+    .dark .stock-table-container .header-dtnn::after {
+      background-color: #444;
     }
   `;
 
@@ -1310,7 +1343,7 @@ export default function StockDerivatives() {
   }, [priceChangeColors]);
 
   return (
-    <div className="bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
+    <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
       
       {/* Feature Message Dialog */}
@@ -1326,13 +1359,13 @@ export default function StockDerivatives() {
       )}
       
       {/* Navigation Tabs */}
-      <div className="border-b border-[#333] flex-shrink-0">
+      <div className="border-b border-[#333] dark:border-[#333] border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-4 px-4">
           <button
             className={`py-3 px-4 text-sm font-medium relative transition-all duration-300 ease-in-out rounded-t-lg ${
               activeTab === 'price' 
-                ? 'text-white bg-[#1a1a1a]' 
-                : 'text-[#888] hover:text-white hover:bg-[#1a1a1a]/50'
+                ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-[#1a1a1a]' 
+                : 'text-gray-600 dark:text-[#888] hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#1a1a1a]/50'
             }`}
             onClick={() => setActiveTab('price')}
           >
@@ -1356,10 +1389,10 @@ export default function StockDerivatives() {
               placeholder="Tìm kiếm mã"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-[200px] bg-[#1a1a1a] border-[#333] text-white placeholder:text-[#666] pl-10 transition-all duration-300 ease-in-out focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-[200px] bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#666] pl-10 transition-all duration-300 ease-in-out focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-[#666]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1375,7 +1408,7 @@ export default function StockDerivatives() {
           </div>
 
           {/* Exchange Selector */}
-          <div className="flex items-center bg-[#1a1a1a] rounded-lg p-1 shadow-lg">
+          <div className="flex items-center bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-1 shadow-lg">
             {exchanges.map((exchange) => (
               <button
                 key={exchange.id}
@@ -1384,8 +1417,8 @@ export default function StockDerivatives() {
                   relative group flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
                   transition-all duration-300 ease-in-out
                   ${selectedExchange === exchange.id
-                    ? 'bg-[#2a2a2a] text-white shadow-md'
-                    : 'text-[#888] hover:text-white hover:bg-[#2a2a2a]/50'
+                    ? 'bg-gray-200 dark:bg-[#2a2a2a] text-gray-900 dark:text-white shadow-md'
+                    : 'text-gray-600 dark:text-[#888] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2a2a2a]/50'
                   }
                 `}
               >
@@ -1404,7 +1437,7 @@ export default function StockDerivatives() {
                 <span>{exchange.name}</span>
                 
                 {/* Description Tooltip */}
-                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-[#2a2a2a] text-white rounded whitespace-nowrap">
+                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-gray-200 dark:bg-[#2a2a2a] text-gray-900 dark:text-white rounded whitespace-nowrap">
                   {exchange.description}
                 </div>
 
@@ -1418,10 +1451,10 @@ export default function StockDerivatives() {
 
           {/* Industry Filter */}
           <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-            <SelectTrigger className="w-[180px] bg-[#1a1a1a] border-[#333]">
+            <SelectTrigger className="w-[180px] bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
               <SelectValue placeholder="Chọn ngành" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
               {industryOptions.map(option => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -1433,29 +1466,29 @@ export default function StockDerivatives() {
 
         {/* Date and Time Display */}
         <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300 w-[140px]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#1a1a1a] px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333] shadow-lg hover:border-gray-300 dark:hover:border-[#444] transition-all duration-300 w-[140px]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-white font-medium w-full text-center">{currentTime.format('DD/MM/YYYY')}</span>
+            <span className="text-gray-900 dark:text-white font-medium w-full text-center">{currentTime.format('DD/MM/YYYY')}</span>
           </div>
-          <div className="flex items-center gap-2 bg-[#1a1a1a] px-4 py-2 rounded-lg border border-[#333] shadow-lg hover:border-[#444] transition-all duration-300 w-[120px]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#1a1a1a] px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333] shadow-lg hover:border-gray-300 dark:hover:border-[#444] transition-all duration-300 w-[120px]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-white font-medium w-full text-center">{currentTime.format('HH:mm:ss')}</span>
+            <span className="text-gray-900 dark:text-white font-medium w-full text-center">{currentTime.format('HH:mm:ss')}</span>
           </div>
         </div>
       </div>
 
       {/* Stock Chart Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#131722] text-white border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
+        <DialogContent className="bg-white dark:bg-[#131722] text-gray-900 dark:text-white border-gray-200 dark:border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
           <DialogTitle className="sr-only">Stock Chart</DialogTitle>
           <DialogDescription className="sr-only">Interactive stock chart with drawing tools</DialogDescription>
           <div className="flex flex-col h-full">
             {/* Chart Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-[#2a2e39]">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-[#2a2e39]">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg">{selectedStock?.code}</span>
@@ -1467,37 +1500,37 @@ export default function StockDerivatives() {
                     {selectedStock?.matchPrice} ({selectedStock?.matchChange})
                   </span>
                 </div>
-                <div className="h-4 w-[1px] bg-[#2a2e39]"></div>
-                <div className="flex items-center gap-4 text-sm text-[#a9a9a9]">
-                  <div>O <span className="text-white">{selectedStock?.ref}</span></div>
+                <div className="h-4 w-[1px] bg-gray-200 dark:bg-[#2a2e39]"></div>
+                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-[#a9a9a9]">
+                  <div>O <span className="text-gray-900 dark:text-white">{selectedStock?.ref}</span></div>
                   <div>H <span className="text-[#26a69a]">{selectedStock?.high}</span></div>
                   <div>L <span className="text-[#ef5350]">{selectedStock?.low}</span></div>
-                  <div>C <span className="text-white">{selectedStock?.matchPrice}</span></div>
+                  <div>C <span className="text-gray-900 dark:text-white">{selectedStock?.matchPrice}</span></div>
                 </div>
               </div>
             </div>
 
             {/* Chart Area */}
-            <div className="flex-1 bg-[#131722] min-h-[500px]">
+            <div className="flex-1 bg-white dark:bg-[#131722] min-h-[500px]">
               {isChartLoading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-4">
                     <div className="w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    <span className="text-[#888] text-sm">Đang tải dữ liệu biểu đồ...</span>
+                    <span className="text-gray-500 dark:text-[#888] text-sm">Đang tải dữ liệu biểu đồ...</span>
                   </div>
                 </div>
               ) : chartError ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-4 text-center px-4">
                     <AlertTriangle className="w-8 h-8 text-amber-500" />
-                    <span className="text-[#888] text-sm">{chartError}</span>
+                    <span className="text-gray-500 dark:text-[#888] text-sm">{chartError}</span>
                   </div>
                 </div>
               ) : chartData.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-4 text-center px-4">
                     <Info className="w-8 h-8 text-blue-500" />
-                    <span className="text-[#888] text-sm">Không có dữ liệu biểu đồ cho mã này</span>
+                    <span className="text-gray-500 dark:text-[#888] text-sm">Không có dữ liệu biểu đồ cho mã này</span>
                   </div>
                 </div>
               ) : (
@@ -1509,9 +1542,9 @@ export default function StockDerivatives() {
             </div>
 
             {/* Chart Footer */}
-            <div className="flex items-center justify-between px-4 py-2 border-t border-[#2a2e39] bg-[#1e222d] text-xs text-[#a9a9a9]">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-[#2a2e39] bg-gray-100 dark:bg-[#1e222d] text-xs text-gray-500 dark:text-[#a9a9a9]">
               <div className="flex items-center gap-4">
-                <div>Vol: <span className="text-white font-medium">{selectedStock?.totalVolume}</span></div>
+                <div>Vol: <span className="text-gray-900 dark:text-white font-medium">{selectedStock?.totalVolume}</span></div>
                 <div>ĐTNN: 
                   <span className="text-[#26a69a] font-medium ml-1">+{selectedStock?.foreignBuy}</span>
                   <span className="text-[#ef5350] font-medium ml-1">-{selectedStock?.foreignSell}</span>
@@ -1525,12 +1558,12 @@ export default function StockDerivatives() {
 
       {/* Price Alert Dialog */}
       <Dialog open={isPriceAlertOpen} onOpenChange={setIsPriceAlertOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#2a2e39] sm:max-w-[425px]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#2a2e39] sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
               Cài đặt thông báo giá - {selectedAlertStock?.code}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-400 text-center">
+            <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 text-center">
               Thiết lập mức giá bạn muốn nhận thông báo
             </DialogDescription>
           </DialogHeader>
@@ -1539,10 +1572,10 @@ export default function StockDerivatives() {
               <label className="text-right text-sm">Loại</label>
               <div className="col-span-3">
                 <Select value={alertType} onValueChange={setAlertType} disabled={isSubmittingAlert}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-gray-50 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333]">
                     <SelectValue placeholder="Chọn loại thông báo" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333]">
                     <SelectItem value="above">Khi giá vượt lên</SelectItem>
                     <SelectItem value="below">Khi giá giảm xuống</SelectItem>
                   </SelectContent>
@@ -1557,7 +1590,7 @@ export default function StockDerivatives() {
                   step="0.01"
                   value={alertPrice}
                   onChange={(e) => setAlertPrice(e.target.value)}
-                  className="bg-[#2a2a2a] border-[#333]"
+                  className="bg-gray-50 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
                   placeholder={`Giá hiện tại: ${selectedAlertStock?.matchPrice}`}
                   disabled={isSubmittingAlert}
                 />
@@ -1566,7 +1599,7 @@ export default function StockDerivatives() {
           </div>
           <DialogFooter>
             <Button 
-              className="bg-red-500 hover:bg-red-600" 
+              className="bg-red-500 hover:bg-red-600 text-white" 
               variant="outline" 
               onClick={() => setIsPriceAlertOpen(false)}
               disabled={isSubmittingAlert}
@@ -1574,7 +1607,7 @@ export default function StockDerivatives() {
               Hủy
             </Button>
             <Button 
-              className="bg-green-500 hover:bg-green-600" 
+              className="bg-green-500 hover:bg-green-600 text-white" 
               onClick={handleSavePriceAlert}
               disabled={isSubmittingAlert}
             >
@@ -1626,90 +1659,90 @@ export default function StockDerivatives() {
 
                   {/* Table header with sticky positioning */}
                   <thead>
-                    <tr className="border-b border-[#333]">
+                    <tr className="border-b border-gray-200 dark:border-[#333]">
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" 
                         rowSpan={2}
                         onClick={() => handleSort('code')}
                       >
                         Mã CK <SortIndicator columnKey="code" />
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" 
                         rowSpan={2}
                         onClick={() => handleSort('ceiling')}
                       >
                         Trần <SortIndicator columnKey="ceiling" />
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" 
                         rowSpan={2}
                         onClick={() => handleSort('floor')}
                       >
                         Sàn <SortIndicator columnKey="floor" />
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-white transition-colors" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" 
                         rowSpan={2}
                         onClick={() => handleSort('ref')}
                       >
                         TC <SortIndicator columnKey="ref" />
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-benmua relative" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 header-benmua relative" 
                         colSpan={6}
                       >
                         Bên mua
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-khoplеnh relative" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 header-khoplеnh relative" 
                         colSpan={3}
                       >
                         Khớp lệnh
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-benban relative" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 header-benban relative" 
                         colSpan={6}
                       >
                         Bên bán
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2" 
                         rowSpan={2}
                       >
                         Tổng KL
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2 header-dtnn relative" 
+                        className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 header-dtnn relative" 
                         colSpan={2}
                       >
                         ĐTNN
                       </th>
                       <th 
-                        className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" 
+                        className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2" 
                         rowSpan={2}
                       >
                         Thao tác
                       </th>
                     </tr>
                     <tr>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Bán</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+                      <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2">Bán</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1721,7 +1754,7 @@ export default function StockDerivatives() {
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+                            <span className="text-gray-500 dark:text-[#888] text-sm">Đang tải dữ liệu...</span>
                           </div>
                         </td>
                       </tr>
@@ -1735,8 +1768,8 @@ export default function StockDerivatives() {
                               </svg>
                             </div>
                             <div className="text-center">
-                              <h3 className="text-lg font-medium text-gray-400">Không tìm thấy dữ liệu</h3>
-                              <p className="text-sm text-gray-500 mt-1">
+                              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400">Không tìm thấy dữ liệu</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                                 Không có dữ liệu cho sàn {selectedExchange} tại thời điểm này
                               </p>
                             </div>
@@ -1747,17 +1780,16 @@ export default function StockDerivatives() {
                       getFilteredData().map((stock) => (
                         <tr 
                           key={stock.code} 
-                          className="hover:bg-[#1a1a1a] transition-colors"
+                          className="hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
                         >
-                          <td className={`border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer px-2 py-1.5 ${getCellClass(stock, 'matchPrice', 'price')}`}
+                          <td className={`border-r border-gray-200 dark:border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer px-2 py-1.5 ${getCellClass(stock, 'matchPrice', 'price')}`}
                             onClick={() => handleStockClick(stock)}
                           >
                             {stock.code}
                           </td>
-                          {/* Update padding for all cells */}
-                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
-                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
+                          <td className="text-[#B388FF] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ceiling}</td>
+                          <td className="text-[#00BCD4] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.floor}</td>
+                          <td className="text-[#F4BE37] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.ref}</td>
                           <td className={`${getCellClass(stock, 'buyPrice3', 'price')} px-2 py-1.5`}>{stock.buyPrice3}</td>
                           <td className={`${getCellClass(stock, 'buyVolume3', 'volume')} px-2 py-1.5`}>{stock.buyVolume3}</td>
                           <td className={`${getCellClass(stock, 'buyPrice2', 'price')} px-2 py-1.5`}>{stock.buyPrice2}</td> 
@@ -1766,7 +1798,7 @@ export default function StockDerivatives() {
                           <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
                           <td className={`${getCellClass(stock, 'matchPrice', 'price')} px-2 py-1.5`}>{stock.matchPrice}</td>
                           <td className={`${getCellClass(stock, 'matchVolume', 'volume')} px-2 py-1.5`}>{stock.totalVolume}</td>
-                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
+                          <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
                           <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
                           <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
                           <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td> 
@@ -1774,8 +1806,8 @@ export default function StockDerivatives() {
                           <td className={`${getCellClass(stock, 'sellPrice3', 'price')} px-2 py-1.5`}>{stock.sellPrice3}</td>
                           <td className={`${getCellClass(stock, 'sellVolume3', 'volume')} px-2 py-1.5`}>{stock.sellVolume3}</td>
                           <td className={`${getCellClass(stock, 'totalVolume', 'volume')} px-2 py-1.5`}>{stock.matchVolume}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignBuy}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignSell}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignBuy}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5">{stock.foreignSell}</td>
                           <td className="text-center px-2 py-1.5">
                             <div className="flex items-center justify-center gap-2">
                               <button
@@ -1845,8 +1877,8 @@ export default function StockDerivatives() {
               </div>
               
               {/* Footer with exchange information - Now sticky */}
-              <div className="sticky -bottom-4 bg-[#0a0a14] border-t border-[#333] py-4 mt-4">
-                <div className="text-xs text-[#999] text-right px-4">
+              <div className="sticky -bottom-4 bg-white dark:bg-[#0a0a14] border-t border-gray-200 dark:border-[#333] py-4 mt-4">
+                <div className="text-xs text-gray-500 dark:text-[#999] text-right px-4">
                   {selectedExchange === 'HOSE' && (
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-[#00C087] font-medium">HOSE:</span>

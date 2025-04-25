@@ -177,7 +177,7 @@ const AIChatPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(107vh-12rem)] bg-[#1a1a1a] rounded-lg border border-[#333] overflow-hidden relative">
+    <div className="flex flex-col h-[calc(107vh-12rem)] bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] overflow-hidden relative">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#09D1C7]/5 to-transparent pointer-events-none" />
       
@@ -209,21 +209,21 @@ const AIChatPage = () => {
                 </div>
               </div>
 
-              <h1 className="text-5xl font-bold text-white mb-6 tracking-tight">
+              <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
                 Tôi có thể giúp gì cho bạn?
               </h1>
               
               <div className="relative max-w-2xl mx-auto group" onClick={focusInput}>
                 <div className="absolute -inset-1 bg-gradient-to-r from-[#09D1C7] to-[#0a8f88] rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-300"></div>
-                <div className="relative flex items-center bg-[#333] rounded-2xl shadow-2xl">
-                  <Search className="absolute left-4 text-[#666] h-6 w-6" />
+                <div className="relative flex items-center bg-white dark:bg-[#333] rounded-2xl shadow-2xl">
+                  <Search className="absolute left-4 text-gray-400 dark:text-[#666] h-6 w-6" />
                   <Input
                     ref={inputRef}
                     placeholder="Hỏi bất kỳ điều gì..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    className="w-full h-16 pl-14 pr-4 bg-transparent border-0 text-white placeholder:text-[#666] text-lg focus:ring-0 focus:outline-none rounded-2xl"
+                    className="w-full h-16 pl-14 pr-4 bg-transparent border-0 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-[#666] text-lg focus:ring-0 focus:outline-none rounded-2xl"
                   />
                   <input
                     type="file"
@@ -244,17 +244,17 @@ const AIChatPage = () => {
                 </div>
               </div>
 
-              <div className="mt-12 bg-[#333]/50 backdrop-blur-sm p-8 rounded-2xl border border-[#444] shadow-xl max-w-2xl mx-auto transform hover:scale-[1.02] transition-all duration-300">
+              <div className="mt-12 bg-white/50 dark:bg-[#333]/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-200 dark:border-[#444] shadow-xl max-w-2xl mx-auto transform hover:scale-[1.02] transition-all duration-300">
                 <div className="flex items-start gap-6">
                   <div className="p-4 bg-gradient-to-br from-[#09D1C7]/20 to-[#0a8f88]/20 rounded-xl">
                     <Bot className="h-8 w-8 text-[#09D1C7]" />
                   </div>
                   <div className="flex-1 text-left">
-                    <h3 className="text-xl font-semibold text-white mb-2 flex items-center gap-2">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                       Trợ lý thông minh
                       <span className="text-sm font-normal text-[#09D1C7]">AI Assistant</span>
                     </h3>
-                    <p className="text-[#888] text-base leading-relaxed">
+                    <p className="text-gray-600 dark:text-[#888] text-base leading-relaxed">
                       Tôi có thể giúp bạn phân tích dữ liệu, trả lời câu hỏi, và hỗ trợ bạn trong nhiều tác vụ khác nhau. 
                       Hãy đặt câu hỏi hoặc chia sẻ vấn đề của bạn, tôi sẽ cố gắng hết sức để giúp đỡ.
                     </p>
@@ -272,8 +272,8 @@ const AIChatPage = () => {
                   <AnimatedBotIcon />
                 </AvatarFallback>
               </Avatar>
-              <div className="bg-[#333] text-white rounded-lg p-3 max-w-[80%]">
-                <div className="prose prose-invert max-w-none">
+              <div className="bg-gray-100 dark:bg-[#333] text-gray-900 dark:text-white rounded-lg p-3 max-w-[80%]">
+                <div className="prose dark:prose-invert max-w-none">
                   Xin chào! Tôi là trợ lý AI. Tôi có thể giúp gì cho bạn?
                 </div>
                 <div className="text-xs opacity-50 mt-1">
@@ -300,24 +300,24 @@ const AIChatPage = () => {
                   className={`max-w-[80%] rounded-lg p-3 ${
                     message.role === 'user'
                       ? 'bg-[#09D1C7] text-white'
-                      : 'bg-[#333] text-white'
+                      : 'bg-gray-100 dark:bg-[#333] text-gray-900 dark:text-white'
                   }`}
                 >
                   {message.isLoading ? (
                     <LoadingDots />
                   ) : (
-                    <div className="prose prose-invert max-w-none text-left">
+                    <div className="prose dark:prose-invert max-w-none text-left">
                       <ReactMarkdown 
                         components={{
                           p: ({node, ...props}) => <div className="mb-2 last:mb-0" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2" {...props} />,
                           ol: ({node, ...props}) => <ol className="list-decimal pl-4 mb-2" {...props} />,
                           li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                          pre: ({node, ...props}) => <pre className="bg-[#1a1a1a] p-4 rounded-lg mb-4 overflow-x-auto" {...props} />,
+                          pre: ({node, ...props}) => <pre className="bg-gray-200 dark:bg-[#1a1a1a] p-4 rounded-lg mb-4 overflow-x-auto" {...props} />,
                           code: ({node, inline, className, children, ...props}) => {
                             const match = /language-(\w+)/.exec(className || '');
                             return inline ? (
-                              <code className="bg-[#2d2d2d] px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                              <code className="bg-gray-200 dark:bg-[#2d2d2d] px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                                 {children}
                               </code>
                             ) : (
@@ -354,7 +354,7 @@ const AIChatPage = () => {
 
       {/* File Preview */}
       {filePreview && (
-        <div className="p-2 border-t border-[#333]">
+        <div className="p-2 border-t border-gray-200 dark:border-[#333]">
           <div className="relative inline-block">
             <img
               src={filePreview}
@@ -372,14 +372,14 @@ const AIChatPage = () => {
       )}
 
       {/* Input Area */}
-      <div className={`p-4 border-t border-[#333] bg-[#1a1a1a]/95 backdrop-blur transition-all duration-300 ${!hasInteracted ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`p-4 border-t border-gray-200 dark:border-[#333] bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur transition-all duration-300 ${!hasInteracted ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex gap-2 max-w-4xl mx-auto">
           <Input
             placeholder="Nhập tin nhắn..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="flex-1 bg-[#333] border-[#444] text-white placeholder:text-[#666] focus:ring-[#09D1C7]"
+            className="flex-1 bg-gray-100 dark:bg-[#333] border-gray-200 dark:border-[#444] text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#666] focus:ring-[#09D1C7]"
             disabled={isSending}
           />
           <input
@@ -393,7 +393,7 @@ const AIChatPage = () => {
             variant="outline"
             size="icon"
             onClick={() => fileInputRef.current?.click()}
-            className="bg-[#333] border-[#444] text-white hover:bg-[#444] hover:text-[#09D1C7] transition-colors"
+            className="bg-gray-100 dark:bg-[#333] border-gray-200 dark:border-[#444] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#444] hover:text-[#09D1C7] transition-colors"
             disabled={isSending}
           >
             <ImageIcon className="h-5 w-5" />

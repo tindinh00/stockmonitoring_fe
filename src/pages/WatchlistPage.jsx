@@ -240,7 +240,7 @@ const WatchlistPage = () => {
 
   // Hàm xác định màu sắc dựa trên giá
   const getPriceColor = (stock, field) => {
-    if (!stock || !field) return 'text-white';
+    if (!stock || !field) return 'text-gray-900 dark:text-white';
 
     // Xác định giá tương ứng với khối lượng
     let priceField = field;
@@ -273,17 +273,17 @@ const WatchlistPage = () => {
       }
     }
 
-    return 'text-white';
+    return 'text-gray-900 dark:text-white';
   };
 
   // Hàm kết hợp màu sắc và animation cho cell
   const getCellClasses = (stock, field) => {
-    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1';
     
     const colorClass = getPriceColor(stock, field);
     const flashClass = getFlashClass(stock.stockCode, field);
     
-    return `${colorClass} ${flashClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+    return `${colorClass} ${flashClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1`;
   };
 
   // Update watchlist data khi có dữ liệu mới từ SignalR
@@ -1169,20 +1169,20 @@ const WatchlistPage = () => {
 
   // Update the Chart Dialog content
   return (
-    <div className="bg-[#0a0a14] min-h-screen">
+    <div className="bg-white dark:bg-[#0a0a14] min-h-screen">
       {/* Thêm animations vào CSS */}
       <style jsx global>{priceChangeAnimations}</style>
       
       {/* Page Header */}
-      <div className="sticky top-0 z-50 bg-[#0a0a14] border-b border-[#1a1a1a] px-4 py-4 md:px-6">
+      <div className="sticky top-0 z-50 bg-white dark:bg-[#0a0a14] border-b border-gray-200 dark:border-[#1a1a1a] px-4 py-4 md:px-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Danh mục theo dõi</h1>
-            <p className="text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Danh mục theo dõi</h1>
+            <p className="text-gray-500 dark:text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333] min-w-[120px]">
-              <Clock className="w-4 h-4 text-[#666]" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] min-w-[120px]">
+              <Clock className="w-4 h-4 text-gray-400 dark:text-[#666]" />
               <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
                 {lastTimestamp.toLocaleTimeString('vi-VN', {
                   hour: '2-digit',
@@ -1224,7 +1224,7 @@ const WatchlistPage = () => {
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
               activeTab === 'hsx'
                 ? 'bg-[#09D1C7] text-white'
-                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
             }`}
           >
             HOSE
@@ -1234,7 +1234,7 @@ const WatchlistPage = () => {
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
               activeTab === 'hnx'
                 ? 'bg-[#09D1C7] text-white'
-                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
             }`}
           >
             HNX
@@ -1245,68 +1245,65 @@ const WatchlistPage = () => {
           {/* Left section - Stock Table */}
           <div className="lg:col-span-8">
             {/* Stock Table */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-[1000px] border-collapse">
                   <colgroup>
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[70px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[100px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[80px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[45px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
                   </colgroup>
-                  <thead className="sticky top-0 bg-[#1a1a1a] z-50">
+                  <thead className="sticky top-0 bg-white dark:bg-[#1a1a1a] z-50">
                     <tr>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
-                      <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Mã CK</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Trần</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Sàn</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>TC</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={6}>Bên mua</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={3}>Khớp lệnh</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={6}>Bên bán</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Tổng KL</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={2}>ĐTNN</th>
+                      <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-1" rowSpan={2}>Thao tác</th>
                     </tr>
                     <tr>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-                      <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">+/-</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 1</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 2</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 3</th>
+                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Mua</th>
+                      <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-1">Bán</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1336,13 +1333,13 @@ const WatchlistPage = () => {
                       // Thêm kiểm tra watchlist có phải là mảng hay không
                       Array.isArray(watchlist) ? 
                       watchlist.map((stock) => (
-                        <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
-                          <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2`} onClick={() => handleStockClick(stock)}>
+                        <tr key={stock.stockCode} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
+                          <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-1`} onClick={() => handleStockClick(stock)}>
                             {formatValue(stock.stockCode)}
                           </td>
-                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.ceilPrice)}</td>
-                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.floorPrice)}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.priorClosePrice)}</td>
+                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.ceilPrice)}</td>
+                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.floorPrice)}</td>
+                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.priorClosePrice)}</td>
                           <td className={getCellClasses(stock, 'price3Buy')}>
                             {formatValue(stock.price3Buy)}
                           </td>
@@ -1367,7 +1364,7 @@ const WatchlistPage = () => {
                           <td className={getCellClasses(stock, 'volumeAccumulation')}>
                             {formatValue(stock.volumeAccumulation)}
                           </td>
-                          <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                          <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-1`}>
                             {stock.plusMinus !== null && stock.plusMinus !== undefined && stock.plusMinus !== '--' ? 
                               `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : 
                               '--'}
@@ -1390,10 +1387,10 @@ const WatchlistPage = () => {
                           <td className={getCellClasses(stock, 'volume3Sell')}>
                             {formatValue(stock.volume3Sell)}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.matchedOrderVolume)}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignBuyVolume)}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignSellVolume)}</td>
-                          <td className="text-center py-2">
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.matchedOrderVolume)}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignBuyVolume)}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignSellVolume)}</td>
+                          <td className="text-center py-1">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
                               className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
@@ -1427,9 +1424,9 @@ const WatchlistPage = () => {
           {/* Right section - Industries */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             {/* Industries List */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-              <div className="p-4 border-b border-[#333] sticky top-0 bg-[#1a1a1a] z-10">
-                <h2 className="text-xl font-semibold text-white">Ngành theo dõi</h2>
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+              <div className="p-4 border-b border-gray-200 dark:border-[#333] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Ngành theo dõi</h2>
               </div>
 
               <div className="p-4">
@@ -1451,9 +1448,9 @@ const WatchlistPage = () => {
                     {industries.map((industry) => (
                       <div
                         key={industry.id}
-                        className="bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
+                        className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
                       >
-                        <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center">
+                        <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors">
                           <div className="col-span-4 flex items-center gap-2 min-w-0">
                             <button
                               onClick={() => handleIndustryClick(industry)}
@@ -1465,7 +1462,7 @@ const WatchlistPage = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <span className="text-white font-medium truncate">{industry.name}</span>
+                            <span className="text-gray-900 dark:text-white font-medium truncate">{industry.name}</span>
                           </div>
                           <div className="col-span-2 flex justify-center">
                             <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
@@ -1525,13 +1522,13 @@ const WatchlistPage = () => {
                 {/* Empty State */}
                 {!isLoadingIndustries && (!industries || industries.length === 0) && (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 bg-[#252525] rounded-full flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-gray-100 dark:bg-[#252525] rounded-full flex items-center justify-center mb-3">
+                      <svg className="w-6 h-6 text-gray-400 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
-                    <h3 className="text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
-                    <p className="text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
+                    <h3 className="text-gray-900 dark:text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
+                    <p className="text-gray-500 dark:text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
                   </div>
                 )}
               </div>
@@ -1539,13 +1536,13 @@ const WatchlistPage = () => {
             
             {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-4 mt-auto">
-              <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
-                <h3 className="text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-xl font-semibold text-white">{watchlist.length}</p>
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
+                <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
               </div>
-              <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
-                <h3 className="text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-xl font-semibold text-white">{industries.length}</p>
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
+                <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
               </div>
             </div>
           </div>
@@ -1554,7 +1551,7 @@ const WatchlistPage = () => {
 
       {/* Industry Detail Dialog */}
       <Dialog open={isIndustryDetailOpen} onOpenChange={setIsIndustryDetailOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[800px] w-[95vw]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[800px] w-[95vw]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <span className="bg-[#4A72FF] text-white px-3 py-1 rounded-full text-sm font-medium">
@@ -1641,7 +1638,7 @@ const WatchlistPage = () => {
 
       {/* Add Industry Dialog */}
       <Dialog open={isAddIndustryDialogOpen} onOpenChange={setIsAddIndustryDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <DialogTitle className="text-xl font-semibold mb-1">Thêm ngành theo dõi</DialogTitle>
@@ -1658,9 +1655,9 @@ const WatchlistPage = () => {
               value={newIndustryName}
               onChange={(e) => setNewIndustryName(e.target.value)}
               placeholder="Tìm kiếm ngành..."
-              className="w-full bg-[#252525] border border-[#333] rounded-lg pl-10 pr-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
+              className="w-full bg-gray-100 dark:bg-[#252525] border border-gray-200 dark:border-[#333] rounded-lg pl-10 pr-3 py-2 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
             />
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -1681,7 +1678,7 @@ const WatchlistPage = () => {
                 .map(industry => (
                   <div
                     key={industry.id}
-                    className="flex items-center gap-3 p-3 bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1694,13 +1691,13 @@ const WatchlistPage = () => {
                           setSelectedIndustryIds(selectedIndustryIds.filter(id => id !== industry.id));
                         }
                       }}
-                      className="w-4 h-4 rounded border-[#333] bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-[#333] bg-white dark:bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
                     />
                     <label
                       htmlFor={`industry-${industry.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-white">{industry.name}</span>
+                      <span className="text-gray-900 dark:text-white">{industry.name}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
@@ -1709,13 +1706,13 @@ const WatchlistPage = () => {
                         }`}>
                           SMG: {industry.smg}
                         </span>
-                        <span className="text-[#666] text-sm">{industry.code}</span>
+                        <span className="text-gray-500 dark:text-[#666] text-sm">{industry.code}</span>
                       </div>
                     </label>
                   </div>
                 ))
             ) : (
-              <div className="text-center py-4 text-[#666]">
+              <div className="text-center py-4 text-gray-500 dark:text-[#666]">
                 Không tìm thấy ngành nào
               </div>
             )}
@@ -1727,23 +1724,23 @@ const WatchlistPage = () => {
                industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
                !industries.some(existingIndustry => existingIndustry.id === industry.id)
              ).length === 0 && (
-              <div className="bg-[#252525] p-4 rounded-lg text-center">
-                <div className="w-10 h-10 bg-[#333] rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="bg-gray-100 dark:bg-[#252525] p-4 rounded-lg text-center">
+                <div className="w-10 h-10 bg-gray-200 dark:bg-[#333] rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </div>
                 {newIndustryName ? (
-                  <p className="text-[#999]">Không tìm thấy ngành phù hợp với từ khóa "{newIndustryName}"</p>
+                  <p className="text-gray-500 dark:text-[#999]">Không tìm thấy ngành phù hợp với từ khóa "{newIndustryName}"</p>
                 ) : (
-                  <p className="text-[#999]">Bạn đã theo dõi tất cả các ngành có sẵn</p>
+                  <p className="text-gray-500 dark:text-[#999]">Bạn đã theo dõi tất cả các ngành có sẵn</p>
                 )}
               </div>
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-[#333]">
-            <div className="text-[#666] text-sm">
+          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-[#333]">
+            <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedIndustryIds.length} ngành
             </div>
             <div className="flex gap-2">
@@ -1754,7 +1751,7 @@ const WatchlistPage = () => {
                   setIsAddIndustryDialogOpen(false);
                 }}
                 variant="outline"
-                className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               >
                 Hủy
               </Button>
@@ -1772,7 +1769,7 @@ const WatchlistPage = () => {
 
       {/* Stock Chart Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#131722] text-white border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
+        <DialogContent className="bg-white dark:bg-[#131722] text-gray-900 dark:text-white border-gray-200 dark:border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
           <DialogTitle className="sr-only">Stock Chart</DialogTitle>
           <DialogDescription className="sr-only">Interactive stock chart with drawing tools</DialogDescription>
           <div className="flex flex-col h-full">
@@ -1847,13 +1844,13 @@ const WatchlistPage = () => {
 
       {/* Delete Sector Confirmation Dialog */}
       <Dialog open={isDeleteSectorDialogOpen} onOpenChange={setIsDeleteSectorDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[400px]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px]">
           <DialogTitle className="font-semibold text-xl">Xóa ngành theo dõi</DialogTitle>
           <DialogDescription className="text-[#999]">
             Bạn có chắc chắn muốn xóa ngành "{sectorToDelete?.name}" khỏi danh sách theo dõi?
           </DialogDescription>
           
-          <div className="bg-[#252525] p-3 rounded-lg border border-[#333] mt-2 mb-4">
+          <div className="bg-gray-100 dark:bg-[#252525] p-3 rounded-lg border border-gray-200 dark:border-[#333] mt-2 mb-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-[#FF6B00]" />
               <p className="text-[#FF6B00] font-medium">Lưu ý:</p>
@@ -1865,7 +1862,7 @@ const WatchlistPage = () => {
             <Button
               variant="outline"
               onClick={() => setIsDeleteSectorDialogOpen(false)}
-              className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               disabled={isDeletingSector}
             >
               Hủy
@@ -1889,17 +1886,17 @@ const WatchlistPage = () => {
 
       {/* Delete Stock Confirmation Dialog */}
       <Dialog open={isDeleteStockDialogOpen} onOpenChange={setIsDeleteStockDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[400px]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px]">
           <DialogTitle className="font-semibold text-xl">Xóa cổ phiếu</DialogTitle>
-          <DialogDescription className="text-[#999]">
-            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-white font-medium">{stockToDelete?.stockCode}</span> khỏi danh sách theo dõi?
+          <DialogDescription className="text-gray-500 dark:text-[#999]">
+            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-gray-900 dark:text-white font-medium">{stockToDelete?.stockCode}</span> khỏi danh sách theo dõi?
           </DialogDescription>
           
           <div className="flex justify-end gap-3 mt-6">
             <Button
               variant="outline"
               onClick={() => setIsDeleteStockDialogOpen(false)}
-              className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               disabled={isDeletingStock}
             >
               Hủy
@@ -1923,7 +1920,7 @@ const WatchlistPage = () => {
 
       {/* Add Stock Dialog */}
       <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <DialogTitle className="text-xl font-semibold mb-1">Thêm cổ phiếu theo dõi</DialogTitle>
@@ -1940,7 +1937,7 @@ const WatchlistPage = () => {
               value={stockSearchQuery}
               onChange={(e) => setStockSearchQuery(e.target.value)}
               placeholder="Tìm kiếm mã cổ phiếu..."
-              className="w-full bg-[#252525] border border-[#333] rounded-lg pl-10 pr-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
+              className="w-full bg-gray-100 dark:bg-[#252525] border border-gray-200 dark:border-[#333] rounded-lg pl-10 pr-3 py-2 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
             />
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1962,7 +1959,7 @@ const WatchlistPage = () => {
                 .map(stock => (
                   <div
                     key={stock.id}
-                    className="flex items-center gap-3 p-3 bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1981,7 +1978,7 @@ const WatchlistPage = () => {
                       htmlFor={`stock-${stock.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-white font-medium">{stock.ticketSymbol}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
@@ -2003,8 +2000,8 @@ const WatchlistPage = () => {
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-[#333]">
-            <div className="text-[#666] text-sm">
+          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-[#333]">
+            <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedStockIds.length} cổ phiếu
             </div>
             <div className="flex gap-2">
@@ -2015,7 +2012,7 @@ const WatchlistPage = () => {
                   setIsAddStockDialogOpen(false);
                 }}
                 variant="outline"
-                className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               >
                 Hủy
               </Button>

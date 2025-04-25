@@ -117,8 +117,8 @@ const HeatmapPage = () => {
 
   if (loading) {
     return (
-      <div className="bg-[#0a0a14] h-[calc(100vh-132px)] flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="bg-white dark:bg-[#0a0a14] h-[calc(100vh-132px)] flex items-center justify-center">
+        <div className="text-gray-900 dark:text-white">Loading...</div>
       </div>
     );
   }
@@ -191,16 +191,16 @@ const HeatmapPage = () => {
   const industries = organizeDataByIndustry();
 
   return (
-    <div className="bg-[#0a0a14] h-[calc(100vh-132px)] flex flex-col">
-      <div className="border-b border-[#1C1C28] shrink-0">
+    <div className="bg-white dark:bg-[#0a0a14] h-[calc(100vh-132px)] flex flex-col">
+      <div className="border-b border-gray-200 dark:border-[#1C1C28] shrink-0">
         <div className="flex">
           {tabs.map(tab => (
             <button
               key={tab.id}
               className={`px-4 py-1.5 text-sm ${
                 activeTab === tab.id 
-                  ? 'text-white border-b-2 border-[#26A65B]' 
-                  : 'text-[#808191] hover:text-white'
+                  ? 'text-gray-900 dark:text-white border-b-2 border-[#26A65B]' 
+                  : 'text-gray-500 dark:text-[#808191] hover:text-gray-900 dark:hover:text-white'
               }`}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -222,17 +222,17 @@ const HeatmapPage = () => {
             return (
               <div 
                 key={industry.name}
-                className="relative border border-[#1C1C28] bg-[#1C1C28]/50"
+                className="relative border border-gray-200 dark:border-[#1C1C28] bg-gray-100/50 dark:bg-[#1C1C28]/50"
                 style={{
                   gridColumn: `span ${columnSpan}`,
                   gridRow: `span ${rowSpan}`
                 }}
               >
-                <div className="absolute top-0 left-0 right-0 bg-[#1C1C28] text-white text-xs font-medium py-0.5 px-2">
+                <div className="absolute top-0 left-0 right-0 bg-gray-200 dark:bg-[#1C1C28] text-gray-900 dark:text-white text-xs font-medium py-0.5 px-2">
                   {industry.name}
       </div>
 
-                <div className="h-full pt-5 grid gap-px bg-[#1C1C28]" style={{
+                <div className="h-full pt-5 grid gap-px bg-gray-200 dark:bg-[#1C1C28]" style={{
                   gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
                   gridAutoRows: 'minmax(40px, 1fr)'
                 }}>

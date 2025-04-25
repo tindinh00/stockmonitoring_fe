@@ -6,6 +6,7 @@ import axios from 'axios';
 import { toast } from "sonner";
 import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings } from 'lucide-react';
 import Cookies from 'js-cookie';
+import { cn } from "@/lib/utils";
 
 const PersonalAnalyticsPage = () => {
   const [stocks, setStocks] = useState([]);
@@ -128,7 +129,7 @@ const PersonalAnalyticsPage = () => {
   // Render table header cell
   const renderHeaderCell = (field, label, tooltip = null) => (
     <th 
-      className="px-3 py-3 text-sm font-medium text-[#999] cursor-pointer hover:bg-[#252525] transition-colors whitespace-nowrap"
+      className="px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors whitespace-nowrap"
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center justify-center gap-1">
@@ -136,10 +137,10 @@ const PersonalAnalyticsPage = () => {
         {getSortIcon(field)}
         {tooltip && (
           <div className="relative group">
-            <Info className="h-4 w-4 text-[#666] opacity-70" />
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-[#333] rounded-md text-xs text-white w-48 invisible group-hover:visible z-10 shadow-lg border border-[#444]">
+            <Info className="h-4 w-4 text-gray-400 dark:text-[#666] opacity-70" />
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-gray-700 dark:bg-[#333] rounded-md text-xs text-white w-48 invisible group-hover:visible z-10 shadow-lg border border-gray-600 dark:border-[#444]">
               {tooltip}
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#333]"></div>
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-700 dark:border-t-[#333]"></div>
             </div>
           </div>
         )}
@@ -233,7 +234,7 @@ const PersonalAnalyticsPage = () => {
             type="number"
             value={editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight}
             onChange={(e) => handleWeightChange(stock.id, e.target.value)}
-            className="w-16 px-2 py-1 bg-[#252525] border border-[#333] rounded text-white text-center"
+            className="w-16 px-2 py-1 bg-gray-100 dark:bg-[#252525] border border-gray-300 dark:border-[#333] rounded text-gray-900 dark:text-white text-center"
             min="0"
             max="100"
             step="0.01"
@@ -243,13 +244,13 @@ const PersonalAnalyticsPage = () => {
     }
 
     // Original renderValueCell logic for other fields
-    let color = 'text-white';
+    let color = 'text-gray-900 dark:text-white';
     let formattedValue = stock[field];
     
     switch (type) {
       case 'percentage':
         formattedValue = formattedValue ? `${formattedValue > 0 ? '+' : ''}${formattedValue.toFixed(2)}%` : '--';
-        color = formattedValue > 0 ? 'text-[#00FF00]' : formattedValue < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        color = formattedValue > 0 ? 'text-[#00FF00]' : formattedValue < 0 ? 'text-[#FF4A4A]' : 'text-gray-900 dark:text-white';
         break;
       case 'beta':
         formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
@@ -311,12 +312,12 @@ const PersonalAnalyticsPage = () => {
   const Pagination = () => {
     return (
       <div className="flex items-center justify-end gap-2 mt-4 pb-4">
-        <div className="text-sm text-[#666] mr-2">
+        <div className="text-sm text-gray-500 dark:text-[#666] mr-2">
           Trang {currentPage} / {totalPages}
         </div>
         <Button
           variant="outline"
-          className="bg-transparent border-[#333] text-white hover:bg-[#252525] px-2"
+          className="bg-transparent border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] px-2"
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 1}
         >
@@ -330,7 +331,7 @@ const PersonalAnalyticsPage = () => {
             className={`${
               currentPage === pageNum
                 ? "bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
-                : "bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                : "bg-transparent border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
             } w-8 h-8 p-0`}
             onClick={() => handlePageChange(pageNum)}
           >
@@ -340,7 +341,7 @@ const PersonalAnalyticsPage = () => {
         
         <Button
           variant="outline"
-          className="bg-transparent border-[#333] text-white hover:bg-[#252525] px-2"
+          className="bg-transparent border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] px-2"
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
         >
@@ -354,19 +355,19 @@ const PersonalAnalyticsPage = () => {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
-        <p className="text-[#999]">Đang tải dữ liệu phân tích...</p>
+        <p className="text-gray-500 dark:text-[#999]">Đang tải dữ liệu phân tích...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
+    <div className="bg-white dark:bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
       {/* Page Header */}
-      <div className="px-4 py-6 border-b border-[#1a1a1a]">
+      <div className="px-4 py-6 border-b border-gray-200 dark:border-[#1a1a1a]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Phân tích cá nhân</h1>
-            <p className="text-[#666]">Phân tích chuyên sâu danh mục cổ phiếu của bạn</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Phân tích cá nhân</h1>
+            <p className="text-gray-500 dark:text-[#666]">Phân tích chuyên sâu danh mục cổ phiếu của bạn</p>
           </div>
           <div className="flex items-center gap-4">
             <Button
@@ -396,18 +397,18 @@ const PersonalAnalyticsPage = () => {
 
       {/* Main Content */}
       <div className="p-4">
-        <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
-          <div className="p-4 border-b border-[#333] flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Phân tích danh mục đầu tư</h2>
-            <div className="flex items-center gap-2 text-sm text-[#999]">
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Phân tích danh mục đầu tư</h2>
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
               <span>Tổng số cổ phiếu:</span>
-              <span className="text-white font-medium">{stocks.length}</span>
+              <span className="text-gray-900 dark:text-white font-medium">{stocks.length}</span>
             </div>
           </div>
           
           <div className="p-4 overflow-x-auto">
             <table className="w-full border-collapse min-w-full">
-              <thead className="bg-[#1a1a1a] sticky top-0">
+              <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0">
                 <tr>
                   {renderHeaderCell('ticketSymbol', 'Mã CK')}
                   {renderHeaderCell('weight', 'Trọng số (%)', 'Trọng số của cổ phiếu trong danh mục')}
@@ -420,11 +421,11 @@ const PersonalAnalyticsPage = () => {
                   {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên phân tích')}
                 </tr>
               </thead>
-              <tbody className="bg-[#0a0a14]">
+              <tbody className="bg-gray-50 dark:bg-[#0a0a14]">
                 {getCurrentPageData().map((stock) => (
-                  <tr key={stock.id} className="hover:bg-[#1a1a1a] border-b border-[#333]">
-                    <td className="px-3 py-3 font-medium text-white text-center">{stock.ticketSymbol}</td>
-                    <td className="px-3 py-3 text-white text-center">{stock.weight.toFixed(2)}%</td>
+                  <tr key={stock.id} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#333]">
+                    <td className="px-3 py-3 font-medium text-gray-900 dark:text-white text-center">{stock.ticketSymbol}</td>
+                    <td className="px-3 py-3 text-gray-900 dark:text-white text-center">{stock.weight.toFixed(2)}%</td>
                     {renderValueCell(stock, 'stockReturn', 'percentage')}
                     {renderValueCell(stock, 'returnWeight', 'percentage')}
                     {renderValueCell(stock, 'beta', 'beta')}
@@ -442,7 +443,7 @@ const PersonalAnalyticsPage = () => {
           </div>
         </div>
         
-        <div className="mt-6 text-sm text-[#666] px-4">
+        <div className="mt-6 text-sm text-gray-500 dark:text-[#666] px-4">
           <p>* Lưu ý: Các phân tích trên chỉ mang tính chất tham khảo. Nhà đầu tư cần cân nhắc kỹ trước khi đưa ra quyết định.</p>
           <p>* Dữ liệu được cập nhật định kỳ mỗi ngày giao dịch.</p>
         </div>
@@ -450,17 +451,17 @@ const PersonalAnalyticsPage = () => {
 
       {/* Weight Edit Dialog */}
       <Dialog open={isWeightDialogOpen} onOpenChange={setIsWeightDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[480px] p-0">
-          <div className="p-6 border-b border-[#333]">
-            <DialogTitle className="text-xl font-semibold mb-2">Cài đặt trọng số</DialogTitle>
-            <DialogDescription className="text-[#666]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[480px] p-0">
+          <div className="p-6 border-b border-gray-200 dark:border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Cài đặt trọng số</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
               Điều chỉnh trọng số cho từng cổ phiếu trong danh mục. Tổng trọng số phải bằng 100%.
             </DialogDescription>
           </div>
 
           <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#252525] rounded-lg">
-              <span className="text-[#666]">Tổng trọng số:</span>
+            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-100 dark:bg-[#252525] rounded-lg">
+              <span className="text-gray-500 dark:text-[#666]">Tổng trọng số:</span>
               <span className={`font-medium ${
                 Math.abs(calculateTotalWeight() - 100) < 0.01 
                   ? 'text-[#09D1C7]' 
@@ -471,8 +472,8 @@ const PersonalAnalyticsPage = () => {
             </div>
 
             <div className="grid grid-cols-[1fr,120px] gap-4">
-              <div className="text-[#999] text-sm">Mã CK</div>
-              <div className="text-[#999] text-sm text-center">Trọng số (%)</div>
+              <div className="text-gray-500 dark:text-[#999] text-sm">Mã CK</div>
+              <div className="text-gray-500 dark:text-[#999] text-sm text-center">Trọng số (%)</div>
             </div>
 
             <div className="max-h-[320px] overflow-y-auto pr-2 -mr-2">
@@ -484,7 +485,7 @@ const PersonalAnalyticsPage = () => {
                       type="number"
                       value={editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight}
                       onChange={(e) => handleWeightChange(stock.id, e.target.value)}
-                      className="w-full px-3 py-2 bg-[#252525] border border-[#333] rounded text-white text-center focus:outline-none focus:border-[#09D1C7]"
+                      className="w-full px-3 py-2 bg-gray-100 dark:bg-[#252525] border border-gray-300 dark:border-[#333] rounded text-gray-900 dark:text-white text-center focus:outline-none focus:border-[#09D1C7]"
                       min="0"
                       max="100"
                       step="0.01"
@@ -495,14 +496,14 @@ const PersonalAnalyticsPage = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 p-6 border-t border-[#333]">
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#333]">
             <Button
               variant="outline"
               onClick={() => {
                 setEditedWeights({});
                 setIsWeightDialogOpen(false);
               }}
-              className="bg-[#252525] border-[#333] text-white hover:bg-[#333] min-w-[100px]"
+              className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333] min-w-[100px]"
             >
               Hủy
             </Button>

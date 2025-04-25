@@ -300,7 +300,7 @@ export default function SidebarLogined() {
           isActive={isActiveLink}
           className={`
             transition-all duration-300 
-            ${isActiveLink ? 'bg-[#09D1C7]/10 text-[#09D1C7] font-medium' : 'text-gray-400 hover:text-[#09D1C7] hover:bg-gray-800'}
+            ${isActiveLink ? 'bg-[#09D1C7]/10 dark:bg-[#09D1C7]/10 text-[#09D1C7] font-medium' : 'text-gray-600 dark:text-gray-400 hover:text-[#09D1C7] hover:bg-gray-200 dark:hover:bg-gray-800'}
             ${!userHasFeature ? 'opacity-65 cursor-not-allowed' : ''}
           `}
           onClick={handleNavItemClick}
@@ -310,7 +310,7 @@ export default function SidebarLogined() {
               to={item.href}
               className={cn(
                 "flex items-center gap-3 w-full sidebar-link",
-                isActiveLink && "text-[#09D1C7] bg-[#1a1a1a]",
+                isActiveLink && "text-[#09D1C7] bg-gray-100 dark:bg-[#1a1a1a]",
                 "group-[[data-collapsed=true]]:px-2"
               )}
             >
@@ -430,9 +430,9 @@ export default function SidebarLogined() {
   return (
     <>
       <style>{sidebarStyles}</style>
-      <Sidebar collapsible='icon'>
-        <SidebarHeader>
-          <div className='flex gap-2 py-2 text-white'>
+      <Sidebar collapsible='icon' className="bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800">
+        <SidebarHeader className="bg-white dark:bg-black">
+          <div className='flex gap-2 py-2 text-gray-900 dark:text-white'>
             <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88]'>
               <company.logo className='size-4 text-white' />
             </div>
@@ -461,16 +461,16 @@ export default function SidebarLogined() {
         </SidebarHeader>
         <SidebarContent className='overflow-x-hidden'>
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[#666]">Mục lục</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-gray-500 dark:text-[#666]">Mục lục</SidebarGroupLabel>
             <SidebarMenu>
               {menuItems.map((item) => renderNavItem(item))}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
+        <SidebarFooter className="bg-white dark:bg-black">
           {/* Removed user dropdown menu */}
         </SidebarFooter>
-        <SidebarRail />
+        <SidebarRail className="bg-gray-100 dark:bg-gray-900" />
       </Sidebar>
       
       {/* Feature Message Dialog */}

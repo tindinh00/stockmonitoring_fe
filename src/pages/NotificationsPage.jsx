@@ -388,7 +388,12 @@ const NotificationsPage = () => {
           <PaginationItem>
             <PaginationPrevious 
               onClick={() => handlePageChange(currentPage - 1)}
-              className={`cursor-pointer ${currentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-[#252525]'}`}
+              className={cn(
+                "cursor-pointer", 
+                currentPage === 1 
+                  ? "pointer-events-none opacity-50" 
+                  : "dark:hover:bg-[#252525] hover:bg-gray-100"
+              )}
             />
           </PaginationItem>
           
@@ -404,11 +409,12 @@ const NotificationsPage = () => {
                   <PaginationLink
                     onClick={() => handlePageChange(pageNumber)}
                     isActive={currentPage === pageNumber}
-                    className={`cursor-pointer ${
+                    className={cn(
+                      "cursor-pointer",
                       currentPage === pageNumber
-                        ? 'bg-[#09D1C7] text-white hover:bg-[#09D1C7]/90'
-                        : 'hover:bg-[#252525]'
-                    }`}
+                        ? "bg-[#09D1C7] text-white hover:bg-[#09D1C7]/90"
+                        : "dark:hover:bg-[#252525] hover:bg-gray-100"
+                    )}
                   >
                     {pageNumber}
                   </PaginationLink>
@@ -430,7 +436,12 @@ const NotificationsPage = () => {
           <PaginationItem>
             <PaginationNext 
               onClick={() => handlePageChange(currentPage + 1)}
-              className={`cursor-pointer ${currentPage === totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-[#252525]'}`}
+              className={cn(
+                "cursor-pointer", 
+                currentPage === totalPages 
+                  ? "pointer-events-none opacity-50" 
+                  : "dark:hover:bg-[#252525] hover:bg-gray-100"
+              )}
             />
           </PaginationItem>
         </PaginationContent>
@@ -443,7 +454,7 @@ const NotificationsPage = () => {
       return (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
-          <p className="text-[#999]">Đang tải dữ liệu thông báo...</p>
+          <p className={cn("dark:text-[#999] text-gray-500")}>Đang tải dữ liệu thông báo...</p>
         </div>
       );
     }
@@ -451,10 +462,10 @@ const NotificationsPage = () => {
     if (notifications.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-4">
+          <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", "dark:bg-[#252525] bg-gray-200")}>
             <Bell className="h-8 w-8 text-[#666]" />
           </div>
-          <h3 className="text-white font-medium mb-2">Chưa có lệnh thông báo</h3>
+          <h3 className={cn("font-medium mb-2", "dark:text-white text-gray-900")}>Chưa có lệnh thông báo</h3>
           <p className="text-[#666] max-w-md">
             Bạn chưa có lệnh thông báo nào. Hãy tạo lệnh thông báo mới để theo dõi biến động giá cổ phiếu.
           </p>
@@ -468,26 +479,26 @@ const NotificationsPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-white w-16 text-center">STT</TableHead>
-                <TableHead className="text-white w-32 text-center">Mã cổ phiếu</TableHead>
-                <TableHead className="text-white w-40 text-center">Giá mục tiêu</TableHead>
-                <TableHead className="text-white w-40 text-center">Loại thông báo</TableHead>
-                <TableHead className="text-white w-32 text-center">Thao tác</TableHead>
+                <TableHead className={cn("w-16 text-center", "dark:text-white text-gray-900")}>STT</TableHead>
+                <TableHead className={cn("w-32 text-center", "dark:text-white text-gray-900")}>Mã cổ phiếu</TableHead>
+                <TableHead className={cn("w-40 text-center", "dark:text-white text-gray-900")}>Giá mục tiêu</TableHead>
+                <TableHead className={cn("w-40 text-center", "dark:text-white text-gray-900")}>Loại thông báo</TableHead>
+                <TableHead className={cn("w-32 text-center", "dark:text-white text-gray-900")}>Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {currentNotifications.map((notification, index) => (
-                <TableRow key={notification.id} className="hover:bg-[#252525] transition-colors">
-                  <TableCell className="text-white text-center font-medium">
+                <TableRow key={notification.id} className={cn("transition-colors", "dark:hover:bg-[#252525] hover:bg-gray-100")}>
+                  <TableCell className={cn("text-center font-medium", "dark:text-white text-gray-900")}>
                     {startIndex + index + 1}
                   </TableCell>
-                  <TableCell className="text-white text-center font-medium">
+                  <TableCell className={cn("text-center font-medium", "dark:text-white text-gray-900")}>
                     {notification.tickerSymbol.toUpperCase()}
                   </TableCell>
-                  <TableCell className="text-white text-center">
+                  <TableCell className={cn("text-center", "dark:text-white text-gray-900")}>
                     {notification.price.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-white text-center">
+                  <TableCell className={cn("text-center", "dark:text-white text-gray-900")}>
                     {notification.type === 'increase' ? 'Khi giá tăng' : 'Khi giá giảm'}
                   </TableCell>
                   <TableCell className="text-center">
@@ -561,7 +572,7 @@ const NotificationsPage = () => {
       return (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 text-[#09D1C7] animate-spin mb-4" />
-          <p className="text-[#999]">Đang tải lịch sử thông báo...</p>
+          <p className={cn("dark:text-[#999] text-gray-500")}>Đang tải lịch sử thông báo...</p>
         </div>
       );
     }
@@ -569,10 +580,10 @@ const NotificationsPage = () => {
     if (notificationHistory.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-4">
+          <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", "dark:bg-[#252525] bg-gray-200")}>
             <Bell className="h-8 w-8 text-[#666]" />
           </div>
-          <h3 className="text-white font-medium mb-2">Chưa có thông báo nào</h3>
+          <h3 className={cn("font-medium mb-2", "dark:text-white text-gray-900")}>Chưa có thông báo nào</h3>
           <p className="text-[#666] max-w-md">
             Bạn chưa nhận được thông báo nào. Các thông báo sẽ xuất hiện khi giá cổ phiếu đạt đến mức mục tiêu.
           </p>
@@ -592,21 +603,21 @@ const NotificationsPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-white w-16 text-center">STT</TableHead>
-                  <TableHead className="text-white text-left">Nội dung thông báo</TableHead>
-                  <TableHead className="text-white w-48 text-left">Thời gian</TableHead>
+                  <TableHead className={cn("w-16 text-center", "dark:text-white text-gray-900")}>STT</TableHead>
+                  <TableHead className={cn("text-left", "dark:text-white text-gray-900")}>Nội dung thông báo</TableHead>
+                  <TableHead className={cn("w-48 text-left", "dark:text-white text-gray-900")}>Thời gian</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentHistoryItems.map((notification, index) => (
-                  <TableRow key={notification.id} className="hover:bg-[#252525] transition-colors">
-                    <TableCell className="text-white text-center font-medium">
+                  <TableRow key={notification.id} className={cn("transition-colors", "dark:hover:bg-[#252525] hover:bg-gray-100")}>
+                    <TableCell className={cn("text-center font-medium", "dark:text-white text-gray-900")}>
                       {startIndex + index + 1}
                     </TableCell>
-                    <TableCell className="text-white text-left">
+                    <TableCell className={cn("text-left", "dark:text-white text-gray-900")}>
                       {notification.message}
                     </TableCell>
-                    <TableCell className="text-white text-left">
+                    <TableCell className={cn("text-left", "dark:text-white text-gray-900")}>
                       {new Date(notification.createdAt).toLocaleString('vi-VN')}
                     </TableCell>
                   </TableRow>
@@ -623,7 +634,10 @@ const NotificationsPage = () => {
                 <Button
                   variant="outline"
                   className={cn(
-                    "cursor-pointer hover:bg-[#252525] border-[#333] text-white h-9 px-4",
+                    "cursor-pointer h-9 px-4",
+                    "dark:hover:bg-[#252525] hover:bg-gray-100",
+                    "dark:border-[#333] border-gray-200",
+                    "dark:text-white text-gray-900",
                     currentHistoryPage === 1 && "pointer-events-none opacity-50"
                   )}
                   onClick={() => setCurrentHistoryPage(prev => Math.max(prev - 1, 1))}
@@ -649,7 +663,7 @@ const NotificationsPage = () => {
                           "cursor-pointer",
                           currentHistoryPage === pageNumber
                             ? "bg-[#09D1C7] text-white hover:bg-[#09D1C7]/90"
-                            : "hover:bg-[#252525]"
+                            : "dark:hover:bg-[#252525] hover:bg-gray-100"
                         )}
                       >
                         {pageNumber}
@@ -673,7 +687,10 @@ const NotificationsPage = () => {
                 <Button
                   variant="outline"
                   className={cn(
-                    "cursor-pointer hover:bg-[#252525] border-[#333] text-white h-9 px-4",
+                    "cursor-pointer h-9 px-4",
+                    "dark:hover:bg-[#252525] hover:bg-gray-100",
+                    "dark:border-[#333] border-gray-200",
+                    "dark:text-white text-gray-900",
                     currentHistoryPage === totalHistoryPages && "pointer-events-none opacity-50"
                   )}
                   onClick={() => setCurrentHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))}
@@ -690,12 +707,12 @@ const NotificationsPage = () => {
   };
 
   return (
-    <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
-      <div className="px-4 py-6 border-b border-[#1a1a1a]">
+    <div className="bg-gray-50 dark:bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
+      <div className="px-4 py-6 border-b border-gray-200 dark:border-[#1a1a1a]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Quản lý thông báo</h1>
-            <p className="text-[#666]">Theo dõi và quản lý các lệnh thông báo giá cổ phiếu</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Quản lý thông báo</h1>
+            <p className="text-gray-500 dark:text-[#666]">Theo dõi và quản lý các lệnh thông báo giá cổ phiếu</p>
           </div>
           <div className="flex items-center gap-4">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -706,10 +723,10 @@ const NotificationsPage = () => {
                   Tạo thông báo mới
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-[#1a1a1a] text-white border-[#333]">
+              <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333]">
                 <DialogHeader>
                   <DialogTitle>Tạo thông báo mới</DialogTitle>
-                  <DialogDescription className="text-[#666]">
+                  <DialogDescription className="text-gray-500 dark:text-[#666]">
                     Thiết lập thông báo khi giá cổ phiếu đạt đến mức mong muốn.
                   </DialogDescription>
                 </DialogHeader>
@@ -721,7 +738,7 @@ const NotificationsPage = () => {
                         <Button
                           variant="outline"
                           role="combobox"
-                          className="w-full justify-between bg-[#0a0a14] border-[#333] text-white hover:bg-[#252525]"
+                          className="w-full justify-between bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
                         >
                           {newNotification.tickerSymbol
                             ? watchlistStocks.find((stock) => stock.ticketSymbol === newNotification.tickerSymbol)?.ticketSymbol
@@ -729,10 +746,10 @@ const NotificationsPage = () => {
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] bg-[#1a1a1a] text-white border-[#333] p-0">
-                        <div className="p-4 border-b border-[#333]">
+                      <DialogContent className="sm:max-w-[425px] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] p-0">
+                        <div className="p-4 border-b border-gray-200 dark:border-[#333]">
                           <div className="flex items-center gap-2">
-                            <Search className="h-4 w-4 text-[#666]" />
+                            <Search className="h-4 w-4 text-gray-500 dark:text-[#666]" />
                             <Input
                               placeholder="Tìm kiếm mã cổ phiếu..."
                               value={searchQuery}
@@ -749,7 +766,7 @@ const NotificationsPage = () => {
                         </div>
                         <div className="max-h-[300px] overflow-y-auto p-2">
                           {filteredStocks.length === 0 ? (
-                            <div className="text-[#666] py-6 text-center text-sm">
+                            <div className="text-gray-500 dark:text-[#666] py-6 text-center text-sm">
                               Không tìm thấy mã cổ phiếu
                             </div>
                           ) : (
@@ -757,8 +774,8 @@ const NotificationsPage = () => {
                               <div
                                 key={stock.id}
                                 className={cn(
-                                  "flex items-center gap-2 rounded-sm px-3 py-2 text-sm cursor-pointer hover:bg-[#252525] transition-colors",
-                                  newNotification.tickerSymbol === stock.ticketSymbol ? "bg-[#252525]" : ""
+                                  "flex items-center gap-2 rounded-sm px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors",
+                                  newNotification.tickerSymbol === stock.ticketSymbol ? "bg-gray-100 dark:bg-[#252525]" : ""
                                 )}
                                 onClick={() => {
                                   setNewNotification(prev => ({
@@ -788,19 +805,19 @@ const NotificationsPage = () => {
                       value={newNotification.type}
                       onValueChange={(value) => setNewNotification(prev => ({ ...prev, type: value }))}
                     >
-                      <SelectTrigger className="bg-[#0a0a14] border-[#333] text-white">
+                      <SelectTrigger className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
                         <SelectValue placeholder="Chọn loại thông báo" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a1a] border-[#333]">
+                      <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]">
                         <SelectItem 
                           value="increase" 
-                          className="text-white hover:bg-[#252525] focus:bg-[#252525]"
+                          className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
                         >
                           Khi giá tăng
                         </SelectItem>
                         <SelectItem 
                           value="decrease" 
-                          className="text-white hover:bg-[#252525] focus:bg-[#252525]"
+                          className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
                         >
                           Khi giá giảm
                         </SelectItem>
@@ -814,7 +831,7 @@ const NotificationsPage = () => {
                       type="number"
                       value={newNotification.price}
                       onChange={(e) => setNewNotification(prev => ({ ...prev, price: e.target.value }))}
-                      className="bg-[#0a0a14] border-[#333] text-white"
+                      className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
                       placeholder="Nhập giá mục tiêu"
                     />
                   </div>
@@ -823,7 +840,7 @@ const NotificationsPage = () => {
                   <Button
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
-                    className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                    className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
                   >
                     Hủy
                   </Button>
@@ -846,7 +863,7 @@ const NotificationsPage = () => {
             </Dialog>
             <Button
               onClick={fetchNotifications}
-              className="bg-[#1a1a1a] hover:bg-[#252525] text-white px-4 py-2 rounded-lg border border-[#333]"
+              className="bg-gray-100 dark:bg-[#1a1a1a] hover:bg-gray-200 dark:hover:bg-[#252525] text-gray-900 dark:text-white px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333]"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -864,7 +881,7 @@ const NotificationsPage = () => {
 
       <div className="p-4">
         <Tabs defaultValue={initialTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
-          <TabsList className="bg-transparent border-b border-[#333] p-0 h-12 relative overflow-hidden rounded-t-lg">
+          <TabsList className="bg-transparent border-b border-gray-200 dark:border-[#333] p-0 h-12 relative overflow-hidden rounded-t-lg">
             <div className="absolute bottom-0 left-0 h-full bg-[#09D1C7] transition-all duration-300 ease-in-out rounded-t-lg" 
                  style={{
                    width: '50%',
@@ -873,13 +890,13 @@ const NotificationsPage = () => {
             />
             <TabsTrigger 
               value="active" 
-              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-[#666] hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tl-lg"
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-gray-500 dark:text-[#666] hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tl-lg"
             >
               Lệnh đang theo dõi
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
-              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-[#666] hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tr-lg"
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-gray-500 dark:text-[#666] hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tr-lg"
             >
               Lịch sử thông báo
             </TabsTrigger>
@@ -888,12 +905,12 @@ const NotificationsPage = () => {
             value="active" 
             className="mt-4 transition-all duration-500 ease-in-out data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 data-[state=inactive]:translate-x-[-20px] data-[state=active]:translate-x-0 data-[state=inactive]:scale-95 data-[state=active]:scale-100"
           >
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden transform">
-              <div className="p-4 border-b border-[#333] flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">Danh sách lệnh thông báo</h2>
-                <div className="flex items-center gap-2 text-sm text-[#999]">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden transform">
+              <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Danh sách lệnh thông báo</h2>
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
                   <span>Tổng số lệnh:</span>
-                  <span className="text-white font-medium">{notifications.length}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{notifications.length}</span>
                 </div>
               </div>
               <div className="p-4">
@@ -905,12 +922,12 @@ const NotificationsPage = () => {
             value="history" 
             className="mt-4 transition-all duration-500 ease-in-out data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 data-[state=inactive]:translate-x-[20px] data-[state=active]:translate-x-0 data-[state=inactive]:scale-95 data-[state=active]:scale-100"
           >
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden transform">
-              <div className="p-4 border-b border-[#333] flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">Lịch sử thông báo</h2>
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden transform">
+              <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Lịch sử thông báo</h2>
                 <Button
                   onClick={fetchNotificationHistory}
-                  className="bg-[#252525] hover:bg-[#333] text-white px-4 py-2 rounded-lg"
+                  className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-900 dark:text-white px-4 py-2 rounded-lg"
                   disabled={isLoadingHistory}
                 >
                   {isLoadingHistory ? (
@@ -932,10 +949,10 @@ const NotificationsPage = () => {
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333]">
           <DialogHeader>
             <DialogTitle>Cập nhật giá thông báo</DialogTitle>
-            <DialogDescription className="text-[#666]">
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
               Thay đổi giá mục tiêu cho mã {editingNotification?.tickerSymbol?.toUpperCase()}
             </DialogDescription>
           </DialogHeader>
@@ -947,7 +964,7 @@ const NotificationsPage = () => {
                 type="number"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
-                className="bg-[#0a0a14] border-[#333] text-white"
+                className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
                 placeholder="Nhập giá mới"
               />
             </div>
@@ -956,7 +973,7 @@ const NotificationsPage = () => {
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="bg-transparent text-white border-[#333] hover:bg-[#333]"
+              className="bg-transparent text-gray-900 dark:text-white border-gray-200 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#333]"
             >
               Hủy
             </Button>
@@ -979,10 +996,10 @@ const NotificationsPage = () => {
       </Dialog>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333]">
           <DialogHeader>
             <DialogTitle>Xác nhận xóa thông báo</DialogTitle>
-            <DialogDescription className="text-[#666]">
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
               Bạn có chắc chắn muốn xóa thông báo cho mã {deletingNotification?.tickerSymbol?.toUpperCase()}?
               <br />
               Hành động này không thể hoàn tác.
@@ -995,7 +1012,7 @@ const NotificationsPage = () => {
                 setIsDeleteDialogOpen(false);
                 setDeletingNotification(null);
               }}
-              className="bg-transparent text-white border-[#333] hover:bg-[#333]"
+              className="bg-transparent text-gray-900 dark:text-white border-gray-200 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#333]"
               disabled={deletingIds.includes(deletingNotification?.id)}
             >
               Hủy
