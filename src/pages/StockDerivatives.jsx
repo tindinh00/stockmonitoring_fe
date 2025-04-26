@@ -100,11 +100,18 @@ export default function StockDerivatives() {
   const [alertType, setAlertType] = useState('above');
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
+  const [lastTimestamp, setLastTimestamp] = useState(null);
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
   const [userWatchlist, setUserWatchlist] = useState([]);
   const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
-  const [showWatchlist, setShowWatchlist] = useState(false); // Add this state for toggle
+  const [showWatchlist, setShowWatchlist] = useState(false);
   // const tableContainerRef = useRef(null);
+
+  // Add sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -139,28 +146,7 @@ export default function StockDerivatives() {
     ]
   };
 
-  // Add sorting state
-  const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: 'asc'
-  });
 
-  // Add industry filter state
-  const [selectedIndustry, setSelectedIndustry] = useState('all');
-
-  // Add industry options
-  const industryOptions = [
-    { value: 'all', label: 'Tất cả ngành' },
-    { value: 'banking', label: 'Ngân hàng' },
-    { value: 'realestate', label: 'Bất động sản' },
-    { value: 'technology', label: 'Công nghệ' },
-    { value: 'energy', label: 'Năng lượng' },
-    { value: 'consumer', label: 'Tiêu dùng' },
-    { value: 'industrial', label: 'Công nghiệp' },
-    { value: 'healthcare', label: 'Y tế' },
-    { value: 'telecom', label: 'Viễn thông' },
-    { value: 'materials', label: 'Vật liệu' }
-  ];
 
   // Add sorting handler
   const handleSort = (key) => {
@@ -177,12 +163,6 @@ export default function StockDerivatives() {
       // Search filter
       if (!stock.code.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
-      }
-
-      // Industry filter
-      if (selectedIndustry !== 'all') {
-        // TODO: Add industry field to stock data
-        // if (stock.industry !== selectedIndustry) return false;
       }
 
       // Price change filter
@@ -427,7 +407,7 @@ export default function StockDerivatives() {
     if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
     if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]'; // Tím - Bằng giá trần
     if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
-    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
+    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#22c55e] dark:text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
     if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
     
     return 'text-gray-900 dark:text-white';
@@ -626,9 +606,6 @@ export default function StockDerivatives() {
     return '';
   };
 
-  // Add state for timestamp
-  const [lastTimestamp, setLastTimestamp] = useState(moment().format('YYYYMMDDHHmmss')); // Set default timestamp
-
   // Update the existing handleStockDataError function
   const handleStockDataError = () => {
     setRealTimeStockData([]);
@@ -640,10 +617,8 @@ export default function StockDerivatives() {
   // Fetch stock data first, then set up SignalR
   const fetchStockData = async (timestamp = null, retry = false) => {
     try {
-      // Map exchange based on selected tab
       let exchange = selectedExchange === 'HOSE' ? 'hsx' : 'hnx';
       
-      // Reset data và hiển thị loading khi chuyển sàn hoặc tải lần đầu
       if (!timestamp) {
         setRealTimeStockData([]);
         setIsLoading(true);
@@ -651,7 +626,6 @@ export default function StockDerivatives() {
       
       let response;
       if (timestamp) {
-        // Nếu có timestamp, sử dụng session API và không hiển thị loading
         console.log(`Updating ${exchange} stock data with timestamp:`, timestamp);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/session`, {
           params: {
@@ -660,7 +634,6 @@ export default function StockDerivatives() {
           }
         });
       } else {
-        // Cho lần tải đầu tiên hoặc khi chuyển sàn
         console.log(`Fetching initial ${exchange} stock data`);
         response = await axios.get(`https://stockmonitoring-api-gateway.onrender.com/api/stock/latest`, {
           params: {
@@ -670,6 +643,11 @@ export default function StockDerivatives() {
       }
       
       if (response?.data?.value?.data) {
+        // Update last timestamp from API response
+        if (response.data.value.timestamp) {
+          setLastTimestamp(response.data.value.timestamp);
+        }
+        
         const stockData = response.data.value.data;
         
         // Cập nhật dữ liệu theo cách mới
@@ -1499,7 +1477,7 @@ export default function StockDerivatives() {
 
   // useMemo for filtered data
   const dataToDisplay = showWatchlist ? watchlist : realTimeStockData;
-  const filteredData = useMemo(() => getFilteredData(dataToDisplay), [dataToDisplay, searchQuery, selectedIndustry, filters, sortConfig]);
+  const filteredData = useMemo(() => getFilteredData(dataToDisplay), [dataToDisplay, searchQuery, filters, sortConfig]);
 
   // useCallback for handlers
   const handleAddToWatchlistCb = useCallback(handleAddToWatchlist, [watchlist]);
@@ -1642,19 +1620,7 @@ export default function StockDerivatives() {
             ))}
           </div>
 
-          {/* Industry Filter */}
-          <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-            <SelectTrigger className="w-[180px] bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
-              <SelectValue placeholder="Chọn ngành" />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
-              {industryOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          
 
           {/* Watchlist Toggle - With Feature Check */}
           <div className="flex items-center gap-2 relative">
@@ -1693,7 +1659,7 @@ export default function StockDerivatives() {
           </div>
         </div>
 
-        {/* Date and Time Display */}
+        {/* Date, Time and Last Update Display */}
         <div className="flex items-center gap-3 text-sm">
           <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#1a1a1a] px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333] shadow-lg hover:border-gray-300 dark:hover:border-[#444] transition-all duration-300 w-[140px]">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1706,6 +1672,15 @@ export default function StockDerivatives() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-gray-900 dark:text-white font-medium w-full text-center">{currentTime.format('HH:mm:ss')}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#1a1a1a] px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333] shadow-lg hover:border-gray-300 dark:hover:border-[#444] transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-[#666] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-gray-500 dark:text-[#888] text-sm">Cập nhật lúc:</span>
+            <span className="text-gray-900 dark:text-white font-medium">
+              {lastTimestamp ? moment(lastTimestamp, 'YYYYMMDDHHmmss').format('HH:mm:ss') : '--:--:--'}
+            </span>
           </div>
         </div>
       </div>
@@ -2038,7 +2013,7 @@ export default function StockDerivatives() {
                         <td className={`${getCellClass(stock, 'buyVolume1', 'volume')} px-2 py-1.5`}>{stock.buyVolume1}</td>
                         <td className={`${getCellClass(stock, 'matchPrice', 'price')} px-2 py-1.5`}>{stock.matchPrice}</td>
                         <td className={`${getCellClass(stock, 'matchVolume', 'volume')} px-2 py-1.5`}>{stock.totalVolume}</td>
-                        <td className={`${stock.matchChange?.includes('+') ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
+                        <td className={`${stock.matchChange?.includes('+') ? 'text-[#22c55e] dark:text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap px-2 py-1.5`}>{stock.matchChange}</td>
                         <td className={`${getCellClass(stock, 'sellPrice1', 'price')} px-2 py-1.5`}>{stock.sellPrice1}</td>
                         <td className={`${getCellClass(stock, 'sellVolume1', 'volume')} px-2 py-1.5`}>{stock.sellVolume1}</td>
                         <td className={`${getCellClass(stock, 'sellPrice2', 'price')} px-2 py-1.5`}>{stock.sellPrice2}</td> 

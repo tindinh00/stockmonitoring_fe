@@ -128,11 +128,60 @@ export default function HeaderLogined() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch market indices initially and update every minute
+  // Fetch market indices initially and setup SignalR listener
   useEffect(() => {
+    // Initial fetch
     fetchMarketIndices();
-    const interval = setInterval(fetchMarketIndices, 60000);
-    return () => clearInterval(interval);
+
+    // Setup SignalR listener for market indices updates
+    const setupMarketIndicesListener = async () => {
+      try {
+        // Wait for connection to be established
+        await signalRService.getConnection();
+        
+        // Setup market indices listener
+        const handleMarketIndices = (event) => {
+          const { data } = event.detail;
+          if (data) {
+            setMarketIndices(data);
+          }
+        };
+
+        // Add event listener
+        window.addEventListener('ReceiveIndexUpdate', handleMarketIndices);
+
+        // Handle connection status changes
+        const handleConnectionStatus = (event) => {
+          const { status } = event.detail;
+          if (status === 'connected') {
+            console.log("[SignalR] Reconnected, re-fetching market indices");
+            fetchMarketIndices();
+          }
+        };
+
+        window.addEventListener('signalrConnectionStatus', handleConnectionStatus);
+
+        // Return cleanup function
+        return () => {
+          window.removeEventListener('ReceiveIndexUpdate', handleMarketIndices);
+          window.removeEventListener('signalrConnectionStatus', handleConnectionStatus);
+        };
+      } catch (error) {
+        console.error("[SignalR] Error setting up market indices listener:", error);
+        // Fallback to polling if SignalR fails
+        const interval = setInterval(fetchMarketIndices, 60000);
+        return () => clearInterval(interval);
+      }
+    };
+
+    const cleanup = setupMarketIndicesListener();
+    return () => {
+      if (cleanup && typeof cleanup.then === 'function') {
+        cleanup.then(cleanupFn => {
+          if (cleanupFn) cleanupFn();
+        });
+      }
+    };
   }, []);
 
   // Modify fetchNotifications to include read status from localStorage

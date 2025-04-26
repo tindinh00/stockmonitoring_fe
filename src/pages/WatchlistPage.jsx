@@ -14,6 +14,8 @@ import Cookies from 'js-cookie';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
+import { Link } from 'react-router-dom';
+import useFeatureStore from '@/store/featureStore';
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
@@ -84,6 +86,14 @@ const WatchlistPage = () => {
     type: 'increase'
   });
   const [isCreatingNotification, setIsCreatingNotification] = useState(false);
+
+  // Add states for subscription check
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [userSubscription, setUserSubscription] = useState(null);
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
+
+  // Get feature check function from store
+  const features = useFeatureStore((state) => state.features);
 
   // Add function to refresh industries data
   const refreshIndustries = () => {
@@ -1296,7 +1306,75 @@ const WatchlistPage = () => {
     </div>
   </div>
 
-  // Update the Chart Dialog content
+  // Add function to check subscription
+  const checkSubscription = async () => {
+    try {
+      setIsLoadingSubscription(true);
+      const userId = getUserId();
+      if (!userId) {
+        setUserSubscription(null);
+        return;
+      }
+
+      const response = await axios.get(
+        `https://stockmonitoring-api-gateway.onrender.com/api/subscription/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setUserSubscription(response.data.value.data);
+      } else {
+        setUserSubscription(null);
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      setUserSubscription(null);
+    } finally {
+      setIsLoadingSubscription(false);
+    }
+  };
+
+  // Add useEffect to check subscription on mount
+  useEffect(() => {
+    checkSubscription();
+  }, []);
+
+  // Add function to handle tab change with feature check
+  const handleTabChange = (tab) => {
+    try {
+      console.log('Attempting to switch to tab:', tab);
+      console.log('Current features:', features);
+      
+      if (tab === 'industries') {
+        const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
+        console.log('Has industry feature:', hasIndustryFeature);
+        
+        if (!hasIndustryFeature) {
+          setIsUpgradeDialogOpen(true);
+          return;
+        }
+      } else if (tab === 'stocks') {
+        const hasWatchlistFeature = features.includes('Quản lý danh mục theo dõi cổ phiếu');
+        console.log('Has watchlist feature:', hasWatchlistFeature);
+        
+        if (!hasWatchlistFeature) {
+          setIsUpgradeDialogOpen(true);
+          return;
+        }
+      }
+      
+      setWatchlistTab(tab);
+    } catch (error) {
+      console.error('Error in handleTabChange:', error);
+    }
+  };
+
+  // Update the tab buttons to use handleTabChange
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-screen">
       {/* Thêm animations vào CSS */}
@@ -1328,7 +1406,7 @@ const WatchlistPage = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
             <button
-              onClick={() => setWatchlistTab('industries')}
+              onClick={() => handleTabChange('industries')}
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
                 watchlistTab === 'industries'
                   ? 'bg-[#09D1C7] text-white'
@@ -1338,7 +1416,7 @@ const WatchlistPage = () => {
               Theo ngành
             </button>
             <button
-              onClick={() => setWatchlistTab('stocks')}
+              onClick={() => handleTabChange('stocks')}
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
                 watchlistTab === 'stocks'
                   ? 'bg-[#09D1C7] text-white'
@@ -1351,6 +1429,11 @@ const WatchlistPage = () => {
           {watchlistTab === 'industries' && (
             <Button
               onClick={() => {
+                const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
+                if (!hasIndustryFeature) {
+                  setIsUpgradeDialogOpen(true);
+                  return;
+                }
                 fetchAvailableIndustries();
                 setIsAddIndustryDialogOpen(true);
               }}
@@ -2311,6 +2394,66 @@ const WatchlistPage = () => {
                 'Tạo thông báo'
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Upgrade Package Dialog */}
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Nâng cấp gói dịch vụ</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Để sử dụng tính năng này, bạn cần nâng cấp lên gói Premium
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 mt-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-[#09D1C7]/10 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">Tính năng của gói Premium</h4>
+                <ul className="space-y-2 text-sm text-gray-500 dark:text-[#999]">
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Theo dõi cổ phiếu theo ngành
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Phân tích chuyên sâu theo ngành
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Thông báo biến động ngành
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setIsUpgradeDialogOpen(false)}
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+            >
+              Để sau
+            </Button>
+            <Link to="/upgrade-package">
+              <Button className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white">
+                Nâng cấp ngay
+              </Button>
+            </Link>
           </DialogFooter>
         </DialogContent>
       </Dialog>
