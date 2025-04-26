@@ -87,79 +87,107 @@ const Icons = {
   knowledge: BookOpen
 };
 
-// Configuration for navigation items with their required features
-const menuItems = [
+// Configuration for navigation items with their required features and categories
+const categoryGroups = [
   {
-    title: 'Bảng giá',
-    icon: 'stock',
-    href: '/stock',
-    feature: 'Hiển thị dữ liệu thị trường chứng khoán',
-    isFree: true
+    name: "Chung",
+    items: [
+      {
+        title: 'Bảng giá',
+        icon: 'stock',
+        href: '/stock',
+        feature: 'Hiển thị dữ liệu thị trường chứng khoán',
+        isFree: true
+      },
+      {
+        title: 'Bản đồ nhiệt',
+        icon: 'heatmap',
+        href: '/heatmap',
+        feature: 'Bản đồ nhiệt',
+        isFree: true
+      }
+    ]
   },
   {
-    title: 'Danh mục theo dõi',
-    icon: 'watchlist',
-    href: '/watchlist',
-    feature: 'Quản lý danh mục theo dõi cổ phiếu',
-    isPremium: true
+    name: "Theo dõi",
+    items: [
+      {
+        title: 'Danh mục theo dõi',
+        icon: 'watchlist',
+        href: '/watchlist',
+        feature: 'Quản lý danh mục theo dõi cổ phiếu',
+        isPremium: true
+      },
+      {
+        title: 'Thông báo',
+        icon: 'notifications',
+        href: '/notifications',
+        feature: 'Quản lý thông báo theo nhu cầu',
+        isPremium: true
+      }
+    ]
   },
   {
-    title: 'Bản đồ nhiệt',
-    icon: 'heatmap',
-    href: '/heatmap',
-    feature: 'Bản đồ nhiệt',
-    isFree: true
+    name: "Phân tích",
+    items: [
+      {
+        title: 'Phân tích cá nhân',
+        icon: 'analytics',
+        href: '/analytics',
+        feature: 'Phân tích và gợi ý theo cá nhân hóa',
+        isPremium: true
+      },
+      {
+        title: 'Dự đoán giá',
+        icon: 'forecast',
+        href: '/forecast',
+        feature: 'Dự đoán giá',
+        isPremium: true
+      },
+      {
+        title: 'Chat với AI',
+        icon: 'ai-chat',
+        href: '/ai-chat',
+        feature: 'Trợ lý AI',
+        isPremium: true
+      }
+    ]
   },
   {
-    title: 'Phân tích cá nhân',
-    icon: 'analytics',
-    href: '/analytics',
-    feature: 'Phân tích và gợi ý theo cá nhân hóa',
-    isPremium: true
+    name: "Blog",
+    items: [
+      {
+        title: 'Tin tức',
+        icon: 'news',
+        href: '/news',
+        feature: 'Xem tin tức thị trường',
+        isFree: true
+      },
+      {
+        title: 'Kiến thức',
+        icon: 'knowledge',
+        href: '/knowledge',
+        feature: 'Xem kiến thức đầu tư',
+        isFree: true
+      }
+    ]
   },
   {
-    title: 'Dự đoán giá',
-    icon: 'forecast',
-    href: '/forecast',
-    feature: 'Dự đoán giá',
-    isPremium: true
-  },
-  {
-    title: 'Thông báo',
-    icon: 'notifications',
-    href: '/notifications',
-    feature: 'Quản lý thông báo theo nhu cầu',
-    isPremium: true
-  },
-  {
-    title: 'Chat với hỗ trợ',
-    icon: 'chat',
-    href: '/chat',
-    feature: 'Hộp thoại hỗ trợ người dùng (Chatbox)',
-    isFree: true
-  },
-  {
-    title: 'Chat với AI',
-    icon: 'ai-chat',
-    href: '/ai-chat',
-    feature: 'Trợ lý AI',
-    isPremium: true
-  },
-  {
-    title: 'Tin tức',
-    icon: 'news',
-    href: '/news',
-    feature: 'Xem tin tức thị trường',
-    isFree: true
-  },
-  {
-    title: 'Kiến thức',
-    icon: 'knowledge',
-    href: '/knowledge',
-    feature: 'Xem kiến thức đầu tư',
-    isFree: true
-  },
+    name: "Hỗ trợ",
+    items: [
+      {
+        title: 'Chat với hỗ trợ',
+        icon: 'chat',
+        href: '/chat',
+        feature: 'Hộp thoại hỗ trợ người dùng (Chatbox)',
+        isFree: true
+      }
+    ]
+  }
 ];
+
+// For backwards compatibility, create a flat menuItems array
+const menuItems = categoryGroups.flatMap(group => group.items);
 
 // Company data
 export const company = {
@@ -176,7 +204,7 @@ export function CustomSidebarTrigger() {
 
 // Add state for feature message
 export default function SidebarLogined() {
-  const { state, isMobile, setOpen } = useSidebar();
+  const { open, state, isMobile, setOpen } = useSidebar();
   const location = useLocation();
   const pathname = location.pathname;
   const { user, logout, isAuthenticated } = useAuth();
@@ -188,6 +216,35 @@ export default function SidebarLogined() {
   const { hasFeature, hasMenuAccess } = useFeatureStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState("");
+  
+  // Create ref for sidebar
+  const sidebarRef = React.useRef(null);
+  
+  // Track if the sidebar is actually collapsed visually
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Check sidebar state
+  useEffect(() => {
+    const checkIfCollapsed = () => {
+      // First check if the DOM is ready and sidebar element exists
+      if (sidebarRef.current) {
+        // Check if sidebar is visually collapsed
+        const sidebarWidth = sidebarRef.current.offsetWidth;
+        const isCollapsed = !open || sidebarWidth < 100;
+        setSidebarCollapsed(isCollapsed);
+        console.log('Sidebar collapsed:', isCollapsed, 'width:', sidebarWidth);
+      }
+    };
+    
+    // Check on mount and whenever open state changes
+    checkIfCollapsed();
+    
+    // Also check after a short delay to account for animations
+    const timeoutId = setTimeout(checkIfCollapsed, 300);
+    
+    // Clean up the timeout
+    return () => clearTimeout(timeoutId);
+  }, [open]);
 
   // Initialize sidebar state from cookie only once when component mounts
   useEffect(() => {
@@ -281,14 +338,6 @@ export default function SidebarLogined() {
     const Icon = Icons[item.icon];
     const isPremium = item.isPremium === true;
 
-    // Debug log for each menu item
-    console.log(`Menu item "${item.title}":`, {
-      feature: item.feature,
-      isFree: item.isFree,
-      isPremium: isPremium,
-      hasAccess: userHasFeature
-    });
-
     const handleNavItemClick = (e) => {
       if (isDisabled) {
         e.preventDefault();
@@ -312,6 +361,7 @@ export default function SidebarLogined() {
             transition-all duration-300 
             ${isActiveLink ? 'bg-[#09D1C7]/10 dark:bg-[#09D1C7]/10 text-[#09D1C7] font-medium' : 'text-gray-600 dark:text-gray-400 hover:text-[#09D1C7] hover:bg-gray-200 dark:hover:bg-gray-800'}
             ${!userHasFeature ? 'opacity-65 cursor-not-allowed' : ''}
+            py-0.5 text-sm
           `}
           onClick={handleNavItemClick}
         >
@@ -319,32 +369,32 @@ export default function SidebarLogined() {
             <Link
               to={item.href}
               className={cn(
-                "flex items-center gap-3 w-full sidebar-link",
+                "flex items-center gap-1.5 w-full sidebar-link",
                 isActiveLink && "text-[#09D1C7] bg-gray-100 dark:bg-[#1a1a1a]",
                 "group-[[data-collapsed=true]]:px-2"
               )}
             >
               <span className="icon-wrapper flex-shrink-0">
-                <Icon className={`size-5 ${isActiveLink ? 'text-[#09D1C7]' : ''}`} />
+                <Icon className={`size-4 ${isActiveLink ? 'text-[#09D1C7]' : ''}`} />
               </span>
-              <span className="link-text">{item.title}</span>
+              <span className="link-text text-sm">{item.title}</span>
             </Link>
           ) : (
             <div 
               className="flex items-center justify-between w-full cursor-pointer sidebar-link"
               onClick={handleNavItemClick}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
                 <span className="icon-wrapper flex-shrink-0">
-                  <Icon className="size-5 text-gray-500" />
+                  <Icon className="size-4 text-gray-500" />
                 </span>
-                <span className="link-text text-gray-500">{item.title}</span>
+                <span className="link-text text-sm text-gray-500">{item.title}</span>
               </div>
               <span className="icon-wrapper flex-shrink-0">
                 <img 
                   src="/icons/workspace_premium.svg" 
                   alt="Premium" 
-                  className="size-5" 
+                  className="size-4" 
                 />
               </span>
             </div>
@@ -369,6 +419,9 @@ export default function SidebarLogined() {
     [data-sidebar="menu-button"] {
       display: flex;
       align-items: center;
+      padding-top: 2px !important;
+      padding-bottom: 2px !important;
+      min-height: 28px !important;
     }
 
     /* Force consistent sizing in collapsed state */
@@ -396,6 +449,56 @@ export default function SidebarLogined() {
       height: 1.25rem;
       min-width: 1.25rem;
       min-height: 1.25rem;
+    }
+
+    /* Extreme reduction of spacing between menu items */
+    [data-sidebar="menu-item"] {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    /* Make sidebar groups more compact */
+    [data-sidebar="group"] {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    
+    /* Make group labels ultra compact */
+    [data-sidebar="group-label"] {
+      padding-top: 0.35rem !important;
+      padding-bottom: 0.15rem !important;
+      margin-bottom: 0.1rem !important;
+      font-size: 0.8rem !important;
+      font-weight: 500 !important;
+      opacity: 0.85;
+    }
+    
+    /* Complete fix for hiding group labels in collapsed state - using multiple selectors for redundancy */
+    [data-collapsed="true"] [data-sidebar="group-label"],
+    [data-state="closed"] [data-sidebar="group-label"],
+    [data-collapsible="icon"][data-state="closed"] [data-sidebar="group-label"],
+    .group-data-[collapsible=icon] [data-sidebar="group-label"],
+    div[data-collapsible="icon"][data-state="closed"] div[data-sidebar="group-label"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+      position: absolute !important;
+      pointer-events: none !important;
+      z-index: -1 !important;
+    }
+    
+    /* Remove default padding from menus */
+    [data-sidebar="menu"] {
+      padding: 0 !important;
+    }
+    
+    /* Make sidebar content more compact */
+    [data-sidebar="content"] {
+      gap: 0.2rem !important;
     }
   `;
 
@@ -440,7 +543,7 @@ export default function SidebarLogined() {
   return (
     <>
       <style>{sidebarStyles}</style>
-      <Sidebar collapsible='icon' className="bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800">
+      <Sidebar collapsible='icon' className="bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800" ref={sidebarRef}>
         <SidebarHeader className="bg-white dark:bg-black">
           <div className='flex gap-2 py-2 text-gray-900 dark:text-white'>
             <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88]'>
@@ -470,12 +573,16 @@ export default function SidebarLogined() {
           </div>
         </SidebarHeader>
         <SidebarContent className='overflow-x-hidden'>
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-gray-500 dark:text-[#666]">Mục lục</SidebarGroupLabel>
-            <SidebarMenu>
-              {menuItems.map((item) => renderNavItem(item))}
-            </SidebarMenu>
-          </SidebarGroup>
+          {categoryGroups.map((category) => (
+            <SidebarGroup key={category.name}>
+              {!sidebarCollapsed && (
+                <SidebarGroupLabel className="text-gray-500 dark:text-[#666]">{category.name}</SidebarGroupLabel>
+              )}
+              <SidebarMenu>
+                {category.items.map((item) => renderNavItem(item))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
         <SidebarRail />
       </Sidebar>

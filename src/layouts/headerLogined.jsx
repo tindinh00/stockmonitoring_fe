@@ -376,7 +376,7 @@ export default function HeaderLogined() {
                     <span 
                       key={index.id} 
                       className={`whitespace-nowrap ${
-                        index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                        index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
                         index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
                         'text-[#F4BE37]'
                       }`}
@@ -394,7 +394,7 @@ export default function HeaderLogined() {
                   <span 
                     key={`${index.id}-duplicate`}
                     className={`whitespace-nowrap ${
-                      index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                      index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
                       index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
                       'text-[#F4BE37]'
                     }`}
@@ -457,13 +457,13 @@ export default function HeaderLogined() {
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
                         {notification.type === 'increase' && (
-                          <div className="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
-                            <TrendingUp className="w-4 h-4 text-green-400" />
+                          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-[#10B981] dark:text-green-400" />
                           </div>
                         )}
                         {notification.type === 'decrease' && (
-                          <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center">
-                            <TrendingDown className="w-4 h-4 text-red-400" />
+                          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <TrendingDown className="w-4 h-4 text-red-500 dark:text-red-400" />
                           </div>
                         )}
                       </div>
@@ -477,8 +477,8 @@ export default function HeaderLogined() {
                               variant="default"
                               className={`text-[10px] px-2 ${
                                 notification.type === 'increase' 
-                                  ? 'bg-green-900/30 text-green-400' 
-                                  : 'bg-red-900/30 text-red-400'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-[#10B981] dark:text-green-400' 
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
                               }`}
                             >
                               {notification.stockCode}
