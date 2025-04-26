@@ -1081,6 +1081,20 @@ export default function StockDerivatives() {
   // Add this function to fetch watchlist data
   const fetchWatchlistData = async (retry = false) => {
     try {
+      // Kiểm tra quyền truy cập tính năng trước khi gọi API
+      const hasNotificationFeature = hasFeature("Quản lý thông báo theo nhu cầu");
+      if (!hasNotificationFeature) {
+        // Nếu không có quyền truy cập, không tiếp tục thực hiện gọi API
+        // Chuyển về chế độ xem tất cả
+        setShowWatchlist(false);
+        setFeatureMessageInfo({
+          name: 'Danh sách theo dõi và Thông báo',
+          returnPath: '/stock'
+        });
+        setShowFeatureMessage(true);
+        return;
+      }
+      
       // Reset watchlist data FIRST before loading
       setWatchlist([]);
       setIsWatchlistLoading(true);
@@ -1470,6 +1484,25 @@ export default function StockDerivatives() {
     }
   }, [showWatchlist]);
 
+  // Thêm hàm để kiểm tra và xử lý chuyển đổi chế độ danh sách theo dõi
+  const handleToggleWatchlist = () => {
+    // Kiểm tra nếu người dùng có quyền "Quản lý thông báo theo nhu cầu"
+    const hasNotificationFeature = hasFeature("Quản lý thông báo theo nhu cầu");
+    
+    if (!hasNotificationFeature) {
+      // Hiển thị dialog thông báo nâng cấp gói
+      setFeatureMessageInfo({
+        name: 'Danh sách theo dõi và Thông báo',
+        returnPath: '/stock'
+      });
+      setShowFeatureMessage(true);
+      return;
+    }
+    
+    // Nếu có quyền, cho phép chuyển đổi chế độ danh sách theo dõi
+    setShowWatchlist(!showWatchlist);
+  };
+
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -1591,17 +1624,39 @@ export default function StockDerivatives() {
             </SelectContent>
           </Select>
 
-          {/* Watchlist Toggle */}
-          <div className="flex items-center gap-2">
-            <label className="relative inline-flex items-center cursor-pointer">
+          {/* Watchlist Toggle - With Feature Check */}
+          <div className="flex items-center gap-2 relative">
+            <label 
+              className="relative inline-flex items-center cursor-pointer" 
+              title={hasFeature("Quản lý thông báo theo nhu cầu") ? "Chuyển chế độ danh sách theo dõi" : "Tính năng của gói nâng cao"}
+              onClick={(e) => {
+                // Ngăn chặn hành vi mặc định nếu không có quyền
+                if (!hasFeature("Quản lý thông báo theo nhu cầu")) {
+                  e.preventDefault();
+                  // Hiển thị dialog thông báo nâng cấp gói
+                  setFeatureMessageInfo({
+                    name: 'Danh sách theo dõi và Thông báo',
+                    returnPath: '/stock'
+                  });
+                  setShowFeatureMessage(true);
+                }
+              }}
+            >
               <input
                 type="checkbox"
                 className="sr-only peer"
                 checked={showWatchlist}
-                onChange={(e) => setShowWatchlist(e.target.checked)}
+                onChange={handleToggleWatchlist}
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${hasFeature("Quản lý thông báo theo nhu cầu") ? "dark:bg-gray-700 bg-gray-200" : "dark:bg-gray-600 bg-gray-300"} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600`}></div>
               <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Danh sách theo dõi</span>
+              {!hasFeature("Quản lý thông báo theo nhu cầu") && (
+                <img 
+                  src="/icons/workspace_premium.svg" 
+                  alt="Premium" 
+                  className="w-4 h-4 absolute -top-2 -right-2" 
+                />
+              )}
             </label>
           </div>
         </div>
