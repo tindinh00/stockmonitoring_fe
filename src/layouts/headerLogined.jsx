@@ -38,6 +38,28 @@ export default function HeaderLogined() {
   const [theme, setTheme] = useState('dark');
   const { user } = useAuth();
 
+  // Add function to get read notifications from localStorage
+  const getReadNotifications = () => {
+    const userId = getUserId();
+    try {
+      const readNotifications = JSON.parse(localStorage.getItem(`readNotifications_${userId}`)) || {};
+      return readNotifications;
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return {};
+    }
+  };
+
+  // Add function to save read notifications to localStorage
+  const saveReadNotifications = (notificationIds) => {
+    const userId = getUserId();
+    try {
+      localStorage.setItem(`readNotifications_${userId}`, JSON.stringify(notificationIds));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
+
   // Initialize theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -113,7 +135,7 @@ export default function HeaderLogined() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch notifications when popup opens
+  // Modify fetchNotifications to include read status from localStorage
   const fetchNotifications = async () => {
     try {
       setLoading(true);
@@ -125,6 +147,7 @@ export default function HeaderLogined() {
 
       const response = await stockService.getNotificationMessages(userId);
       if (response?.value?.data) {
+        const readNotifications = getReadNotifications();
         const notificationMessages = response.value.data.map(notification => {
           // Extract information from message using regex
           const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
@@ -137,20 +160,17 @@ export default function HeaderLogined() {
           let messageTime = '';
           
           if (matches && matches.length >= 6) {
-            messageTime = matches[1]; // "2025-04-17 12:07:49"
-            stockCode = matches[2].trim(); // Ensure no whitespace
+            messageTime = matches[1];
+            stockCode = matches[2].trim();
             targetPrice = matches[3].trim();
             currentPrice = matches[4].trim();
-            exchange = matches[5].trim(); // Ensure no whitespace
+            exchange = matches[5].trim();
           }
 
-          // Determine if price is increasing or decreasing
           const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
-
-          // Convert message time string to Date object and adjust for Vietnam timezone (-7 hours)
           const timeStr = messageTime.replace(' ', 'T') + 'Z';
           const messageDate = new Date(timeStr);
-          messageDate.setHours(messageDate.getHours() - 7); // Adjust for Vietnam timezone
+          messageDate.setHours(messageDate.getHours() - 7);
 
           return {
             id: notification.id,
@@ -166,14 +186,13 @@ export default function HeaderLogined() {
               second: '2-digit',
               hour12: false
             }),
-            read: false,
+            read: readNotifications[notification.id] === true,
             stockCode: stockCode,
             exchange: exchange,
             createdAt: messageTime
           };
         });
 
-        // Sort by createdAt in descending order
         notificationMessages.sort((a, b) => 
           new Date(b.createdAt) - new Date(a.createdAt)
         );
@@ -218,7 +237,6 @@ export default function HeaderLogined() {
           const data = event.detail;
           console.log("[SignalR] Received notification:", data);
           
-          // Extract information from message using regex
           const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
           const matches = data.message.match(messageRegex);
           
@@ -236,10 +254,9 @@ export default function HeaderLogined() {
             }
           }
 
-          // Determine if price is increasing or decreasing
           const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
+          const readNotifications = getReadNotifications();
 
-          // Add new notification to the list
           setNotifications(prev => {
             const newNotification = {
               id: crypto.randomUUID(),
@@ -255,7 +272,7 @@ export default function HeaderLogined() {
                 second: '2-digit',
                 hour12: false
               }),
-              read: false,
+              read: readNotifications[newNotification.id] === true,
               stockCode: stockCode,
               exchange: exchange,
               createdAt: data.time
@@ -263,7 +280,6 @@ export default function HeaderLogined() {
             return [newNotification, ...prev];
           });
 
-          // Show toast notification
           toast.info("Có thông báo giá mới!", {
             description: `${stockCode} - ${exchange}`,
             action: {
@@ -309,8 +325,17 @@ export default function HeaderLogined() {
     };
   }, []);
 
-  // Mark all notifications as read
+  // Modify markAllAsRead to save to localStorage
   const markAllAsRead = () => {
+    const readNotifications = getReadNotifications();
+    const updatedReadNotifications = { ...readNotifications };
+    
+    notifications.forEach(notification => {
+      updatedReadNotifications[notification.id] = true;
+    });
+    
+    saveReadNotifications(updatedReadNotifications);
+    
     setNotifications(prevNotifications => 
       prevNotifications.map(notification => ({
         ...notification,
@@ -320,8 +345,12 @@ export default function HeaderLogined() {
     toast.success("Đã đánh dấu tất cả thông báo là đã đọc");
   };
 
-  // Mark single notification as read
+  // Modify markAsRead to save to localStorage
   const markAsRead = (id) => {
+    const readNotifications = getReadNotifications();
+    const updatedReadNotifications = { ...readNotifications, [id]: true };
+    saveReadNotifications(updatedReadNotifications);
+    
     setNotifications(prevNotifications => 
       prevNotifications.map(notification => 
         notification.id === id ? { ...notification, read: true } : notification
@@ -331,6 +360,7 @@ export default function HeaderLogined() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Modify handleNotificationClick to include read status
   const handleNotificationClick = (id) => {
     markAsRead(id);
     setExpandedId(expandedId === id ? null : id);
@@ -343,8 +373,8 @@ export default function HeaderLogined() {
         <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
         <div className={`px-3 py-1.5 rounded-md text-sm font-medium ${
           isTradingHours 
-            ? 'bg-green-900/30 text-green-400' 
-            : 'bg-red-900/30 text-red-400'
+            ? 'bg-green-900/30 text-green-600 dark:text-green-400' 
+            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
         }`}>
           {isTradingHours ? 'Đang trong phiên' : 'Hết giờ'}
         </div>

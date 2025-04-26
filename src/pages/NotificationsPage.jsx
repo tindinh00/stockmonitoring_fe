@@ -714,7 +714,7 @@ const NotificationsPage = () => {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Quản lý thông báo</h1>
             <p className="text-gray-500 dark:text-[#666]">Theo dõi và quản lý các lệnh thông báo giá cổ phiếu</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -861,20 +861,6 @@ const NotificationsPage = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button
-              onClick={fetchNotifications}
-              className="bg-gray-100 dark:bg-[#1a1a1a] hover:bg-gray-200 dark:hover:bg-[#252525] text-gray-900 dark:text-white px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333]"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang tải...
-                </>
-              ) : (
-                'Làm mới'
-              )}
-            </Button>
           </div>
         </div>
       </div>
@@ -908,9 +894,25 @@ const NotificationsPage = () => {
             <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden transform">
               <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Danh sách lệnh thông báo</h2>
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
-                  <span>Tổng số lệnh:</span>
-                  <span className="text-gray-900 dark:text-white font-medium">{notifications.length}</span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
+                    <span>Tổng số lệnh:</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{notifications.length}</span>
+                  </div>
+                  <Button
+                    onClick={fetchNotifications}
+                    className="bg-gray-100 dark:bg-[#1a1a1a] hover:bg-gray-200 dark:hover:bg-[#252525] text-gray-900 dark:text-white px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333]"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Đang tải...
+                      </>
+                    ) : (
+                      'Làm mới'
+                    )}
+                  </Button>
                 </div>
               </div>
               <div className="p-4">
