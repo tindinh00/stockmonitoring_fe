@@ -39,6 +39,9 @@ const WatchlistPage = () => {
   const [stockToDelete, setStockToDelete] = useState(null);
   const [lastTimestamp, setLastTimestamp] = useState(new Date());
   
+  // Tab quản lý phần hiển thị (ngành hoặc danh sách theo dõi)
+  const [watchlistTab, setWatchlistTab] = useState('industries'); // 'industries' hoặc 'stocks'
+  
   // Add new states for add stock feature
   const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
   const [availableStocks, setAvailableStocks] = useState([]);
@@ -278,12 +281,12 @@ const WatchlistPage = () => {
 
   // Hàm kết hợp màu sắc và animation cho cell
   const getCellClasses = (stock, field) => {
-    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1';
+    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1';
     
     const colorClass = getPriceColor(stock, field);
     const flashClass = getFlashClass(stock.stockCode, field);
     
-    return `${colorClass} ${flashClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1`;
+    return `${colorClass} ${flashClass} border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1`;
   };
 
   // Update watchlist data khi có dữ liệu mới từ SignalR
@@ -1180,17 +1183,83 @@ const WatchlistPage = () => {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Danh mục theo dõi</h1>
             <p className="text-gray-500 dark:text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] min-w-[120px]">
-              <Clock className="w-4 h-4 text-gray-400 dark:text-[#666]" />
-              <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
-                {lastTimestamp.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: false
-                })}
-              </span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] min-w-[120px]">
+            <Clock className="w-4 h-4 text-gray-400 dark:text-[#666]" />
+            <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
+              {lastTimestamp.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+              })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-6">
+        {/* Main Tabs - Industries vs Watchlist */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setWatchlistTab('industries')}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                watchlistTab === 'industries'
+                  ? 'bg-[#09D1C7] text-white'
+                  : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+              }`}
+            >
+              Theo ngành
+            </button>
+            <button
+              onClick={() => setWatchlistTab('stocks')}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                watchlistTab === 'stocks'
+                  ? 'bg-[#09D1C7] text-white'
+                  : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+              }`}
+            >
+              Danh sách theo dõi
+            </button>
+          </div>
+          {watchlistTab === 'industries' && (
+            <Button
+              onClick={() => {
+                fetchAvailableIndustries();
+                setIsAddIndustryDialogOpen(true);
+              }}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm ngành</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Exchange Tabs - Only show when in stocks view */}
+        {watchlistTab === 'stocks' && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('hsx')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === 'hsx'
+                    ? 'bg-[#09D1C7] text-white'
+                    : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+                }`}
+              >
+                HOSE
+              </button>
+              <button
+                onClick={() => setActiveTab('hnx')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === 'hnx'
+                    ? 'bg-[#09D1C7] text-white'
+                    : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+                }`}
+              >
+                HNX
+              </button>
             </div>
             <Button
               onClick={() => {
@@ -1200,352 +1269,312 @@ const WatchlistPage = () => {
               className="bg-[#09D1C7] hover:bg-[#3a5ad9] text-white px-4 py-2 rounded-lg flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Thêm cổ phiếu</span>
-            </Button>
-            <Button
-              onClick={() => {
-                fetchAvailableIndustries();
-                setIsAddIndustryDialogOpen(true);
-              }}
-              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Thêm ngành</span>
+              <span>Thêm cổ phiếu</span>
             </Button>
           </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {watchlistTab === 'stocks' ? (
+            <>
+              {/* Left section - Stock Table */}
+              <div className="lg:col-span-12">
+                {/* Stock Table */}
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200/30 dark:border-[#333] overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1000px] border-collapse">
+                      <colgroup>
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                        <col className="w-[45px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[35px]" />
+                        <col className="w-[40px]" />
+                      </colgroup>
+                      <thead className="sticky top-0 bg-white dark:bg-[#1a1a1a] z-50">
+                        <tr className="border-b border-gray-200/60 dark:border-[#333]">
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
+                          <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
+                        </tr>
+                        <tr className="border-b border-gray-200/60 dark:border-[#333]">
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+                          <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2">Bán</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {isLoading ? (
+                          <tr>
+                            <td colSpan="26" className="text-center py-8">
+                              <div className="flex flex-col items-center gap-2">
+                                <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : watchlist.length === 0 ? (
+                          <tr>
+                            <td colSpan="26" className="text-center py-8">
+                              <div className="flex flex-col items-center gap-2">
+                                <AlertTriangle className="h-8 w-8 text-yellow-500" />
+                                <span className="text-gray-400">Không có cổ phiếu nào trong danh sách theo dõi</span>
+                                <span className="text-gray-500 text-sm">Hãy thêm cổ phiếu từ trang "Bảng giá"</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          // Thêm kiểm tra watchlist có phải là mảng hay không
+                          Array.isArray(watchlist) ? 
+                          watchlist.map((stock) => (
+                            <tr key={stock.stockCode} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
+                              <td className={`${getCellClasses(stock, 'matchPrice')} border-r text-center font-medium transition-colors duration-300 cursor-pointer py-1`} onClick={() => handleStockClick(stock)}>
+                                {formatValue(stock.stockCode)}
+                              </td>
+                              <td className="text-[#B388FF] border-r text-center whitespace-nowrap py-1">{formatValue(stock.ceilPrice)}</td>
+                              <td className="text-[#00BCD4] border-r text-center whitespace-nowrap py-1">{formatValue(stock.floorPrice)}</td>
+                              <td className="text-[#F4BE37] border-r text-center whitespace-nowrap py-1">{formatValue(stock.priorClosePrice)}</td>
+                              <td className={getCellClasses(stock, 'price3Buy')}>
+                                {formatValue(stock.price3Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume3Buy')}>
+                                {formatValue(stock.volume3Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'price2Buy')}>
+                                {formatValue(stock.price2Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume2Buy')}>
+                                {formatValue(stock.volume2Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'price1Buy')}>
+                                {formatValue(stock.price1Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume1Buy')}>
+                                {formatValue(stock.volume1Buy)}
+                              </td>
+                              <td className={getCellClasses(stock, 'matchPrice')}>
+                                {formatValue(stock.matchPrice)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volumeAccumulation')}>
+                                {formatValue(stock.volumeAccumulation)}
+                              </td>
+                              <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r text-center whitespace-nowrap py-1`}>
+                                {stock.plusMinus !== null && stock.plusMinus !== undefined && stock.plusMinus !== '--' ? 
+                                  `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : 
+                                  '--'}
+                              </td>
+                              <td className={getCellClasses(stock, 'price1Sell')}>
+                                {formatValue(stock.price1Sell)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume1Sell')}>
+                                {formatValue(stock.volume1Sell)}
+                              </td>
+                              <td className={getCellClasses(stock, 'price2Sell')}>
+                                {formatValue(stock.price2Sell)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume2Sell')}>
+                                {formatValue(stock.volume2Sell)}
+                              </td>
+                              <td className={getCellClasses(stock, 'price3Sell')}>
+                                {formatValue(stock.price3Sell)}
+                              </td>
+                              <td className={getCellClasses(stock, 'volume3Sell')}>
+                                {formatValue(stock.volume3Sell)}
+                              </td>
+                              <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.matchedOrderVolume)}</td>
+                              <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignBuyVolume)}</td>
+                              <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignSellVolume)}</td>
+                              <td className="text-center py-1">
+                                <button
+                                  onClick={() => removeFromWatchlist(stock)}
+                                  className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                                  title="Xóa khỏi danh sách theo dõi"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </td>
+                            </tr>
+                          )) : (
+                            // Hiển thị trường hợp watchlist không phải là mảng
+                            <tr>
+                              <td colSpan="26" className="text-center py-8">
+                                <div className="flex flex-col items-center gap-2">
+                                  <AlertTriangle className="h-8 w-8 text-red-500" />
+                                  <span className="text-gray-400">Đã xảy ra lỗi khi tải dữ liệu</span>
+                                  <span className="text-gray-500 text-sm">Vui lòng làm mới trang để thử lại</span>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Industries View */}
+              <div className="lg:col-span-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoadingIndustries ? (
+                    <div className="col-span-full flex justify-center items-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : industries.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-[#252525] rounded-full flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6 text-gray-400 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                      <h3 className="text-gray-900 dark:text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
+                      <p className="text-gray-500 dark:text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
+                    </div>
+                  ) : (
+                    industries.map((industry) => (
+                      <div
+                        key={industry.id}
+                        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4 hover:border-[#09D1C7] transition-colors cursor-pointer"
+                        onClick={() => handleIndustryClick(industry)}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium text-gray-900 dark:text-white">{industry.name}</h3>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSector(industry, e);
+                            }}
+                            className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-4 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full mb-1 ${
+                              industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                              industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
+                              'bg-red-500/10 text-red-500'
+                            }`}>
+                              {industry.smg}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">SMG</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            }`}>
+                              {industry.percentD > 0 ? '+' : ''}{industry.percentD.toFixed(2)}%
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Ngày</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            }`}>
+                              {industry.percentW > 0 ? '+' : ''}{industry.percentW.toFixed(2)}%
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Tuần</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            }`}>
+                              {industry.percentM > 0 ? '+' : ''}{industry.percentM.toFixed(2)}%
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Tháng</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500 dark:text-[#666]">
+                            {industry.stocks?.length || 0} cổ phiếu
+                          </span>
+                          <button className="text-[#09D1C7] hover:text-[#0a8f88] flex items-center gap-1">
+                            Chi tiết
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Right section - Only show in stocks view */}
+          
         </div>
       </div>
 
-      <div className="p-4 md:p-6">
-        {/* Exchange Tabs - Moved outside the grid to align tables */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setActiveTab('hsx')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'hsx'
-                ? 'bg-[#09D1C7] text-white'
-                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
-            }`}
-          >
-            HOSE
-          </button>
-          <button
-            onClick={() => setActiveTab('hnx')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'hnx'
-                ? 'bg-[#09D1C7] text-white'
-                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
-            }`}
-          >
-            HNX
-          </button>
+      {/* Quick Stats - Show in both views */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
+          <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left section - Stock Table */}
-          <div className="lg:col-span-8">
-            {/* Stock Table */}
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1000px] border-collapse">
-                  <colgroup>
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                    <col className="w-[45px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[35px]" />
-                    <col className="w-[40px]" />
-                  </colgroup>
-                  <thead className="sticky top-0 bg-white dark:bg-[#1a1a1a] z-50">
-                    <tr>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Mã CK</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Trần</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Sàn</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>TC</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={6}>Bên mua</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={3}>Khớp lệnh</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={6}>Bên bán</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" rowSpan={2}>Tổng KL</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1" colSpan={2}>ĐTNN</th>
-                      <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-1" rowSpan={2}>Thao tác</th>
-                    </tr>
-                    <tr>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 3</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 3</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 2</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 2</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 1</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 1</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">+/-</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 1</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 1</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 2</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 2</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Giá 3</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">KL 3</th>
-                      <th className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">Mua</th>
-                      <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-1">Bán</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan="26" className="text-center py-8">
-                          <div className="flex flex-col items-center gap-2">
-                            <svg className="animate-spin h-8 w-8 text-[#00FF00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="text-[#888] text-sm">Đang tải dữ liệu...</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : watchlist.length === 0 ? (
-                      <tr>
-                        <td colSpan="26" className="text-center py-8">
-                          <div className="flex flex-col items-center gap-2">
-                            <AlertTriangle className="h-8 w-8 text-yellow-500" />
-                            <span className="text-gray-400">Không có cổ phiếu nào trong danh sách theo dõi</span>
-                            <span className="text-gray-500 text-sm">Hãy thêm cổ phiếu từ trang "Bảng giá"</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      // Thêm kiểm tra watchlist có phải là mảng hay không
-                      Array.isArray(watchlist) ? 
-                      watchlist.map((stock) => (
-                        <tr key={stock.stockCode} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
-                          <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-1`} onClick={() => handleStockClick(stock)}>
-                            {formatValue(stock.stockCode)}
-                          </td>
-                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.ceilPrice)}</td>
-                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.floorPrice)}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.priorClosePrice)}</td>
-                          <td className={getCellClasses(stock, 'price3Buy')}>
-                            {formatValue(stock.price3Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume3Buy')}>
-                            {formatValue(stock.volume3Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'price2Buy')}>
-                            {formatValue(stock.price2Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume2Buy')}>
-                            {formatValue(stock.volume2Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'price1Buy')}>
-                            {formatValue(stock.price1Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume1Buy')}>
-                            {formatValue(stock.volume1Buy)}
-                          </td>
-                          <td className={getCellClasses(stock, 'matchPrice')}>
-                            {formatValue(stock.matchPrice)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volumeAccumulation')}>
-                            {formatValue(stock.volumeAccumulation)}
-                          </td>
-                          <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-1`}>
-                            {stock.plusMinus !== null && stock.plusMinus !== undefined && stock.plusMinus !== '--' ? 
-                              `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : 
-                              '--'}
-                          </td>
-                          <td className={getCellClasses(stock, 'price1Sell')}>
-                            {formatValue(stock.price1Sell)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume1Sell')}>
-                            {formatValue(stock.volume1Sell)}
-                          </td>
-                          <td className={getCellClasses(stock, 'price2Sell')}>
-                            {formatValue(stock.price2Sell)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume2Sell')}>
-                            {formatValue(stock.volume2Sell)}
-                          </td>
-                          <td className={getCellClasses(stock, 'price3Sell')}>
-                            {formatValue(stock.price3Sell)}
-                          </td>
-                          <td className={getCellClasses(stock, 'volume3Sell')}>
-                            {formatValue(stock.volume3Sell)}
-                          </td>
-                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.matchedOrderVolume)}</td>
-                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignBuyVolume)}</td>
-                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignSellVolume)}</td>
-                          <td className="text-center py-1">
-                            <button
-                              onClick={() => removeFromWatchlist(stock)}
-                              className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
-                              title="Xóa khỏi danh sách theo dõi"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
-                      )) : (
-                        // Hiển thị trường hợp watchlist không phải là mảng
-                        <tr>
-                          <td colSpan="26" className="text-center py-8">
-                            <div className="flex flex-col items-center gap-2">
-                              <AlertTriangle className="h-8 w-8 text-red-500" />
-                              <span className="text-gray-400">Đã xảy ra lỗi khi tải dữ liệu</span>
-                              <span className="text-gray-500 text-sm">Vui lòng làm mới trang để thử lại</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Right section - Industries */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            {/* Industries List */}
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-              <div className="p-4 border-b border-gray-200 dark:border-[#333] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Ngành theo dõi</h2>
-              </div>
-
-              <div className="p-4">
-                {/* Header */}
-                <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[#999] text-sm font-medium">
-                  <div className="col-span-4">Tên ngành</div>
-                  <div className="col-span-2 text-center">SMG</div>
-                  <div className="col-span-5 grid grid-cols-3 gap-2 text-center">
-                    <span>%D</span>
-                    <span>%W</span>
-                    <span>%M</span>
-                  </div>
-                  <div className="col-span-1"></div>
-                </div>
-
-                {/* Industry Items */}
-                {!isLoadingIndustries && industries && industries.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {industries.map((industry) => (
-                      <div
-                        key={industry.id}
-                        className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
-                      >
-                        <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center hover:bg-gray-100 dark:hover:bg-[#252525] rounded-lg transition-colors">
-                          <div className="col-span-4 flex items-center gap-2 min-w-0">
-                            <button
-                              onClick={() => handleIndustryClick(industry)}
-                              className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-                                selectedIndustry?.id === industry.id 
-                                  ? 'bg-[#09D1C7]/10 text-[#09D1C7]' 
-                                  : 'text-[#666] hover:bg-[#333] hover:text-[#09D1C7]'
-                              }`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <span className="text-gray-900 dark:text-white font-medium truncate">{industry.name}</span>
-                          </div>
-                          <div className="col-span-2 flex justify-center">
-                            <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
-                              ${industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                                industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                                'bg-red-500/10 text-red-500'}`}>
-                              {industry.smg}
-                            </span>
-                          </div>
-                          <div className="col-span-5 grid grid-cols-3 gap-2 text-center text-xs">
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentD > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
-                            }`}>
-                              {industry.percentD > 0 ? '+' : ''}{industry.percentD.toFixed(2)}%
-                            </span>
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentW > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
-                            }`}>
-                              {industry.percentW > 0 ? '+' : ''}{industry.percentW.toFixed(2)}%
-                            </span>
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentM > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
-                            }`}>
-                              {industry.percentM > 0 ? '+' : ''}{industry.percentM.toFixed(2)}%
-                            </span>
-                          </div>
-                          <div className="col-span-1 flex justify-end">
-                            <button
-                              onClick={(e) => handleDeleteSector(industry, e)}
-                              className="flex-shrink-0 p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
-                              title="Xóa ngành khỏi danh sách theo dõi"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Loading State */}
-                {isLoadingIndustries && (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {!isLoadingIndustries && (!industries || industries.length === 0) && (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 bg-gray-100 dark:bg-[#252525] rounded-full flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-gray-400 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <h3 className="text-gray-900 dark:text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
-                    <p className="text-gray-500 dark:text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4 mt-auto">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
-              </div>
-            </div>
-          </div>
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
+          <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
+        </div>
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
+          <p className="text-xl font-semibold text-[#00FF00]">
+            {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
+          <p className="text-xl font-semibold text-[#FF4A4A]">
+            {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
+          </p>
         </div>
       </div>
 
@@ -1553,12 +1582,10 @@ const WatchlistPage = () => {
       <Dialog open={isIndustryDetailOpen} onOpenChange={setIsIndustryDetailOpen}>
         <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[800px] w-[95vw]">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <span className="bg-[#4A72FF] text-white px-3 py-1 rounded-full text-sm font-medium">
-                {selectedIndustry?.name}
-              </span>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-[#666]">SMG Score:</span>
+            <div>
+              <DialogTitle className="text-xl font-semibold mb-1">{selectedIndustry?.name}</DialogTitle>
+              <DialogDescription className="text-[#666] flex items-center gap-2">
+                <span>SMG Score:</span>
                 <span className={`font-medium ${
                   selectedIndustry?.smg >= 80 ? 'text-[#09D1C7]' : 
                   selectedIndustry?.smg >= 50 ? 'text-[#FF6B00]' :
@@ -1566,64 +1593,93 @@ const WatchlistPage = () => {
                 }`}>
                   {selectedIndustry?.smg}
                 </span>
+              </DialogDescription>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#252525] rounded-lg border border-gray-200 dark:border-[#333]">
+                <span className="text-[#666]">Số cổ phiếu:</span>
+                <span className="text-[#09D1C7] font-medium">{selectedIndustry?.stocks?.length || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Performance Overview */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo ngày</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentD > 0 ? '+' : ''}{selectedIndustry?.percentD.toFixed(2)}%
+              </div>
+            </div>
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo tuần</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentW > 0 ? '+' : ''}{selectedIndustry?.percentW.toFixed(2)}%
+              </div>
+            </div>
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo tháng</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentM > 0 ? '+' : ''}{selectedIndustry?.percentM.toFixed(2)}%
               </div>
             </div>
           </div>
 
           {/* Stocks Table */}
-          <div className="space-y-1">
-            {/* Header */}
-            <div className="grid grid-cols-6 gap-2 px-3 py-2 text-[#999] text-sm font-medium border-b border-[#333]">
-              <div className="col-span-1">Mã</div>
-              <div className="col-span-1">Chart</div>
+          <div className="bg-gray-100 dark:bg-[#252525] rounded-lg border border-gray-200 dark:border-[#333] overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-200/50 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#333] text-sm font-medium text-[#666]">
+              <div className="col-span-2">Mã CK</div>
+              <div className="col-span-3">Biến động</div>
               <div className="col-span-1 text-center">SMG</div>
-              <div className="col-span-3 grid grid-cols-3 gap-1 text-center">
-                <span>%D</span>
-                <span>%W</span>
-                <span>%M</span>
-              </div>
+              <div className="col-span-2 text-center">%D</div>
+              <div className="col-span-2 text-center">%W</div>
+              <div className="col-span-2 text-center">%M</div>
             </div>
 
-            {/* Stock Items */}
-            <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
+            <div className="max-h-[400px] overflow-y-auto">
               {selectedIndustry?.stocks.map((stock) => (
                 <div
                   key={stock.id}
-                  className="grid grid-cols-6 gap-2 px-3 py-2.5 items-center hover:bg-[#252525] rounded-lg transition-colors"
+                  className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-200/50 dark:hover:bg-[#2a2a2a] border-b border-gray-200 dark:border-[#333] last:border-0 transition-colors"
                 >
-                  <div className="col-span-1 flex items-center gap-1.5">
-                    <ChevronRight className="h-4 w-4 text-[#4A72FF]" />
-                    <span className="text-white font-medium">{stock.ticketSymbol}</span>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <ChevronRight className="h-4 w-4 text-[#09D1C7]" />
+                    <span className="font-medium">{stock.ticketSymbol}</span>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-3">
                     {renderMiniChart([stock.percentD, stock.percentW, stock.percentM])}
                   </div>
                   <div className="col-span-1 flex justify-center">
-                    <span className={`rounded-full w-7 h-7 flex items-center justify-center font-medium text-sm
-                      ${stock.smg >= 95 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                        stock.smg >= 90 ? 'bg-[#5BD75B]/10 text-[#5BD75B]' :
-                        'bg-[#FF6B00]/10 text-[#FF6B00]'}`}>
+                    <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
+                      ${stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                        stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
+                        'bg-red-500/10 text-red-500'}`}>
                       {stock.smg}
                     </span>
                   </div>
-                  <div className="col-span-3 grid grid-cols-3 gap-1 text-center text-sm">
-                    <span className={`rounded px-1 py-0.5 ${
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentD > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentD > 0 ? '+' : ''}{stock.percentD.toFixed(2)}%
                     </span>
-                    <span className={`rounded px-1 py-0.5 ${
+                  </div>
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentW > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentW > 0 ? '+' : ''}{stock.percentW.toFixed(2)}%
                     </span>
-                    <span className={`rounded px-1 py-0.5 ${
+                  </div>
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentM > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentM > 0 ? '+' : ''}{stock.percentM.toFixed(2)}%
@@ -1678,7 +1734,7 @@ const WatchlistPage = () => {
                 .map(industry => (
                   <div
                     key={industry.id}
-                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1700,13 +1756,12 @@ const WatchlistPage = () => {
                       <span className="text-gray-900 dark:text-white">{industry.name}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
-                          industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                          industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500'
+                          industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
+                          industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
+                          'bg-red-500/10 text-red-500 dark:text-red-500'
                         }`}>
                           SMG: {industry.smg}
                         </span>
-                        <span className="text-gray-500 dark:text-[#666] text-sm">{industry.code}</span>
                       </div>
                     </label>
                   </div>
@@ -1739,29 +1794,32 @@ const WatchlistPage = () => {
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-[#333]">
-            <div className="text-gray-500 dark:text-[#666] text-sm">
-              Đã chọn: {selectedIndustryIds.length} ngành
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setSelectedIndustryIds([]);
-                  setNewIndustryName('');
-                  setIsAddIndustryDialogOpen(false);
-                }}
-                variant="outline"
-                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleAddSectors}
-                className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
-                disabled={selectedIndustryIds.length === 0}
-              >
-                Thêm ({selectedIndustryIds.length})
-              </Button>
+          {/* Footer with buttons */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+            <div className="flex items-center justify-between">
+              <div className="text-gray-500 dark:text-[#666] text-sm">
+                Đã chọn: {selectedIndustryIds.length} ngành
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setSelectedIndustryIds([]);
+                    setNewIndustryName('');
+                    setIsAddIndustryDialogOpen(false);
+                  }}
+                  variant="outline"
+                  className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleAddSectors}
+                  className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[100px]"
+                  disabled={selectedIndustryIds.length === 0}
+                >
+                  Thêm ({selectedIndustryIds.length})
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -1797,7 +1855,7 @@ const WatchlistPage = () => {
             </div>
 
             {/* Chart Area */}
-            <div className="flex-1 bg-[#131722] min-h-[500px]">
+            <div className="flex-1 bg-white dark:bg-[#131722] min-h-[500px]">
               {isChartLoading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-4">
@@ -1828,9 +1886,9 @@ const WatchlistPage = () => {
             </div>
 
             {/* Chart Footer */}
-            <div className="flex items-center justify-between px-4 py-2 border-t border-[#2a2e39] bg-[#1e222d] text-xs text-[#a9a9a9]">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200/30 dark:border-[#2a2e39] bg-white dark:bg-[#1e222d] text-xs text-gray-500 dark:text-[#a9a9a9]">
               <div className="flex items-center gap-4">
-                <div>Vol: <span className="text-white font-medium">{selectedStock?.totalVolume}</span></div>
+                <div>Vol: <span className="text-gray-900 dark:text-white font-medium">{selectedStock?.totalVolume}</span></div>
                 <div>ĐTNN: 
                   <span className="text-[#26a69a] font-medium ml-1">+{selectedStock?.foreignBuy}</span>
                   <span className="text-[#ef5350] font-medium ml-1">-{selectedStock?.foreignSell}</span>
@@ -1959,7 +2017,7 @@ const WatchlistPage = () => {
                 .map(stock => (
                   <div
                     key={stock.id}
-                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1972,7 +2030,7 @@ const WatchlistPage = () => {
                           setSelectedStockIds(selectedStockIds.filter(id => id !== stock.id));
                         }
                       }}
-                      className="w-4 h-4 rounded border-[#333] bg-[#1a1a1a] checked:bg-[#4A72FF] focus:ring-[#4A72FF] focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-[#333] bg-white dark:bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
                     />
                     <label
                       htmlFor={`stock-${stock.id}`}
@@ -1981,9 +2039,9 @@ const WatchlistPage = () => {
                       <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
-                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500'
+                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
+                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
+                          'bg-red-500/10 text-red-500 dark:text-red-500'
                         }`}>
                           SMG: {stock.smg}
                         </span>
@@ -2000,36 +2058,39 @@ const WatchlistPage = () => {
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-[#333]">
-            <div className="text-gray-500 dark:text-[#666] text-sm">
-              Đã chọn: {selectedStockIds.length} cổ phiếu
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setSelectedStockIds([]);
-                  setStockSearchQuery('');
-                  setIsAddStockDialogOpen(false);
-                }}
-                variant="outline"
-                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={addSelectedStocksToWatchlist}
-                className="bg-[#4A72FF] hover:bg-[#3a5ad9] text-white"
-                disabled={selectedStockIds.length === 0 || isAddingStocks}
-              >
-                {isAddingStocks ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Đang thêm...</span>
-                  </div>
-                ) : (
-                  `Thêm (${selectedStockIds.length})`
-                )}
-              </Button>
+          {/* Footer with buttons */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+            <div className="flex items-center justify-between">
+              <div className="text-gray-500 dark:text-[#666] text-sm">
+                Đã chọn: {selectedStockIds.length} cổ phiếu
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setSelectedStockIds([]);
+                    setStockSearchQuery('');
+                    setIsAddStockDialogOpen(false);
+                  }}
+                  variant="outline"
+                  className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={addSelectedStocksToWatchlist}
+                  className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[100px]"
+                  disabled={selectedStockIds.length === 0 || isAddingStocks}
+                >
+                  {isAddingStocks ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Đang thêm...</span>
+                    </div>
+                  ) : (
+                    `Thêm (${selectedStockIds.length})`
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, LineStyle } from 'lightweight-charts';
+import { createChart, LineStyle, CrosshairMode } from 'lightweight-charts';
 
 const CandlestickChart = ({ stockCode, data }) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
+  const volumeSeriesRef = useRef(null);
   const canvasRef = useRef(null);
   const [activeTool, setActiveTool] = useState('cursor');
   const [selectedColor, setSelectedColor] = useState(document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000');
@@ -54,10 +55,14 @@ const CandlestickChart = ({ stockCode, data }) => {
     { id: 'delete', icon: '🗑️', tooltip: 'Xóa tất cả' }
   ];
 
-  // Thêm state cho công cụ text
-  const [showTextInput, setShowTextInput] = useState(false);
-  const [textInputValue, setTextInputValue] = useState('');
-  const [textInputPosition, setTextInputPosition] = useState({ x: 0, y: 0 });
+  // Thêm state cho text input
+  const [textInput, setTextInput] = useState({
+    show: false,
+    value: '',
+    position: { x: 0, y: 0 }
+  });
+
+  // Thêm state cho annotations
   const [annotations, setAnnotations] = useState([]);
 
   // Thêm state cho công cụ đo lường
@@ -361,6 +366,25 @@ const CandlestickChart = ({ stockCode, data }) => {
     const y = e.clientY - rect.top;
     const point = { x, y };
 
+    if (activeTool === 'text') {
+      // Đặt vị trí input text tương đối với canvas
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      setTextInput({
+        show: true,
+        value: '',
+        position: {
+          x: e.clientX - canvasRect.left,
+          y: e.clientY - canvasRect.top
+        }
+      });
+      // Focus vào input ngay khi hiển thị
+      setTimeout(() => {
+        const input = document.querySelector('.chart-text-input');
+        if (input) input.focus();
+      }, 0);
+      return;
+    }
+
     if (activeTool === 'eraser') {
       setIsErasing(true);
       // Tìm và xóa drawing gần nhất với điểm click
@@ -383,10 +407,6 @@ const CandlestickChart = ({ stockCode, data }) => {
         setDrawings(newDrawings);
         redrawAllDrawings();
       }
-    } else if (activeTool === 'text') {
-      setTextInputPosition(point);
-      setShowTextInput(true);
-      setTextInputValue('');
     } else if (activeTool === 'brush') {
       setIsDrawing(true);
       setBrushPath([point]);
@@ -502,36 +522,62 @@ const CandlestickChart = ({ stockCode, data }) => {
     setCurrentPoint(null);
   };
 
-  // Thêm hàm xử lý submit text
-  const handleTextSubmit = () => {
-    if (!textInputValue.trim()) return;
-    
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.font = '14px Arial';
-    ctx.fillStyle = selectedColor;
-    ctx.fillText(textInputValue, textInputPosition.x, textInputPosition.y);
-    
-    setAnnotations([
-      ...annotations,
-      {
-        text: textInputValue,
-        position: textInputPosition,
-        color: selectedColor
-      }
-    ]);
-    
-    setShowTextInput(false);
-    setTextInputValue('');
+  // Xử lý click để thêm text
+  const handleChartClick = (e) => {
+    if (activeTool === 'text') {
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      setTextInput({
+        show: true,
+        value: '',
+        position: { x, y }
+      });
+    }
   };
 
-  // Cập nhật hàm xử lý phím
-  const handleTextInputKeyDown = (e) => {
+  // Xử lý khi text thay đổi
+  const handleTextChange = (e) => {
+    setTextInput(prev => ({
+      ...prev,
+      value: e.target.value
+    }));
+  };
+
+  // Xử lý khi nhấn Enter hoặc click ra ngoài
+  const handleTextSubmit = () => {
+    if (textInput.value.trim()) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.font = '14px Arial';
+      ctx.fillStyle = selectedColor;
+      ctx.fillText(textInput.value, textInput.position.x, textInput.position.y);
+      
+      setAnnotations(prev => [...prev, {
+        text: textInput.value,
+        position: textInput.position,
+        color: selectedColor
+      }]);
+    }
+    
+    setTextInput({
+      show: false,
+      value: '',
+      position: { x: 0, y: 0 }
+    });
+  };
+
+  // Xử lý phím tắt
+  const handleTextKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleTextSubmit();
     } else if (e.key === 'Escape') {
-      setShowTextInput(false);
-      setTextInputValue('');
+      setTextInput({
+        show: false,
+        value: '',
+        position: { x: 0, y: 0 }
+      });
     }
   };
 
@@ -571,87 +617,85 @@ const CandlestickChart = ({ stockCode, data }) => {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    const isDarkMode = document.documentElement.classList.contains('dark');
+    const isDark = document.documentElement.classList.contains('dark');
 
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       layout: {
-        background: { type: 'solid', color: isDarkMode ? '#131722' : '#ffffff' },
-        textColor: isDarkMode ? '#a9a9a9' : '#333333',
-        fontSize: 12,
+        background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
+        textColor: isDark ? '#d1d4dc' : '#333333',
       },
       grid: {
-        vertLines: { color: isDarkMode ? '#2a2e39' : '#e6e6e6' },
-        horzLines: { color: isDarkMode ? '#2a2e39' : '#e6e6e6' },
+        vertLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+        horzLines: { color: isDark ? '#1e222d' : '#e9ecef' },
       },
       crosshair: {
-        mode: 1,
+        mode: CrosshairMode.Normal,
         vertLine: {
           width: 1,
-          color: isDarkMode ? '#4e5b71' : '#758696',
-          style: 2,
+          color: '#9B7DFF',
+          style: LineStyle.Dashed,
         },
         horzLine: {
           width: 1,
-          color: isDarkMode ? '#4e5b71' : '#758696',
-          style: 2,
-        },
-      },
-      timeScale: {
-        borderColor: isDarkMode ? '#2a2e39' : '#e6e6e6',
-        timeVisible: true,
-        secondsVisible: false,
-        tickMarkFormatter: (time) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
+          color: '#9B7DFF',
+          style: LineStyle.Dashed,
         },
       },
       rightPriceScale: {
-        borderColor: isDarkMode ? '#2a2e39' : '#e6e6e6',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
+        borderColor: isDark ? '#1e222d' : '#e9ecef',
+      },
+      timeScale: {
+        borderColor: isDark ? '#1e222d' : '#e9ecef',
       },
     });
-
-    // Add event listener for theme changes
-    const handleThemeChange = () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      chart.applyOptions({
-        layout: {
-          background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
-          textColor: isDark ? '#a9a9a9' : '#333333',
-        },
-        grid: {
-          vertLines: { color: isDark ? '#2a2e39' : '#e6e6e6' },
-          horzLines: { color: isDark ? '#2a2e39' : '#e6e6e6' },
-        },
-        crosshair: {
-          vertLine: { color: isDark ? '#4e5b71' : '#758696' },
-          horzLine: { color: isDark ? '#4e5b71' : '#758696' },
-        },
-        timeScale: {
-          borderColor: isDark ? '#2a2e39' : '#e6e6e6',
-        },
-        rightPriceScale: {
-          borderColor: isDark ? '#2a2e39' : '#e6e6e6',
-        },
-      });
-    };
 
     // Watch for theme changes
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === 'class') {
-          handleThemeChange();
+          const isDark = document.documentElement.classList.contains('dark');
+          chart.applyOptions({
+            layout: {
+              background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
+              textColor: isDark ? '#d1d4dc' : '#333333',
+            },
+            grid: {
+              vertLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+              horzLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+            },
+            crosshair: {
+              mode: CrosshairMode.Normal,
+              vertLine: {
+                width: 1,
+                color: '#9B7DFF',
+                style: LineStyle.Dashed,
+              },
+              horzLine: {
+                width: 1,
+                color: '#9B7DFF',
+                style: LineStyle.Dashed,
+              },
+            },
+            rightPriceScale: {
+              borderColor: isDark ? '#1e222d' : '#e9ecef',
+            },
+            timeScale: {
+              borderColor: isDark ? '#1e222d' : '#e9ecef',
+            },
+          });
+
+          // Update candlestick series colors
+          if (candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.applyOptions({
+              upColor: isDark ? '#26a69a' : '#26a69a',
+              downColor: isDark ? '#ef5350' : '#ef5350',
+              wickUpColor: isDark ? '#26a69a' : '#26a69a', 
+              wickDownColor: isDark ? '#ef5350' : '#ef5350',
+              borderVisible: false,
+            });
+          }
         }
       });
     });
@@ -669,6 +713,19 @@ const CandlestickChart = ({ stockCode, data }) => {
       wickDownColor: '#ef5350',
     });
 
+    // Add volume series
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '',
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
 
@@ -676,6 +733,11 @@ const CandlestickChart = ({ stockCode, data }) => {
       const formattedData = formatAndSortData(data);
       try {
         candlestickSeries.setData(formattedData);
+        volumeSeries.setData(formattedData.map(item => ({
+          time: item.time,
+          value: item.volume,
+          color: item.close >= item.open ? '#26a69a80' : '#ef535080'
+        })));
         chart.timeScale().fitContent();
       } catch (error) {
         console.error('Error setting chart data:', error);
@@ -718,6 +780,11 @@ const CandlestickChart = ({ stockCode, data }) => {
       const formattedData = formatAndSortData(data);
       try {
         candlestickSeriesRef.current.setData(formattedData);
+        volumeSeriesRef.current.setData(formattedData.map(item => ({
+          time: item.time,
+          value: item.volume,
+          color: item.close >= item.open ? '#26a69a80' : '#ef535080'
+        })));
         chartRef.current.timeScale().fitContent();
       } catch (error) {
         console.error('Error updating chart data:', error);
@@ -808,7 +875,10 @@ const CandlestickChart = ({ stockCode, data }) => {
           ))}
         </div>
       </div>
-      <div className="relative flex-1 ml-8">
+      <div 
+        className="relative flex-1 ml-8"
+        onClick={handleChartClick}
+      >
         <div 
           ref={chartContainerRef} 
           className="w-full h-full"
@@ -838,19 +908,38 @@ const CandlestickChart = ({ stockCode, data }) => {
             }
           }}
         />
-        {showTextInput && (
-          <input
-            type="text"
-            value={textInputValue}
-            onChange={(e) => setTextInputValue(e.target.value)}
-            onKeyDown={handleTextInputKeyDown}
-            className="absolute bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm"
-            style={{
-              left: textInputPosition.x + 'px',
-              top: textInputPosition.y + 'px',
-            }}
-            autoFocus
-          />
+        {textInput.show && (
+          <div className="absolute flex items-center gap-2" style={{
+            left: textInput.position.x + 'px',
+            top: textInput.position.y + 'px',
+            zIndex: 999,
+          }}>
+            <input
+              type="text"
+              value={textInput.value}
+              onChange={handleTextChange}
+              onKeyDown={handleTextKeyDown}
+              onBlur={(e) => {
+                // Chỉ ẩn input khi click ra ngoài cả container
+                if (!e.relatedTarget || !e.relatedTarget.closest('.text-input-container')) {
+                  handleTextSubmit();
+                }
+              }}
+              className="bg-white dark:bg-[#1e222d] text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
+              style={{
+                minWidth: '100px',
+                outline: 'none'
+              }}
+              autoFocus
+              placeholder="Nhập text..."
+            />
+            <button
+              onClick={handleTextSubmit}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            >
+              Thêm
+            </button>
+          </div>
         )}
       </div>
     </div>
