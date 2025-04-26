@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock, Bell, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -11,6 +11,9 @@ import signalRService from '@/api/signalRService';
 import moment from 'moment';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
@@ -72,6 +75,15 @@ const WatchlistPage = () => {
 
   // Thêm state cho trạng thái đang xóa cổ phiếu
   const [isDeletingStock, setIsDeletingStock] = useState(false);
+
+  // Add new state for notification dialog
+  const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
+  const [selectedNotificationStock, setSelectedNotificationStock] = useState(null);
+  const [notificationData, setNotificationData] = useState({
+    price: '',
+    type: 'increase'
+  });
+  const [isCreatingNotification, setIsCreatingNotification] = useState(false);
 
   // Add function to refresh industries data
   const refreshIndustries = () => {
@@ -1170,6 +1182,120 @@ const WatchlistPage = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Add function to handle notification creation
+  const handleCreateNotification = (stock) => {
+    setSelectedNotificationStock(stock);
+    setNotificationData({
+      price: '',
+      type: 'increase'
+    });
+    setIsNotificationDialogOpen(true);
+  };
+
+  // Add function to validate notification price
+  const validateNotificationPrice = (price) => {
+    if (!price || isNaN(price) || price <= 0) {
+      toast.error("Vui lòng nhập giá hợp lệ lớn hơn 0");
+      return false;
+    }
+
+    const currentPrice = parseFloat(selectedNotificationStock?.matchPrice);
+    if (isNaN(currentPrice)) {
+      toast.error("Không thể lấy được giá hiện tại của cổ phiếu");
+      return false;
+    }
+
+    if (notificationData.type === "increase") {
+      if (parseFloat(price) <= currentPrice) {
+        toast.error(`Giá mục tiêu (${price}) phải cao hơn giá hiện tại (${currentPrice})`);
+        return false;
+      }
+    } else {
+      if (parseFloat(price) >= currentPrice) {
+        toast.error(`Giá mục tiêu (${price}) phải thấp hơn giá hiện tại (${currentPrice})`);
+        return false;
+      }
+    }
+
+    // Validate with floor/ceil price
+    const ceilPrice = parseFloat(selectedNotificationStock?.ceilPrice);
+    const floorPrice = parseFloat(selectedNotificationStock?.floorPrice);
+    
+    if (!isNaN(ceilPrice) && parseFloat(price) > ceilPrice) {
+      toast.error(`Giá mục tiêu không được vượt quá giá trần (${ceilPrice})`);
+      return false;
+    }
+    
+    if (!isNaN(floorPrice) && parseFloat(price) < floorPrice) {
+      toast.error(`Giá mục tiêu không được thấp hơn giá sàn (${floorPrice})`);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Update handleSubmitNotification with validation
+  const handleSubmitNotification = async () => {
+    try {
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để tạo thông báo");
+        return;
+      }
+
+      if (!notificationData.price) {
+        toast.error("Vui lòng nhập giá mục tiêu");
+        return;
+      }
+
+      // Add price validation
+      if (!validateNotificationPrice(notificationData.price)) {
+        return;
+      }
+
+      setIsCreatingNotification(true);
+
+      const data = {
+        tickerSymbol: selectedNotificationStock.stockCode,
+        userId: userId,
+        price: parseFloat(notificationData.price),
+        type: notificationData.type
+      };
+
+      const response = await stockService.createNotification(data);
+      toast.success(response?.value?.data || "Tạo thông báo thành công");
+      setIsNotificationDialogOpen(false);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      toast.error("Không thể tạo thông báo: " + (error.message || "Vui lòng thử lại sau"));
+    } finally {
+      setIsCreatingNotification(false);
+    }
+  };
+
+  // Update the Input component to show current price
+  <div className="grid gap-2">
+    <Label htmlFor="price">Giá mục tiêu</Label>
+    <div className="space-y-2">
+      <Input
+        id="price"
+        type="number"
+        value={notificationData.price}
+        onChange={(e) => setNotificationData(prev => ({ ...prev, price: e.target.value }))}
+        className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
+        placeholder="Nhập giá mục tiêu"
+      />
+      <div className="text-sm text-gray-500 dark:text-[#666] flex items-center justify-between">
+        <span>Giá hiện tại: {selectedNotificationStock?.matchPrice}</span>
+        <div className="flex gap-2">
+          <span>Giá trần: {selectedNotificationStock?.ceilPrice}</span>
+          <span>Giá sàn: {selectedNotificationStock?.floorPrice}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   // Update the Chart Dialog content
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-screen">
@@ -1426,15 +1552,24 @@ const WatchlistPage = () => {
                               <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignBuyVolume)}</td>
                               <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignSellVolume)}</td>
                               <td className="text-center py-1">
-                                <button
-                                  onClick={() => removeFromWatchlist(stock)}
-                                  className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
-                                  title="Xóa khỏi danh sách theo dõi"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => removeFromWatchlist(stock)}
+                                    className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                                    title="Xóa khỏi danh sách theo dõi"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleCreateNotification(stock)}
+                                    className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
+                                    title="Tạo thông báo"
+                                  >
+                                    <Bell className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           )) : (
@@ -2093,6 +2228,90 @@ const WatchlistPage = () => {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Notification Dialog */}
+      <Dialog open={isNotificationDialogOpen} onOpenChange={setIsNotificationDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333]">
+          <DialogHeader>
+            <DialogTitle>Tạo thông báo giá</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Thiết lập thông báo khi giá cổ phiếu {selectedNotificationStock?.stockCode} đạt đến mức mong muốn
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="type">Loại thông báo</Label>
+              <Select
+                value={notificationData.type}
+                onValueChange={(value) => setNotificationData(prev => ({ ...prev, type: value }))}
+              >
+                <SelectTrigger className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
+                  <SelectValue placeholder="Chọn loại thông báo" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]">
+                  <SelectItem 
+                    value="increase" 
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
+                  >
+                    Khi giá tăng
+                  </SelectItem>
+                  <SelectItem 
+                    value="decrease" 
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
+                  >
+                    Khi giá giảm
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Giá mục tiêu</Label>
+              <div className="space-y-2">
+                <Input
+                  id="price"
+                  type="number"
+                  value={notificationData.price}
+                  onChange={(e) => setNotificationData(prev => ({ ...prev, price: e.target.value }))}
+                  className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
+                  placeholder="Nhập giá mục tiêu"
+                />
+                <div className="text-sm text-gray-500 dark:text-[#666] flex items-center justify-between">
+                  <span>Giá hiện tại: {selectedNotificationStock?.matchPrice}</span>
+                  <div className="flex gap-2">
+                    <span>Giá trần: {selectedNotificationStock?.ceilPrice}</span>
+                    <span>Giá sàn: {selectedNotificationStock?.floorPrice}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNotificationDialogOpen(false)}
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSubmitNotification}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
+              disabled={isCreatingNotification}
+            >
+              {isCreatingNotification ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang tạo...
+                </>
+              ) : (
+                'Tạo thông báo'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

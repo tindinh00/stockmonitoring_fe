@@ -147,14 +147,14 @@ const ForecastPage = () => {
     switch (type) {
       case 'percentage':
         formattedValue = value ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%` : '--';
-        color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        color = value > 0 ? 'text-emerald-500 dark:text-emerald-400' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
         break;
       case 'price':
         formattedValue = value ? value.toFixed(2) : '--';
         break;
       case 'trend':
         switch (value) {
-          case 'Xu hướng tăng': color = 'text-[#00FF00]'; break;
+          case 'Xu hướng tăng': color = 'text-emerald-500 dark:text-emerald-400'; break;
           case 'Xu hướng giảm': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
@@ -162,7 +162,7 @@ const ForecastPage = () => {
       case 'recommendation':
         switch (value) {
           case 'Nên mua':
-          case 'Nên mua mạnh': color = 'text-[#00FF00]'; break;
+          case 'Nên mua mạnh': color = 'text-emerald-500 dark:text-emerald-400'; break;
           case 'Nên bán': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
@@ -453,11 +453,11 @@ const ForecastPage = () => {
                         <div className="flex justify-center">
                           <Badge className={`${
                             stock.trend === 'Xu hướng tăng'
-                              ? 'bg-[#002108] text-[#00FF00]'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.trend === 'Xu hướng giảm'
-                              ? 'bg-[#290000] text-[#FF4A4A]'
-                              : 'bg-[#252525] text-[#F4BE37]'
-                          }`}>
+                              ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
+                              : 'bg-yellow-100 hover:bg-yellow-200 dark:bg-[#252525] dark:hover:bg-[#333333] text-yellow-600 dark:text-[#F4BE37]'
+                          } transition-colors duration-200`}>
                             {stock.trend}
                           </Badge>
                         </div>
@@ -465,7 +465,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextDayChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextDayChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextDayChange > 0 ? '+' : ''}
                             {stock.nextDayChange.toFixed(2)}%
@@ -475,7 +475,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextWeekChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextWeekChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextWeekChange > 0 ? '+' : ''}
                             {stock.nextWeekChange.toFixed(2)}%
@@ -485,7 +485,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextMonthChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextMonthChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextMonthChange > 0 ? '+' : ''}
                             {stock.nextMonthChange.toFixed(2)}%
@@ -495,7 +495,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextQuarterChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextQuarterChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextQuarterChange > 0 ? '+' : ''}
                             {stock.nextQuarterChange.toFixed(2)}%
@@ -506,11 +506,11 @@ const ForecastPage = () => {
                         <div className="flex justify-center">
                           <Badge className={`${
                             stock.recommendation.includes('mua')
-                              ? 'bg-[#002108] text-[#00FF00]'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.recommendation === 'Nên bán'
-                              ? 'bg-[#290000] text-[#FF4A4A]'
-                              : 'bg-[#252525] text-[#F4BE37]'
-                          }`}>
+                              ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
+                              : 'bg-yellow-100 hover:bg-yellow-200 dark:bg-[#252525] dark:hover:bg-[#333333] text-yellow-600 dark:text-[#F4BE37]'
+                          } transition-colors duration-200`}>
                             {stock.recommendation}
                           </Badge>
                         </div>

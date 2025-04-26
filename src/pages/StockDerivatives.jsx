@@ -1316,35 +1316,67 @@ export default function StockDerivatives() {
     }
   };
 
-  // Thêm hàm xử lý lưu cài đặt thông báo giá
-  const handleSavePriceAlert = async () => {
-    if (!alertPrice || isNaN(alertPrice)) {
+  // Add validation function before handleSavePriceAlert
+  const validateNotificationPrice = (price, stock, type) => {
+    // Check if price is empty or not a number
+    if (!price || isNaN(price)) {
       toast.error('Vui lòng nhập giá hợp lệ');
-      return;
+      return false;
     }
 
-    const price = parseFloat(alertPrice);
-    const currentPrice = parseFloat(selectedAlertStock.matchPrice);
+    // Convert price to number for comparison
+    const targetPrice = parseFloat(price);
+    const currentPrice = parseFloat(stock.matchPrice);
+    const ceilingPrice = parseFloat(stock.ceiling);
+    const floorPrice = parseFloat(stock.floor);
 
-    // Kiểm tra logic giá cảnh báo
-    if (alertType === 'above' && price < currentPrice) {
-      toast.error('Giá cảnh báo phải bằng hoặc cao hơn giá hiện tại');
-      return;
+    // Basic validation
+    if (targetPrice <= 0) {
+      toast.error('Giá phải lớn hơn 0');
+      return false;
     }
 
-    if (alertType === 'below' && price > currentPrice) {
-      toast.error('Giá cảnh báo phải bằng hoặc thấp hơn giá hiện tại');
-      return;
+    // Validate against current price
+    if (type === 'above' && targetPrice <= currentPrice) {
+      toast.error('Giá mục tiêu phải cao hơn giá hiện tại');
+      return false;
     }
 
+    if (type === 'below' && targetPrice >= currentPrice) {
+      toast.error('Giá mục tiêu phải thấp hơn giá hiện tại');
+      return false;
+    }
+
+    // Validate against ceiling and floor prices
+    if (targetPrice > ceilingPrice) {
+      toast.error('Giá mục tiêu không được vượt quá giá trần');
+      return false;
+    }
+
+    if (targetPrice < floorPrice) {
+      toast.error('Giá mục tiêu không được thấp hơn giá sàn');
+      return false;
+    }
+
+    return true;
+  };
+
+  // Update handleSavePriceAlert function
+  const handleSavePriceAlert = async () => {
     try {
+      // Validate price before proceeding
+      if (!validateNotificationPrice(alertPrice, selectedAlertStock, alertType)) {
+        return;
+      }
+
       setIsSubmittingAlert(true);
-      // Gọi API tạo cảnh báo giá
+      
+      // Convert alertType to API format
       const alertTypeApi = alertType === 'above' ? 'increase' : 'decrease';
       
       const result = await apiService.createPriceAlert(
         selectedAlertStock.code.toUpperCase(),
-        price,
+        parseFloat(alertPrice),
         alertTypeApi
       );
       
@@ -1779,9 +1811,9 @@ export default function StockDerivatives() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label className="text-right text-sm">Giá</label>
-              <div className="col-span-3">
+            <div className="grid grid-cols-4 items-start gap-4">
+              <label className="text-right text-sm pt-2">Giá</label>
+              <div className="col-span-3 space-y-2">
                 <Input
                   type="number"
                   step="0.01"
@@ -1791,6 +1823,12 @@ export default function StockDerivatives() {
                   placeholder={`Giá hiện tại: ${selectedAlertStock?.matchPrice}`}
                   disabled={isSubmittingAlert}
                 />
+                {/* Price information in single line */}
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Giá hiện tại: <span className={`${getPriceColor(selectedAlertStock?.matchPrice, selectedAlertStock?.ref, selectedAlertStock?.ceiling, selectedAlertStock?.floor)}`}>{selectedAlertStock?.matchPrice}</span> | 
+                  Giá trần: <span className="text-[#B388FF]">{selectedAlertStock?.ceiling}</span> | 
+                  Giá sàn: <span className="text-[#00BCD4]">{selectedAlertStock?.floor}</span>
+                </div>
               </div>
             </div>
           </div>

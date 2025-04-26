@@ -876,13 +876,13 @@ const NotificationsPage = () => {
             />
             <TabsTrigger 
               value="active" 
-              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-gray-500 dark:text-[#666] hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tl-lg"
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white data-[state=active]:font-medium text-gray-500 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tl-lg"
             >
               Lệnh đang theo dõi
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
-              className="flex-1 h-12 relative z-10 data-[state=active]:text-white text-gray-500 dark:text-[#666] hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tr-lg"
+              className="flex-1 h-12 relative z-10 data-[state=active]:text-white data-[state=active]:font-medium text-gray-500 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors duration-300 data-[state=active]:bg-transparent rounded-tr-lg"
             >
               Lịch sử thông báo
             </TabsTrigger>
@@ -901,7 +901,7 @@ const NotificationsPage = () => {
                   </div>
                   <Button
                     onClick={fetchNotifications}
-                    className="bg-gray-100 dark:bg-[#1a1a1a] hover:bg-gray-200 dark:hover:bg-[#252525] text-gray-900 dark:text-white px-4 py-2 rounded-lg border border-gray-200 dark:border-[#333]"
+                    className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-900 dark:text-white px-4 py-2 rounded-lg"
                     disabled={isLoading}
                   >
                     {isLoading ? (

@@ -406,41 +406,96 @@ const PersonalAnalyticsPage = () => {
             </div>
           </div>
           
-          <div className="p-4 overflow-x-auto">
-            <table className="w-full border-collapse min-w-full">
-              <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0">
-                <tr>
-                  {renderHeaderCell('ticketSymbol', 'Mã CK')}
-                  {renderHeaderCell('weight', 'Trọng số (%)', 'Trọng số của cổ phiếu trong danh mục')}
-                  {renderHeaderCell('stockReturn', 'Lợi nhuận', 'Tỷ suất sinh lời của cổ phiếu')}
-                  {renderHeaderCell('returnWeight', 'TS Lợi nhuận', 'Trọng số lợi nhuận')}
-                  {renderHeaderCell('beta', 'Beta', 'Hệ số Beta - Đo lường độ biến động so với thị trường')}
-                  {renderHeaderCell('betaWeight', 'TS Beta', 'Trọng số Beta')}
-                  {renderHeaderCell('returnLevel', 'Mức sinh lời', 'Đánh giá mức độ sinh lời')}
-                  {renderHeaderCell('riskLevel', 'Mức độ rủi ro', 'Đánh giá mức độ rủi ro')}
-                  {renderHeaderCell('recommendation', 'Khuyến nghị', 'Khuyến nghị dựa trên phân tích')}
-                </tr>
-              </thead>
-              <tbody className="bg-gray-50 dark:bg-[#0a0a14]">
-                {getCurrentPageData().map((stock) => (
-                  <tr key={stock.id} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#333]">
-                    <td className="px-3 py-3 font-medium text-gray-900 dark:text-white text-center">{stock.ticketSymbol}</td>
-                    <td className="px-3 py-3 text-gray-900 dark:text-white text-center">{stock.weight.toFixed(2)}%</td>
-                    {renderValueCell(stock, 'stockReturn', 'percentage')}
-                    {renderValueCell(stock, 'returnWeight', 'percentage')}
-                    {renderValueCell(stock, 'beta', 'beta')}
-                    {renderValueCell(stock, 'betaWeight', 'betaWeight')}
-                    {renderValueCell(stock, 'returnLevel', 'returnLevel')}
-                    {renderValueCell(stock, 'riskLevel', 'riskLevel')}
-                    {renderValueCell(stock, 'recommendation', 'recommendation')}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {/* Phân trang */}
-            {stocks.length > 0 && <Pagination />}
+          <div className="overflow-x-auto">
+            <div className="min-w-full inline-block align-middle">
+              <div className="overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-[#333] table-fixed">
+                  <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0">
+                    <tr>
+                      <th className="w-[8%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Mã CK</span>
+                          {getSortIcon('ticketSymbol')}
+                        </div>
+                      </th>
+                      <th className="w-[10%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Trọng số (%)</span>
+                          {getSortIcon('weight')}
+                          <div className="relative group">
+                            <Info className="h-4 w-4 text-gray-400 dark:text-[#666] opacity-70" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-gray-700 dark:bg-[#333] rounded-md text-xs text-white w-48 invisible group-hover:visible z-10">
+                              Trọng số của cổ phiếu trong danh mục
+                            </div>
+                          </div>
+                        </div>
+                      </th>
+                      <th className="w-[10%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Lợi nhuận</span>
+                          {getSortIcon('stockReturn')}
+                        </div>
+                      </th>
+                      <th className="w-[12%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>TS Lợi nhuận</span>
+                          {getSortIcon('returnWeight')}
+                        </div>
+                      </th>
+                      <th className="w-[10%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Beta</span>
+                          {getSortIcon('beta')}
+                        </div>
+                      </th>
+                      <th className="w-[10%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>TS Beta</span>
+                          {getSortIcon('betaWeight')}
+                        </div>
+                      </th>
+                      <th className="w-[12%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Mức sinh lời</span>
+                          {getSortIcon('returnLevel')}
+                        </div>
+                      </th>
+                      <th className="w-[13%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Mức độ rủi ro</span>
+                          {getSortIcon('riskLevel')}
+                        </div>
+                      </th>
+                      <th className="w-[15%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Khuyến nghị</span>
+                          {getSortIcon('recommendation')}
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-gray-50 dark:bg-[#0a0a14] divide-y divide-gray-200 dark:divide-[#333]">
+                    {getCurrentPageData().map((stock) => (
+                      <tr key={stock.id} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
+                        <td className="px-3 py-3 whitespace-nowrap font-medium text-gray-900 dark:text-white text-center">{stock.ticketSymbol}</td>
+                        <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-white text-center">{stock.weight.toFixed(2)}%</td>
+                        {renderValueCell(stock, 'stockReturn', 'percentage')}
+                        {renderValueCell(stock, 'returnWeight', 'percentage')}
+                        {renderValueCell(stock, 'beta', 'beta')}
+                        {renderValueCell(stock, 'betaWeight', 'betaWeight')}
+                        {renderValueCell(stock, 'returnLevel', 'returnLevel')}
+                        {renderValueCell(stock, 'riskLevel', 'riskLevel')}
+                        {renderValueCell(stock, 'recommendation', 'recommendation')}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
+          
+          {/* Phân trang */}
+          {stocks.length > 0 && <Pagination />}
         </div>
         
         <div className="mt-6 text-sm text-gray-500 dark:text-[#666] px-4">

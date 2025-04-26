@@ -23,6 +23,7 @@ const ChatPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isWithinSupportHours, setIsWithinSupportHours] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [currentRoomId, setCurrentRoomId] = useState(null);
@@ -215,6 +216,32 @@ const ChatPage = () => {
     };
   }, [currentRoomId, userId]);
 
+  // Check if current time is within support hours
+  const checkSupportHours = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+    
+    // Support hours: 8:00 - 17:00
+    return currentTime >= 8 && currentTime < 17;
+  };
+
+  // Update support hours status every minute
+  useEffect(() => {
+    const updateSupportStatus = () => {
+      setIsWithinSupportHours(checkSupportHours());
+    };
+
+    // Check initially
+    updateSupportStatus();
+
+    // Update every minute
+    const interval = setInterval(updateSupportStatus, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -331,8 +358,10 @@ const ChatPage = () => {
         <div className="space-y-2">
           <div className="bg-white dark:bg-[#1C1C28] rounded-lg p-3">
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-[#26A65B] rounded-full"></div>
-              <span className="text-sm text-gray-900 dark:text-white">Đang hoạt động</span>
+              <div className={`w-2 h-2 rounded-full ${isWithinSupportHours ? 'bg-[#26A65B]' : 'bg-gray-400'}`}></div>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {isWithinSupportHours ? 'Đang hoạt động' : 'Ngoài giờ hỗ trợ'}
+              </span>
             </div>
           </div>
           
@@ -356,9 +385,9 @@ const ChatPage = () => {
             <div>
               <h3 className="text-sm text-left font-medium text-gray-900 dark:text-white">Hỗ trợ viên</h3>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-[#26A65B]">Đang hoạt động</p>
-                <span className="text-xs text-gray-400 dark:text-[#808191]">·</span>
-                <p className="text-xs text-gray-400 dark:text-[#808191]">ID của bạn: {userId}</p>
+                <p className={`text-xs ${isWithinSupportHours ? 'text-[#26A65B]' : 'text-gray-400'}`}>
+                  {isWithinSupportHours ? 'Đang hoạt động' : 'Ngoài giờ hỗ trợ'}
+                </p>
               </div>
             </div>
           </div>
