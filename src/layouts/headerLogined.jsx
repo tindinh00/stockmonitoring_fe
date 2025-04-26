@@ -65,6 +65,14 @@ export default function HeaderLogined() {
   // Function to check if current time is within trading hours
   const checkTradingHours = () => {
     const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sunday, 6 is Saturday
+
+    // Check if it's weekend first
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      setIsTradingHours(false);
+      return;
+    }
+
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentTime = hours * 60 + minutes; // Convert to minutes since midnight

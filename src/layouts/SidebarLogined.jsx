@@ -176,7 +176,7 @@ export function CustomSidebarTrigger() {
 
 // Add state for feature message
 export default function SidebarLogined() {
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, setOpen } = useSidebar();
   const location = useLocation();
   const pathname = location.pathname;
   const { user, logout, isAuthenticated } = useAuth();
@@ -188,6 +188,16 @@ export default function SidebarLogined() {
   const { hasFeature, hasMenuAccess } = useFeatureStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState("");
+
+  // Initialize sidebar state from cookie only once when component mounts
+  useEffect(() => {
+    const cookies = document.cookie.split(';');
+    const sidebarCookie = cookies.find(cookie => cookie.trim().startsWith('sidebar_state='));
+    if (sidebarCookie) {
+      const savedState = sidebarCookie.split('=')[1] === 'true';
+      setOpen(savedState);
+    }
+  }, []); // Empty dependency array means this runs only once on mount
 
   // Debug log to check features
   useEffect(() => {
@@ -467,10 +477,7 @@ export default function SidebarLogined() {
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="bg-white dark:bg-black">
-          {/* Removed user dropdown menu */}
-        </SidebarFooter>
-        <SidebarRail className="bg-gray-100 dark:bg-gray-900" />
+        <SidebarRail />
       </Sidebar>
       
       {/* Feature Message Dialog */}

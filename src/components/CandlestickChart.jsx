@@ -7,7 +7,7 @@ const CandlestickChart = ({ stockCode, data }) => {
   const candlestickSeriesRef = useRef(null);
   const canvasRef = useRef(null);
   const [activeTool, setActiveTool] = useState('cursor');
-  const [selectedColor, setSelectedColor] = useState('#ffffff');
+  const [selectedColor, setSelectedColor] = useState(document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000');
   const [drawings, setDrawings] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState(null);
@@ -19,15 +19,20 @@ const CandlestickChart = ({ stockCode, data }) => {
   const [showLineTools, setShowLineTools] = useState(false);
   const [lineToolsPosition, setLineToolsPosition] = useState({ x: 0, y: 0 });
 
+  // State to store notifications
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+
   // Danh sách màu sắc
   const colorOptions = [
-    '#ffffff', // Trắng
+    document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000', // Trắng/Đen
     '#00C9FF', // Xanh dương
     '#26a69a', // Xanh lá
     '#ef5350', // Đỏ
     '#F4BE37', // Vàng
     '#FF9800', // Cam
-    '#E040FB'  // Tím
   ];
 
   // Định nghĩa các nhóm công cụ
@@ -64,15 +69,34 @@ const CandlestickChart = ({ stockCode, data }) => {
   // Format dữ liệu và sắp xếp theo thời gian
   const formatAndSortData = (rawData) => {
     if (!rawData || rawData.length === 0) return [];
-    return rawData
+    
+    // Tạo Map để lưu trữ dữ liệu theo timestamp, tự động loại bỏ trùng lặp
+    const dataMap = new Map();
+    
+    rawData.forEach(item => {
+      // Nếu đã có dữ liệu cho timestamp này, chỉ cập nhật nếu dữ liệu mới hơn
+      if (!dataMap.has(item.time) || item.time > dataMap.get(item.time).time) {
+        dataMap.set(item.time, {
+          time: item.time,
+          open: parseFloat(item.open),
+          high: parseFloat(item.high),
+          low: parseFloat(item.low),
+          close: parseFloat(item.close),
+        });
+      }
+    });
+    
+    // Chuyển Map thành mảng và sắp xếp theo thời gian tăng dần
+    return Array.from(dataMap.values())
+      .sort((a, b) => a.time - b.time)
       .map(item => ({
-        time: item.time,
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      }))
-      .sort((a, b) => a.time - b.time);
+        ...item,
+        // Đảm bảo các giá trị là số
+        open: Number(item.open),
+        high: Number(item.high),
+        low: Number(item.low),
+        close: Number(item.close),
+      }));
   };
 
   // Toggle chart interaction
@@ -517,7 +541,7 @@ const CandlestickChart = ({ stockCode, data }) => {
       // Lấy vị trí của button để hiển thị dialog
       const rect = event.currentTarget.getBoundingClientRect();
       setLineToolsPosition({ 
-        x: rect.right + 5, 
+        x: rect.width + 2, 
         y: rect.top 
       });
       setShowLineTools(true);
@@ -547,33 +571,35 @@ const CandlestickChart = ({ stockCode, data }) => {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    const isDarkMode = document.documentElement.classList.contains('dark');
+
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       layout: {
-        background: { color: '#131722' },
-        textColor: '#a9a9a9',
+        background: { type: 'solid', color: isDarkMode ? '#131722' : '#ffffff' },
+        textColor: isDarkMode ? '#a9a9a9' : '#333333',
         fontSize: 12,
       },
       grid: {
-        vertLines: { color: '#2a2e39' },
-        horzLines: { color: '#2a2e39' },
+        vertLines: { color: isDarkMode ? '#2a2e39' : '#e6e6e6' },
+        horzLines: { color: isDarkMode ? '#2a2e39' : '#e6e6e6' },
       },
       crosshair: {
         mode: 1,
         vertLine: {
           width: 1,
-          color: '#4e5b71',
+          color: isDarkMode ? '#4e5b71' : '#758696',
           style: 2,
         },
         horzLine: {
           width: 1,
-          color: '#4e5b71',
+          color: isDarkMode ? '#4e5b71' : '#758696',
           style: 2,
         },
       },
       timeScale: {
-        borderColor: '#2a2e39',
+        borderColor: isDarkMode ? '#2a2e39' : '#e6e6e6',
         timeVisible: true,
         secondsVisible: false,
         tickMarkFormatter: (time) => {
@@ -588,12 +614,51 @@ const CandlestickChart = ({ stockCode, data }) => {
         },
       },
       rightPriceScale: {
-        borderColor: '#2a2e39',
+        borderColor: isDarkMode ? '#2a2e39' : '#e6e6e6',
         scaleMargins: {
           top: 0.1,
           bottom: 0.1,
         },
       },
+    });
+
+    // Add event listener for theme changes
+    const handleThemeChange = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      chart.applyOptions({
+        layout: {
+          background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
+          textColor: isDark ? '#a9a9a9' : '#333333',
+        },
+        grid: {
+          vertLines: { color: isDark ? '#2a2e39' : '#e6e6e6' },
+          horzLines: { color: isDark ? '#2a2e39' : '#e6e6e6' },
+        },
+        crosshair: {
+          vertLine: { color: isDark ? '#4e5b71' : '#758696' },
+          horzLine: { color: isDark ? '#4e5b71' : '#758696' },
+        },
+        timeScale: {
+          borderColor: isDark ? '#2a2e39' : '#e6e6e6',
+        },
+        rightPriceScale: {
+          borderColor: isDark ? '#2a2e39' : '#e6e6e6',
+        },
+      });
+    };
+
+    // Watch for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          handleThemeChange();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -640,20 +705,9 @@ const CandlestickChart = ({ stockCode, data }) => {
 
     window.addEventListener('resize', handleResize);
 
-    // Thêm tooltip hiển thị giá
-    chart.subscribeCrosshairMove((param) => {
-      if (param.time && param.point && param.seriesData.size > 0) {
-        const data = param.seriesData.get(candlestickSeries);
-        if (data) {
-          const price = data.close;
-          const time = new Date(param.time * 1000).toLocaleString('vi-VN');
-          // Có thể thêm tooltip ở đây nếu cần
-        }
-      }
-    });
-
     return () => {
       window.removeEventListener('resize', handleResize);
+      observer.disconnect();
       chart.remove();
     };
   }, []);
@@ -679,86 +733,97 @@ const CandlestickChart = ({ stockCode, data }) => {
     }
   }, [selectedColor]);
 
+  // Theo dõi thay đổi theme để cập nhật màu vẽ
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (selectedColor === '#ffffff' || selectedColor === '#000000') {
+        setSelectedColor(isDark ? '#ffffff' : '#000000');
+      }
+    };
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          handleThemeChange();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, [selectedColor]);
+
   return (
     <div className="relative flex h-full">
-      {/* Toolbar */}
-      <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#1e222d] border-r border-[#2a2e39] z-20 flex flex-col items-center py-2 shadow-lg overflow-y-auto">
-        {/* Drawing Tools */}
-        <div className="space-y-1 w-full px-1">
-          {tools.map(tool => (
+      <div className="flex flex-col items-center w-8 bg-white dark:bg-[#131722] border-r border-gray-200 dark:border-gray-700">
+        {tools.map((tool) => (
+          <div key={tool.id} className="relative">
             <button
-              key={tool.id}
-              className={`w-10 h-10 flex items-center justify-center rounded transition-all duration-200 group relative ${
-                (activeTool === tool.id || (tool.isGroup && lineTools.some(t => t.id === activeTool)))
-                  ? 'bg-[#2962FF] text-white'
-                  : 'text-[#888] hover:bg-[#2a2e39] hover:text-white'
-              }`}
               onClick={(e) => handleToolClick(tool, e)}
+              className={`w-8 h-8 flex items-center justify-center text-base hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                (activeTool === tool.id || (tool.isGroup && lineTools.some(t => t.id === activeTool)))
+                  ? 'text-[#2962FF]' : 'text-black dark:text-white'
+              }`}
+              title={tool.tooltip}
             >
-              <span className="text-lg">{tool.icon}</span>
-              {/* Tooltip */}
-              <div className="absolute left-full ml-2 px-2 py-1 bg-[#1e222d] text-white text-xs whitespace-nowrap rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                {tool.tooltip}
-              </div>
+              {tool.icon}
             </button>
-          ))}
-        </div>
-
-        {/* Line Tools Dialog */}
-        {showLineTools && (
-          <div 
-            className="line-tools-dialog fixed bg-[#1e222d] border border-[#2a2e39] rounded shadow-lg py-1"
-            style={{ 
-              left: `${lineToolsPosition.x}px`, 
-              top: `${lineToolsPosition.y}px`,
-              zIndex: 1000
-            }}
-          >
-            {lineTools.map(tool => (
-              <button
-                key={tool.id}
-                className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-[#2a2e39] transition-colors ${
-                  activeTool === tool.id ? 'text-[#2962FF]' : 'text-white'
-                }`}
-                onClick={() => {
-                  setActiveTool(tool.id);
-                  setShowLineTools(false);
-                }}
+            {tool.isGroup && showLineTools && (
+              <div
+                className="line-tools-dialog absolute left-full top-0 z-50 bg-white dark:bg-[#131722] border border-gray-200 dark:border-gray-700 rounded shadow-lg"
+                style={{ left: '100%', top: '0' }}
               >
-                <span className="text-lg">{tool.icon}</span>
-                <span className="text-sm whitespace-nowrap">{tool.tooltip}</span>
-              </button>
-            ))}
+                {lineTools.map((lineTool) => (
+                  <button
+                    key={lineTool.id}
+                    onClick={() => {
+                      setActiveTool(lineTool.id);
+                      setShowLineTools(false);
+                    }}
+                    className="w-8 h-8 flex items-center justify-center text-base hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white"
+                    title={lineTool.tooltip}
+                  >
+                    {lineTool.icon}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Color Picker */}
-        <div className="mt-4 pt-4 border-t border-[#2a2e39] w-full px-2">
-          {colorOptions.map(color => (
-            <div
+        ))}
+        <div className="mt-2 flex flex-col items-center space-y-1">
+          {colorOptions.map((color) => (
+            <button
               key={color}
-              className={`w-8 h-8 mb-2 mx-auto rounded-full cursor-pointer transition-all duration-200 hover:scale-110 ${
-                selectedColor === color ? 'ring-2 ring-[#2962FF] ring-offset-2 ring-offset-[#1e222d]' : ''
+              onClick={() => setSelectedColor(color)}
+              className={`w-6 h-6 rounded-full ring-1 ring-offset-1 ${
+                selectedColor === color ? 'ring-[#2962FF]' : 'ring-gray-300 dark:ring-gray-600'
               }`}
               style={{ backgroundColor: color }}
-              onClick={() => setSelectedColor(color)}
             />
           ))}
         </div>
       </div>
-
-      {/* Chart Container */}
-      <div className="flex-1 ml-12 relative">
-        {/* Drawing Canvas Layer */}
+      <div className="relative flex-1 ml-8">
+        <div 
+          ref={chartContainerRef} 
+          className="w-full h-full"
+          style={{ 
+            position: 'relative',
+            zIndex: activeTool === 'cursor' ? 2 : 1
+          }}
+        />
         <canvas
           ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full z-10"
+          className="absolute top-0 left-0 w-full h-full"
           style={{
-            pointerEvents: activeTool === 'cursor' || activeTool === 'crosshair' ? 'none' : 'all',
-            opacity: activeTool === 'cursor' || activeTool === 'crosshair' ? 0 : 1,
-            transition: 'opacity 0.2s ease',
+            zIndex: activeTool === 'cursor' ? 1 : 2,
+            pointerEvents: activeTool === 'cursor' ? 'none' : 'all',
             cursor: activeTool === 'cursor' ? 'default' : 
-                   activeTool === 'crosshair' ? 'crosshair' : 
                    activeTool === 'text' ? 'text' : 'crosshair'
           }}
           onMouseDown={handleMouseDown}
@@ -773,52 +838,23 @@ const CandlestickChart = ({ stockCode, data }) => {
             }
           }}
         />
-        
-        {/* Text Input Dialog */}
         {showTextInput && (
-          <div 
-            className="absolute z-20 bg-[#1e222d] border border-[#2a2e39] rounded shadow-lg"
+          <input
+            type="text"
+            value={textInputValue}
+            onChange={(e) => setTextInputValue(e.target.value)}
+            onKeyDown={handleTextInputKeyDown}
+            className="absolute bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm"
             style={{
               left: textInputPosition.x + 'px',
               top: textInputPosition.y + 'px',
             }}
-          >
-            <div className="flex items-center p-2">
-              <input
-                type="text"
-                className="bg-[#131722] text-white border border-[#2a2e39] px-2 py-1 outline-none rounded mr-2 min-w-[200px]"
-                value={textInputValue}
-                onChange={(e) => setTextInputValue(e.target.value)}
-                onKeyDown={handleTextInputKeyDown}
-                placeholder="Nhập văn bản..."
-                autoFocus
-              />
-              <button
-                className="px-3 py-1 bg-[#2962FF] text-white rounded hover:bg-[#2451CC] transition-colors"
-                onClick={handleTextSubmit}
-              >
-                OK
-              </button>
-            </div>
-            <div className="text-[#666] text-xs px-2 pb-2">
-              Enter để xác nhận • Esc để hủy
-            </div>
-          </div>
+            autoFocus
+          />
         )}
-        
-        <div 
-          ref={chartContainerRef} 
-          className="w-full h-full"
-          style={{ 
-            cursor: activeTool === 'cursor' ? 'default' : 
-                   activeTool === 'crosshair' ? 'crosshair' : 'default',
-            position: 'relative',
-            zIndex: activeTool === 'cursor' || activeTool === 'crosshair' ? 10 : 1
-          }}
-        />
       </div>
     </div>
   );
 };
 
-export default CandlestickChart; 
+export default CandlestickChart;
