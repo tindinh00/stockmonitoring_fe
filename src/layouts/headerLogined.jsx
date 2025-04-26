@@ -441,12 +441,18 @@ export default function HeaderLogined() {
                 animation: scroll 20s linear infinite;
                 display: flex;
                 width: max-content;
+                will-change: transform;
               }
               .scroll-container:hover {
                 animation-play-state: paused;
               }
+              @media (prefers-reduced-motion: reduce) {
+                .scroll-container {
+                  animation-play-state: paused;
+                }
+              }
             `}</style>
-            <div className="scroll-container">
+            <div className="scroll-container" key={marketIndices.length > 0 ? marketIndices[0].close : 'loading'}>
               <div className='flex items-center gap-8'>
                 {isLoadingIndices ? (
                   <span className="text-[#666]">Đang tải...</span>
