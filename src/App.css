@@ -33,32 +33,6 @@ body {
   height: 10px;
 }
 
-::-webkit-scrollbar-track {
-  background: #213A51;
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #0ABDB4, #46DFB1);
-  border-radius: 5px;
-  border: 2px solid #213A51;
-  transition: all 0.3s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #46DFB1, #80EE98);
-}
-
-::-webkit-scrollbar-corner {
-  background: #213A51;
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #46DFB1 #213A51;
-}
-
 /* Custom scrollbar for dark-themed elements */
 .bg-\[\#1C1C1C\] ::-webkit-scrollbar-track,
 .bg-\[\#131722\] ::-webkit-scrollbar-track {
@@ -140,4 +114,42 @@ header .flex-shrink-0 a {
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Light mode scrollbar: nền trắng, cục cuộn xanh */
+html:not(.dark) ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html:not(.dark) ::-webkit-scrollbar-track {
+  background: #fff !important;
+  border-radius: 5px;
+}
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #0ABDB4, #46DFB1) !important;
+  border-radius: 5px;
+  border: 2px solid #fff !important;
+  transition: all 0.3s ease;
+}
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #46DFB1, #80EE98) !important;
+}
+
+/* Dark mode scrollbar: nền tối, cục cuộn xanh như cũ */
+html.dark ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html.dark ::-webkit-scrollbar-track {
+  background: #213A51 !important;
+  border-radius: 5px;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #0ABDB4, #46DFB1) !important;
+  border-radius: 5px;
+  border: 2px solid #213A51 !important;
+  transition: all 0.3s ease;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #46DFB1, #80EE98) !important;
 }

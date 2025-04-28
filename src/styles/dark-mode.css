@@ -1,0 +1,232 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Scrollbar styles */
+@layer utilities {
+  .app-scrollbar {
+    @apply scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600;
+  }
+
+  :root[class~="light"] .app-scrollbar {
+    @apply scrollbar-track-gray-200 scrollbar-thumb-gray-400;
+  }
+}
+
+/* Base dark mode classes - these will be the default */
+@layer components {
+  .app-container {
+    @apply bg-[#0a0a14] text-white;
+  }
+
+  .app-card {
+    @apply bg-[#1a1a2e] border-gray-800;
+  }
+
+  .app-input {
+    @apply bg-[#1a1a2e] border-gray-700 text-white;
+  }
+
+  .app-table {
+    @apply bg-[#1a1a2e] border-gray-800;
+  }
+
+  .app-table-header {
+    @apply bg-[#0a0a14] text-gray-300;
+  }
+
+  .app-table-row {
+    @apply border-gray-800 hover:bg-[#2a2a3e];
+  }
+
+  /* Light mode overrides */
+  :root[class~="light"] .app-container {
+    @apply bg-white text-gray-900;
+  }
+
+  :root[class~="light"] .app-card {
+    @apply bg-gray-50 border-gray-200;
+  }
+
+  :root[class~="light"] .app-input {
+    @apply bg-white border-gray-300 text-gray-900;
+  }
+
+  :root[class~="light"] .app-table {
+    @apply bg-white border-gray-200;
+  }
+
+  :root[class~="light"] .app-table-header {
+    @apply bg-gray-50 text-gray-700;
+  }
+
+  :root[class~="light"] .app-table-row {
+    @apply border-gray-200 hover:bg-gray-50;
+  }
+
+  /* Chart styles */
+  .app-chart {
+    @apply bg-[#1a1a2e] text-white transition-colors duration-200;
+  }
+
+  :root[class~="light"] .app-chart {
+    @apply bg-white text-gray-900;
+  }
+
+  /* Form elements */
+  .app-select {
+    @apply bg-[#1a1a2e] border-gray-700 text-white transition-colors duration-200;
+  }
+
+  :root[class~="light"] .app-select {
+    @apply bg-white border-gray-300 text-gray-900;
+  }
+
+  /* Modal/Dialog */
+  .app-modal {
+    @apply bg-[#1a1a2e] text-white border-gray-800 transition-colors duration-200;
+  }
+
+  :root[class~="light"] .app-modal {
+    @apply bg-white text-gray-900 border-gray-200;
+  }
+
+  /* Navigation */
+  .app-nav {
+    @apply bg-[#0a0a14] border-gray-800 transition-colors duration-200;
+  }
+
+  :root[class~="light"] .app-nav {
+    @apply bg-white border-gray-200;
+  }
+}
+
+/* Transition classes */
+.theme-transition {
+  @apply transition-colors duration-200;
+}
+
+/* Chart styles */
+.app-chart {
+  @apply bg-[#1a1a2e] text-white theme-transition;
+}
+
+:root[class~="light"] .app-chart {
+  @apply bg-white text-gray-900;
+}
+
+/* Form elements */
+.app-select {
+  @apply bg-[#1a1a2e] border-gray-700 text-white theme-transition;
+}
+
+:root[class~="light"] .app-select {
+  @apply bg-white border-gray-300 text-gray-900;
+}
+
+/* Modal/Dialog */
+.app-modal {
+  @apply bg-[#1a1a2e] text-white border-gray-800 theme-transition;
+}
+
+:root[class~="light"] .app-modal {
+  @apply bg-white text-gray-900 border-gray-200;
+}
+
+/* Navigation */
+.app-nav {
+  @apply bg-[#0a0a14] border-gray-800 theme-transition;
+}
+
+:root[class~="light"] .app-nav {
+  @apply bg-white border-gray-200;
+}
+
+/* Dark mode utility classes */
+.dark-mode-container {
+  @apply bg-white dark:bg-[#0a0a14] text-gray-900 dark:text-white transition-colors duration-200;
+}
+
+.dark-mode-card {
+  @apply bg-gray-50 dark:bg-[#1a1a2e] border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200;
+}
+
+.dark-mode-input {
+  @apply bg-white dark:bg-[#1a1a2e] border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white transition-colors duration-200;
+}
+
+.dark-mode-button {
+  @apply bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white transition-colors duration-200;
+}
+
+.dark-mode-table {
+  @apply bg-white dark:bg-[#1a1a2e] border-gray-200 dark:border-gray-800 transition-colors duration-200;
+}
+
+.dark-mode-table-header {
+  @apply bg-gray-50 dark:bg-[#0a0a14] text-gray-700 dark:text-gray-300 transition-colors duration-200;
+}
+
+.dark-mode-table-row {
+  @apply hover:bg-gray-50 dark:hover:bg-[#2a2a3e] border-gray-200 dark:border-gray-800 transition-colors duration-200;
+}
+
+.dark-mode-text {
+  @apply text-gray-900 dark:text-white transition-colors duration-200;
+}
+
+.dark-mode-text-secondary {
+  @apply text-gray-600 dark:text-gray-400 transition-colors duration-200;
+}
+
+.dark-mode-border {
+  @apply border-gray-200 dark:border-gray-800 transition-colors duration-200;
+}
+
+.dark-mode-divide {
+  @apply divide-gray-200 dark:divide-gray-800 transition-colors duration-200;
+}
+
+/* Chart specific styles */
+.dark-mode-chart {
+  @apply bg-white dark:bg-[#1a1a2e] text-gray-900 dark:text-white transition-colors duration-200;
+}
+
+.dark-mode-chart-grid {
+  @apply stroke-gray-200 dark:stroke-gray-800 transition-colors duration-200;
+}
+
+.dark-mode-chart-text {
+  @apply fill-gray-500 dark:fill-gray-400 transition-colors duration-200;
+}
+
+/* Form elements */
+.dark-mode-select {
+  @apply bg-white dark:bg-[#1a1a2e] border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white transition-colors duration-200;
+}
+
+.dark-mode-checkbox {
+  @apply text-blue-600 dark:text-blue-500 border-gray-300 dark:border-gray-700 rounded transition-colors duration-200;
+}
+
+.dark-mode-radio {
+  @apply text-blue-600 dark:text-blue-500 border-gray-300 dark:border-gray-700 transition-colors duration-200;
+}
+
+/* Modal/Dialog */
+.dark-mode-modal {
+  @apply bg-white dark:bg-[#1a1a2e] text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-xl transition-colors duration-200;
+}
+
+.dark-mode-modal-overlay {
+  @apply bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-colors duration-200;
+}
+
+/* Navigation */
+.dark-mode-nav {
+  @apply bg-white dark:bg-[#0a0a14] border-gray-200 dark:border-gray-800 transition-colors duration-200;
+}
+
+.dark-mode-nav-item {
+  @apply text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1a1a2e] transition-colors duration-200;
+} 

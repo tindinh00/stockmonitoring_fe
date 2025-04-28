@@ -1,6 +1,7 @@
 // components/Header.jsx
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { UserNav } from '@/components/layouts/user-nav';
 
 export default function StockHeader() {
   return (
@@ -15,7 +16,7 @@ export default function StockHeader() {
             <span>VN30 1,356.43 ▼ -7.</span>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
           <Button className="bg-[#F44336] hover:bg-[#D32F2F] text-white">Mua dịch vụ</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -29,18 +30,8 @@ export default function StockHeader() {
               <DropdownMenuItem className="hover:bg-gray-700">English</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-white hover:bg-gray-700">
-                <span className="flex items-center">
-                  Đoàn Đình ... <span className="ml-2">▼</span>
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#1A202C] text-white border-gray-700">
-              <DropdownMenuItem className="hover:bg-gray-700">Đăng xuất</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          
+          <UserNav />
         </div>
       </div>
     </header>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock, Bell, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -11,6 +11,11 @@ import signalRService from '@/api/signalRService';
 import moment from 'moment';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
+import { Link } from 'react-router-dom';
+import useFeatureStore from '@/store/featureStore';
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
@@ -38,6 +43,9 @@ const WatchlistPage = () => {
   const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState(null);
   const [lastTimestamp, setLastTimestamp] = useState(new Date());
+  
+  // Tab quản lý phần hiển thị (ngành hoặc danh sách theo dõi)
+  const [watchlistTab, setWatchlistTab] = useState('industries'); // 'industries' hoặc 'stocks'
   
   // Add new states for add stock feature
   const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
@@ -69,6 +77,23 @@ const WatchlistPage = () => {
 
   // Thêm state cho trạng thái đang xóa cổ phiếu
   const [isDeletingStock, setIsDeletingStock] = useState(false);
+
+  // Add new state for notification dialog
+  const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
+  const [selectedNotificationStock, setSelectedNotificationStock] = useState(null);
+  const [notificationData, setNotificationData] = useState({
+    price: '',
+    type: 'increase'
+  });
+  const [isCreatingNotification, setIsCreatingNotification] = useState(false);
+
+  // Add states for subscription check
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [userSubscription, setUserSubscription] = useState(null);
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
+
+  // Get feature check function from store
+  const features = useFeatureStore((state) => state.features);
 
   // Add function to refresh industries data
   const refreshIndustries = () => {
@@ -240,7 +265,7 @@ const WatchlistPage = () => {
 
   // Hàm xác định màu sắc dựa trên giá
   const getPriceColor = (stock, field) => {
-    if (!stock || !field) return 'text-white';
+    if (!stock || !field) return 'text-gray-900 dark:text-white';
 
     // Xác định giá tương ứng với khối lượng
     let priceField = field;
@@ -273,17 +298,17 @@ const WatchlistPage = () => {
       }
     }
 
-    return 'text-white';
+    return 'text-gray-900 dark:text-white';
   };
 
   // Hàm kết hợp màu sắc và animation cho cell
   const getCellClasses = (stock, field) => {
-    if (!stock) return 'text-white border-r border-[#333] text-center whitespace-nowrap py-2';
+    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1';
     
     const colorClass = getPriceColor(stock, field);
     const flashClass = getFlashClass(stock.stockCode, field);
     
-    return `${colorClass} ${flashClass} border-r border-[#333] text-center whitespace-nowrap py-2`;
+    return `${colorClass} ${flashClass} border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1`;
   };
 
   // Update watchlist data khi có dữ liệu mới từ SignalR
@@ -1167,22 +1192,203 @@ const WatchlistPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Update the Chart Dialog content
+  // Add function to handle notification creation
+  const handleCreateNotification = (stock) => {
+    setSelectedNotificationStock(stock);
+    setNotificationData({
+      price: '',
+      type: 'increase'
+    });
+    setIsNotificationDialogOpen(true);
+  };
+
+  // Add function to validate notification price
+  const validateNotificationPrice = (price) => {
+    if (!price || isNaN(price) || price <= 0) {
+      toast.error("Vui lòng nhập giá hợp lệ lớn hơn 0");
+      return false;
+    }
+
+    const currentPrice = parseFloat(selectedNotificationStock?.matchPrice);
+    if (isNaN(currentPrice)) {
+      toast.error("Không thể lấy được giá hiện tại của cổ phiếu");
+      return false;
+    }
+
+    if (notificationData.type === "increase") {
+      if (parseFloat(price) <= currentPrice) {
+        toast.error(`Giá mục tiêu (${price}) phải cao hơn giá hiện tại (${currentPrice})`);
+        return false;
+      }
+    } else {
+      if (parseFloat(price) >= currentPrice) {
+        toast.error(`Giá mục tiêu (${price}) phải thấp hơn giá hiện tại (${currentPrice})`);
+        return false;
+      }
+    }
+
+    // Validate with floor/ceil price
+    const ceilPrice = parseFloat(selectedNotificationStock?.ceilPrice);
+    const floorPrice = parseFloat(selectedNotificationStock?.floorPrice);
+    
+    if (!isNaN(ceilPrice) && parseFloat(price) > ceilPrice) {
+      toast.error(`Giá mục tiêu không được vượt quá giá trần (${ceilPrice})`);
+      return false;
+    }
+    
+    if (!isNaN(floorPrice) && parseFloat(price) < floorPrice) {
+      toast.error(`Giá mục tiêu không được thấp hơn giá sàn (${floorPrice})`);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Update handleSubmitNotification with validation
+  const handleSubmitNotification = async () => {
+    try {
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để tạo thông báo");
+        return;
+      }
+
+      if (!notificationData.price) {
+        toast.error("Vui lòng nhập giá mục tiêu");
+        return;
+      }
+
+      // Add price validation
+      if (!validateNotificationPrice(notificationData.price)) {
+        return;
+      }
+
+      setIsCreatingNotification(true);
+
+      const data = {
+        tickerSymbol: selectedNotificationStock.stockCode,
+        userId: userId,
+        price: parseFloat(notificationData.price),
+        type: notificationData.type
+      };
+
+      const response = await stockService.createNotification(data);
+      toast.success(response?.value?.data || "Tạo thông báo thành công");
+      setIsNotificationDialogOpen(false);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      toast.error("Không thể tạo thông báo: " + (error.message || "Vui lòng thử lại sau"));
+    } finally {
+      setIsCreatingNotification(false);
+    }
+  };
+
+  // Update the Input component to show current price
+  <div className="grid gap-2">
+    <Label htmlFor="price">Giá mục tiêu</Label>
+    <div className="space-y-2">
+      <Input
+        id="price"
+        type="number"
+        value={notificationData.price}
+        onChange={(e) => setNotificationData(prev => ({ ...prev, price: e.target.value }))}
+        className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
+        placeholder="Nhập giá mục tiêu"
+      />
+      <div className="text-sm text-gray-500 dark:text-[#666] flex items-center justify-between">
+        <span>Giá hiện tại: {selectedNotificationStock?.matchPrice}</span>
+        <div className="flex gap-2">
+          <span>Giá trần: {selectedNotificationStock?.ceilPrice}</span>
+          <span>Giá sàn: {selectedNotificationStock?.floorPrice}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  // Add function to check subscription
+  const checkSubscription = async () => {
+    try {
+      setIsLoadingSubscription(true);
+      const userId = getUserId();
+      if (!userId) {
+        setUserSubscription(null);
+        return;
+      }
+
+      const response = await axios.get(
+        `https://stockmonitoring-api-gateway.onrender.com/api/subscription/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setUserSubscription(response.data.value.data);
+      } else {
+        setUserSubscription(null);
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      setUserSubscription(null);
+    } finally {
+      setIsLoadingSubscription(false);
+    }
+  };
+
+  // Add useEffect to check subscription on mount
+  useEffect(() => {
+    checkSubscription();
+  }, []);
+
+  // Add function to handle tab change with feature check
+  const handleTabChange = (tab) => {
+    try {
+      console.log('Attempting to switch to tab:', tab);
+      console.log('Current features:', features);
+      
+      if (tab === 'industries') {
+        const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
+        console.log('Has industry feature:', hasIndustryFeature);
+        
+        if (!hasIndustryFeature) {
+          setIsUpgradeDialogOpen(true);
+          return;
+        }
+      } else if (tab === 'stocks') {
+        const hasWatchlistFeature = features.includes('Quản lý danh mục theo dõi cổ phiếu');
+        console.log('Has watchlist feature:', hasWatchlistFeature);
+        
+        if (!hasWatchlistFeature) {
+          setIsUpgradeDialogOpen(true);
+          return;
+        }
+      }
+      
+      setWatchlistTab(tab);
+    } catch (error) {
+      console.error('Error in handleTabChange:', error);
+    }
+  };
+
+  // Update the tab buttons to use handleTabChange
   return (
-    <div className="bg-[#0a0a14] min-h-screen">
+    <div className="bg-white dark:bg-[#0a0a14] min-h-screen">
       {/* Thêm animations vào CSS */}
       <style jsx global>{priceChangeAnimations}</style>
       
       {/* Page Header */}
-      <div className="sticky top-0 z-50 bg-[#0a0a14] border-b border-[#1a1a1a] px-4 py-4 md:px-6">
+      <div className="sticky top-0 z-50 bg-white dark:bg-[#0a0a14] border-b border-gray-200 dark:border-[#1a1a1a] px-4 py-4 md:px-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Danh mục theo dõi</h1>
-            <p className="text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Danh mục theo dõi</h1>
+            <p className="text-gray-500 dark:text-[#666]">Theo dõi và phân tích cổ phiếu theo ngành</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-[#333] min-w-[120px]">
-              <Clock className="w-4 h-4 text-[#666]" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] min-w-[120px]">
+              <Clock className="w-4 h-4 text-gray-400 dark:text-[#666]" />
               <span className="text-[#09D1C7] font-medium w-[70px] inline-block">
                 {lastTimestamp.toLocaleTimeString('vi-VN', {
                   hour: '2-digit',
@@ -1192,39 +1398,63 @@ const WatchlistPage = () => {
                 })}
               </span>
             </div>
-            <Button
-              onClick={() => {
-                fetchAvailableStocks();
-                setIsAddStockDialogOpen(true);
-              }}
-              className="bg-[#09D1C7] hover:bg-[#3a5ad9] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        </div>
+      </div>
+
+      <div className="p-4 md:p-6">
+        {/* Main Tabs - Industries vs Watchlist */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleTabChange('industries')}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                watchlistTab === 'industries'
+                  ? 'bg-[#09D1C7] text-white'
+                  : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+              }`}
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Thêm cổ phiếu</span>
-            </Button>
+              Theo ngành
+            </button>
+            <button
+              onClick={() => handleTabChange('stocks')}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
+                watchlistTab === 'stocks'
+                  ? 'bg-[#09D1C7] text-white'
+                  : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
+              }`}
+            >
+              Danh sách theo dõi
+            </button>
+          </div>
+          {watchlistTab === 'industries' && (
             <Button
               onClick={() => {
+                const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
+                if (!hasIndustryFeature) {
+                  setIsUpgradeDialogOpen(true);
+                  return;
+                }
                 fetchAvailableIndustries();
                 setIsAddIndustryDialogOpen(true);
               }}
               className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Thêm ngành</span>
+              <span>Thêm ngành</span>
             </Button>
-          </div>
-        </div>
+          )}
       </div>
 
-      <div className="p-4 md:p-6">
-        {/* Exchange Tabs - Moved outside the grid to align tables */}
-        <div className="flex gap-2 mb-4">
+        {/* Exchange Tabs - Only show when in stocks view */}
+        {watchlistTab === 'stocks' && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-2">
           <button
             onClick={() => setActiveTab('hsx')}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
               activeTab === 'hsx'
                 ? 'bg-[#09D1C7] text-white'
-                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
             }`}
           >
             HOSE
@@ -1234,79 +1464,90 @@ const WatchlistPage = () => {
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-colors ${
               activeTab === 'hnx'
                 ? 'bg-[#09D1C7] text-white'
-                : 'bg-[#1a1a1a] text-[#666] hover:bg-[#252525]'
+                : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-[#666] hover:bg-gray-200 dark:hover:bg-[#252525]'
             }`}
           >
             HNX
           </button>
         </div>
+            <Button
+              onClick={() => {
+                fetchAvailableStocks();
+                setIsAddStockDialogOpen(true);
+              }}
+              className="bg-[#09D1C7] hover:bg-[#3a5ad9] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm cổ phiếu</span>
+            </Button>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {watchlistTab === 'stocks' ? (
+            <>
           {/* Left section - Stock Table */}
-          <div className="lg:col-span-8">
+              <div className="lg:col-span-12">
             {/* Stock Table */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200/30 dark:border-[#333] overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-[1000px] border-collapse">
                   <colgroup>
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[70px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[60px]" />
-                    <col className="w-[100px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[80px]" />
-                    <col className="w-[80px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
+                    <col className="w-[45px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[35px]" />
+                    <col className="w-[40px]" />
                   </colgroup>
-                  <thead className="sticky top-0 bg-[#1a1a1a] z-50">
-                    <tr>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
-                      <th className="text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
+                  <thead className="sticky top-0 bg-white dark:bg-[#1a1a1a] z-50">
+                        <tr className="border-b border-gray-200/60 dark:border-[#333]">
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Mã CK</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Trần</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Sàn</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>TC</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên mua</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={3}>Khớp lệnh</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={6}>Bên bán</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" rowSpan={2}>Tổng KL</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2" colSpan={2}>ĐTNN</th>
+                          <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2" rowSpan={2}>Thao tác</th>
                     </tr>
-                    <tr>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">+/-</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
-                      <th className="text-[#999] border-r border-[#333] text-center whitespace-nowrap py-2">Mua</th>
-                      <th className="text-[#999] text-center whitespace-nowrap py-2">Bán</th>
+                        <tr className="border-b border-gray-200/60 dark:border-[#333]">
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">+/-</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 1</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 2</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Giá 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">KL 3</th>
+                          <th className="text-gray-500 dark:text-[#999] border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-2">Mua</th>
+                          <th className="text-gray-500 dark:text-[#999] text-center whitespace-nowrap py-2">Bán</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1336,13 +1577,13 @@ const WatchlistPage = () => {
                       // Thêm kiểm tra watchlist có phải là mảng hay không
                       Array.isArray(watchlist) ? 
                       watchlist.map((stock) => (
-                        <tr key={stock.stockCode} className="hover:bg-[#1a1a1a]">
-                          <td className={`${getCellClasses(stock, 'matchPrice')} border-r border-[#333] text-center font-medium transition-colors duration-300 cursor-pointer py-2`} onClick={() => handleStockClick(stock)}>
+                        <tr key={stock.stockCode} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
+                              <td className={`${getCellClasses(stock, 'matchPrice')} border-r text-center font-medium transition-colors duration-300 cursor-pointer py-1`} onClick={() => handleStockClick(stock)}>
                             {formatValue(stock.stockCode)}
                           </td>
-                          <td className="text-[#B388FF] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.ceilPrice)}</td>
-                          <td className="text-[#00BCD4] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.floorPrice)}</td>
-                          <td className="text-[#F4BE37] border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.priorClosePrice)}</td>
+                              <td className="text-[#B388FF] border-r text-center whitespace-nowrap py-1">{formatValue(stock.ceilPrice)}</td>
+                              <td className="text-[#00BCD4] border-r text-center whitespace-nowrap py-1">{formatValue(stock.floorPrice)}</td>
+                              <td className="text-[#F4BE37] border-r text-center whitespace-nowrap py-1">{formatValue(stock.priorClosePrice)}</td>
                           <td className={getCellClasses(stock, 'price3Buy')}>
                             {formatValue(stock.price3Buy)}
                           </td>
@@ -1367,7 +1608,7 @@ const WatchlistPage = () => {
                           <td className={getCellClasses(stock, 'volumeAccumulation')}>
                             {formatValue(stock.volumeAccumulation)}
                           </td>
-                          <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r border-[#333] text-center whitespace-nowrap py-2`}>
+                              <td className={`${parseFloat(stock.plusMinus) > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'} border-r text-center whitespace-nowrap py-1`}>
                             {stock.plusMinus !== null && stock.plusMinus !== undefined && stock.plusMinus !== '--' ? 
                               `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : 
                               '--'}
@@ -1390,10 +1631,11 @@ const WatchlistPage = () => {
                           <td className={getCellClasses(stock, 'volume3Sell')}>
                             {formatValue(stock.volume3Sell)}
                           </td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.matchedOrderVolume)}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignBuyVolume)}</td>
-                          <td className="text-white border-r border-[#333] text-center whitespace-nowrap py-2">{formatValue(stock.foreignSellVolume)}</td>
-                          <td className="text-center py-2">
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.matchedOrderVolume)}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignBuyVolume)}</td>
+                          <td className="text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-1">{formatValue(stock.foreignSellVolume)}</td>
+                          <td className="text-center py-1">
+                                <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => removeFromWatchlist(stock)}
                               className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
@@ -1403,6 +1645,14 @@ const WatchlistPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
+                                  <button
+                                    onClick={() => handleCreateNotification(stock)}
+                                    className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-colors"
+                                    title="Tạo thông báo"
+                                  >
+                                    <Bell className="h-4 w-4" />
+                                  </button>
+                                </div>
                           </td>
                         </tr>
                       )) : (
@@ -1423,145 +1673,137 @@ const WatchlistPage = () => {
               </div>
             </div>
           </div>
-
-          {/* Right section - Industries */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            {/* Industries List */}
-            <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-              <div className="p-4 border-b border-[#333] sticky top-0 bg-[#1a1a1a] z-10">
-                <h2 className="text-xl font-semibold text-white">Ngành theo dõi</h2>
+            </>
+          ) : (
+            <>
+              {/* Industries View */}
+              <div className="lg:col-span-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoadingIndustries ? (
+                    <div className="col-span-full flex justify-center items-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
               </div>
-
-              <div className="p-4">
-                {/* Header */}
-                <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[#999] text-sm font-medium">
-                  <div className="col-span-4">Tên ngành</div>
-                  <div className="col-span-2 text-center">SMG</div>
-                  <div className="col-span-5 grid grid-cols-3 gap-2 text-center">
-                    <span>%D</span>
-                    <span>%W</span>
-                    <span>%M</span>
+                  ) : industries.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-[#252525] rounded-full flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6 text-gray-400 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
                   </div>
-                  <div className="col-span-1"></div>
+                      <h3 className="text-gray-900 dark:text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
+                      <p className="text-gray-500 dark:text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
                 </div>
-
-                {/* Industry Items */}
-                {!isLoadingIndustries && industries && industries.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {industries.map((industry) => (
+                  ) : (
+                    industries.map((industry) => (
                       <div
                         key={industry.id}
-                        className="bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-all duration-200"
+                        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4 hover:border-[#09D1C7] transition-colors cursor-pointer"
+                        onClick={() => handleIndustryClick(industry)}
                       >
-                        <div className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center">
-                          <div className="col-span-4 flex items-center gap-2 min-w-0">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium text-gray-900 dark:text-white">{industry.name}</h3>
                             <button
-                              onClick={() => handleIndustryClick(industry)}
-                              className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-                                selectedIndustry?.id === industry.id 
-                                  ? 'bg-[#09D1C7]/10 text-[#09D1C7]' 
-                                  : 'text-[#666] hover:bg-[#333] hover:text-[#09D1C7]'
-                              }`}
-                            >
-                              <Eye className="h-4 w-4" />
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSector(industry, e);
+                            }}
+                            className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
                             </button>
-                            <span className="text-white font-medium truncate">{industry.name}</span>
                           </div>
-                          <div className="col-span-2 flex justify-center">
-                            <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
-                              ${industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                        
+                        <div className="grid grid-cols-4 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full mb-1 ${
+                              industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
                                 industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                                'bg-red-500/10 text-red-500'}`}>
+                              'bg-red-500/10 text-red-500'
+                            }`}>
                               {industry.smg}
-                            </span>
                           </div>
-                          <div className="col-span-5 grid grid-cols-3 gap-2 text-center text-xs">
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentD > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
+                            <div className="text-xs text-gray-500 dark:text-[#666]">SMG</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
                             }`}>
                               {industry.percentD > 0 ? '+' : ''}{industry.percentD.toFixed(2)}%
-                            </span>
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentW > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Ngày</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
                             }`}>
                               {industry.percentW > 0 ? '+' : ''}{industry.percentW.toFixed(2)}%
-                            </span>
-                            <span className={`rounded px-1 py-0.5 overflow-hidden whitespace-nowrap ${
-                              industry.percentM > 0 
-                                ? 'bg-[#00FF00]/10 text-[#00FF00]' 
-                                : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Tuần</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-medium mb-1 ${
+                              industry.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
                             }`}>
                               {industry.percentM > 0 ? '+' : ''}{industry.percentM.toFixed(2)}%
-                            </span>
                           </div>
-                          <div className="col-span-1 flex justify-end">
-                            <button
-                              onClick={(e) => handleDeleteSector(industry, e)}
-                              className="flex-shrink-0 p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
-                              title="Xóa ngành khỏi danh sách theo dõi"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                            <div className="text-xs text-gray-500 dark:text-[#666]">Tháng</div>
                           </div>
                         </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500 dark:text-[#666]">
+                            {industry.stocks?.length || 0} cổ phiếu
+                          </span>
+                          <button className="text-[#09D1C7] hover:text-[#0a8f88] flex items-center gap-1">
+                            Chi tiết
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
                       </div>
-                    ))}
                   </div>
+                    ))
                 )}
+                  </div>
+              </div>
+            </>
+          )}
 
-                {/* Loading State */}
-                {isLoadingIndustries && (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {!isLoadingIndustries && (!industries || industries.length === 0) && (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 bg-[#252525] rounded-full flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <h3 className="text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
-                    <p className="text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
-                  </div>
-                )}
+          {/* Right section - Only show in stocks view */}
+          
               </div>
             </div>
             
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4 mt-auto">
-              <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
-                <h3 className="text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-xl font-semibold text-white">{watchlist.length}</p>
+      {/* Quick Stats - Show in both views */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
+                <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
               </div>
-              <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
-                <h3 className="text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-xl font-semibold text-white">{industries.length}</p>
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
+                <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
               </div>
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
+          <p className="text-xl font-semibold text-[#00FF00]">
+            {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
+          </p>
             </div>
-          </div>
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
+          <p className="text-xl font-semibold text-[#FF4A4A]">
+            {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
+          </p>
         </div>
       </div>
 
       {/* Industry Detail Dialog */}
       <Dialog open={isIndustryDetailOpen} onOpenChange={setIsIndustryDetailOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[800px] w-[95vw]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[800px] w-[95vw]">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <span className="bg-[#4A72FF] text-white px-3 py-1 rounded-full text-sm font-medium">
-                {selectedIndustry?.name}
-              </span>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-[#666]">SMG Score:</span>
+            <div>
+              <DialogTitle className="text-xl font-semibold mb-1">{selectedIndustry?.name}</DialogTitle>
+              <DialogDescription className="text-[#666] flex items-center gap-2">
+                <span>SMG Score:</span>
                 <span className={`font-medium ${
                   selectedIndustry?.smg >= 80 ? 'text-[#09D1C7]' : 
                   selectedIndustry?.smg >= 50 ? 'text-[#FF6B00]' :
@@ -1569,64 +1811,93 @@ const WatchlistPage = () => {
                 }`}>
                   {selectedIndustry?.smg}
                 </span>
+              </DialogDescription>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#252525] rounded-lg border border-gray-200 dark:border-[#333]">
+                <span className="text-[#666]">Số cổ phiếu:</span>
+                <span className="text-[#09D1C7] font-medium">{selectedIndustry?.stocks?.length || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Performance Overview */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo ngày</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentD > 0 ? '+' : ''}{selectedIndustry?.percentD.toFixed(2)}%
+              </div>
+            </div>
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo tuần</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentW > 0 ? '+' : ''}{selectedIndustry?.percentW.toFixed(2)}%
+              </div>
+            </div>
+            <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+              <div className="text-[#666] text-sm mb-1">Thay đổi theo tháng</div>
+              <div className={`text-lg font-semibold ${selectedIndustry?.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
+                {selectedIndustry?.percentM > 0 ? '+' : ''}{selectedIndustry?.percentM.toFixed(2)}%
               </div>
             </div>
           </div>
 
           {/* Stocks Table */}
-          <div className="space-y-1">
-            {/* Header */}
-            <div className="grid grid-cols-6 gap-2 px-3 py-2 text-[#999] text-sm font-medium border-b border-[#333]">
-              <div className="col-span-1">Mã</div>
-              <div className="col-span-1">Chart</div>
+          <div className="bg-gray-100 dark:bg-[#252525] rounded-lg border border-gray-200 dark:border-[#333] overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-200/50 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#333] text-sm font-medium text-[#666]">
+              <div className="col-span-2">Mã CK</div>
+              <div className="col-span-3">Biến động</div>
               <div className="col-span-1 text-center">SMG</div>
-              <div className="col-span-3 grid grid-cols-3 gap-1 text-center">
-                <span>%D</span>
-                <span>%W</span>
-                <span>%M</span>
-              </div>
+              <div className="col-span-2 text-center">%D</div>
+              <div className="col-span-2 text-center">%W</div>
+              <div className="col-span-2 text-center">%M</div>
             </div>
 
-            {/* Stock Items */}
-            <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
+            <div className="max-h-[400px] overflow-y-auto">
               {selectedIndustry?.stocks.map((stock) => (
                 <div
                   key={stock.id}
-                  className="grid grid-cols-6 gap-2 px-3 py-2.5 items-center hover:bg-[#252525] rounded-lg transition-colors"
+                  className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-200/50 dark:hover:bg-[#2a2a2a] border-b border-gray-200 dark:border-[#333] last:border-0 transition-colors"
                 >
-                  <div className="col-span-1 flex items-center gap-1.5">
-                    <ChevronRight className="h-4 w-4 text-[#4A72FF]" />
-                    <span className="text-white font-medium">{stock.ticketSymbol}</span>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <ChevronRight className="h-4 w-4 text-[#09D1C7]" />
+                    <span className="font-medium">{stock.ticketSymbol}</span>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-3">
                     {renderMiniChart([stock.percentD, stock.percentW, stock.percentM])}
                   </div>
                   <div className="col-span-1 flex justify-center">
-                    <span className={`rounded-full w-7 h-7 flex items-center justify-center font-medium text-sm
-                      ${stock.smg >= 95 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                        stock.smg >= 90 ? 'bg-[#5BD75B]/10 text-[#5BD75B]' :
-                        'bg-[#FF6B00]/10 text-[#FF6B00]'}`}>
+                    <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
+                      ${stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
+                        stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
+                        'bg-red-500/10 text-red-500'}`}>
                       {stock.smg}
                     </span>
                   </div>
-                  <div className="col-span-3 grid grid-cols-3 gap-1 text-center text-sm">
-                    <span className={`rounded px-1 py-0.5 ${
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentD > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentD > 0 ? '+' : ''}{stock.percentD.toFixed(2)}%
                     </span>
-                    <span className={`rounded px-1 py-0.5 ${
+                  </div>
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentW > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentW > 0 ? '+' : ''}{stock.percentW.toFixed(2)}%
                     </span>
-                    <span className={`rounded px-1 py-0.5 ${
+                  </div>
+                  <div className="col-span-2 text-center">
+                    <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
                       stock.percentM > 0 
-                        ? 'bg-[#5BD75B]/10 text-[#5BD75B]' 
+                        ? 'bg-[#00FF00]/10 text-[#00FF00]' 
                         : 'bg-[#FF4A4A]/10 text-[#FF4A4A]'
                     }`}>
                       {stock.percentM > 0 ? '+' : ''}{stock.percentM.toFixed(2)}%
@@ -1641,7 +1912,7 @@ const WatchlistPage = () => {
 
       {/* Add Industry Dialog */}
       <Dialog open={isAddIndustryDialogOpen} onOpenChange={setIsAddIndustryDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <DialogTitle className="text-xl font-semibold mb-1">Thêm ngành theo dõi</DialogTitle>
@@ -1658,9 +1929,9 @@ const WatchlistPage = () => {
               value={newIndustryName}
               onChange={(e) => setNewIndustryName(e.target.value)}
               placeholder="Tìm kiếm ngành..."
-              className="w-full bg-[#252525] border border-[#333] rounded-lg pl-10 pr-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
+              className="w-full bg-gray-100 dark:bg-[#252525] border border-gray-200 dark:border-[#333] rounded-lg pl-10 pr-3 py-2 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
             />
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -1681,7 +1952,7 @@ const WatchlistPage = () => {
                 .map(industry => (
                   <div
                     key={industry.id}
-                    className="flex items-center gap-3 p-3 bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1694,28 +1965,27 @@ const WatchlistPage = () => {
                           setSelectedIndustryIds(selectedIndustryIds.filter(id => id !== industry.id));
                         }
                       }}
-                      className="w-4 h-4 rounded border-[#333] bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-[#333] bg-white dark:bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
                     />
                     <label
                       htmlFor={`industry-${industry.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-white">{industry.name}</span>
+                      <span className="text-gray-900 dark:text-white">{industry.name}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
-                          industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                          industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500'
+                          industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
+                          industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
+                          'bg-red-500/10 text-red-500 dark:text-red-500'
                         }`}>
                           SMG: {industry.smg}
                         </span>
-                        <span className="text-[#666] text-sm">{industry.code}</span>
                       </div>
                     </label>
                   </div>
                 ))
             ) : (
-              <div className="text-center py-4 text-[#666]">
+              <div className="text-center py-4 text-gray-500 dark:text-[#666]">
                 Không tìm thấy ngành nào
               </div>
             )}
@@ -1727,23 +1997,25 @@ const WatchlistPage = () => {
                industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
                !industries.some(existingIndustry => existingIndustry.id === industry.id)
              ).length === 0 && (
-              <div className="bg-[#252525] p-4 rounded-lg text-center">
-                <div className="w-10 h-10 bg-[#333] rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="bg-gray-100 dark:bg-[#252525] p-4 rounded-lg text-center">
+                <div className="w-10 h-10 bg-gray-200 dark:bg-[#333] rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </div>
                 {newIndustryName ? (
-                  <p className="text-[#999]">Không tìm thấy ngành phù hợp với từ khóa "{newIndustryName}"</p>
+                  <p className="text-gray-500 dark:text-[#999]">Không tìm thấy ngành phù hợp với từ khóa "{newIndustryName}"</p>
                 ) : (
-                  <p className="text-[#999]">Bạn đã theo dõi tất cả các ngành có sẵn</p>
+                  <p className="text-gray-500 dark:text-[#999]">Bạn đã theo dõi tất cả các ngành có sẵn</p>
                 )}
               </div>
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-[#333]">
-            <div className="text-[#666] text-sm">
+          {/* Footer with buttons */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+            <div className="flex items-center justify-between">
+            <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedIndustryIds.length} ngành
             </div>
             <div className="flex gap-2">
@@ -1754,17 +2026,18 @@ const WatchlistPage = () => {
                   setIsAddIndustryDialogOpen(false);
                 }}
                 variant="outline"
-                className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               >
                 Hủy
               </Button>
               <Button
                 onClick={handleAddSectors}
-                className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
+                  className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[100px]"
                 disabled={selectedIndustryIds.length === 0}
               >
                 Thêm ({selectedIndustryIds.length})
               </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -1772,7 +2045,7 @@ const WatchlistPage = () => {
 
       {/* Stock Chart Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#131722] text-white border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
+        <DialogContent className="bg-white dark:bg-[#131722] text-gray-900 dark:text-white border-gray-200 dark:border-[#2a2e39] max-w-[1200px] w-[95vw] h-[80vh] p-0">
           <DialogTitle className="sr-only">Stock Chart</DialogTitle>
           <DialogDescription className="sr-only">Interactive stock chart with drawing tools</DialogDescription>
           <div className="flex flex-col h-full">
@@ -1800,7 +2073,7 @@ const WatchlistPage = () => {
             </div>
 
             {/* Chart Area */}
-            <div className="flex-1 bg-[#131722] min-h-[500px]">
+            <div className="flex-1 bg-white dark:bg-[#131722] min-h-[500px]">
               {isChartLoading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-4">
@@ -1831,9 +2104,9 @@ const WatchlistPage = () => {
             </div>
 
             {/* Chart Footer */}
-            <div className="flex items-center justify-between px-4 py-2 border-t border-[#2a2e39] bg-[#1e222d] text-xs text-[#a9a9a9]">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200/30 dark:border-[#2a2e39] bg-white dark:bg-[#1e222d] text-xs text-gray-500 dark:text-[#a9a9a9]">
               <div className="flex items-center gap-4">
-                <div>Vol: <span className="text-white font-medium">{selectedStock?.totalVolume}</span></div>
+                <div>Vol: <span className="text-gray-900 dark:text-white font-medium">{selectedStock?.totalVolume}</span></div>
                 <div>ĐTNN: 
                   <span className="text-[#26a69a] font-medium ml-1">+{selectedStock?.foreignBuy}</span>
                   <span className="text-[#ef5350] font-medium ml-1">-{selectedStock?.foreignSell}</span>
@@ -1847,13 +2120,13 @@ const WatchlistPage = () => {
 
       {/* Delete Sector Confirmation Dialog */}
       <Dialog open={isDeleteSectorDialogOpen} onOpenChange={setIsDeleteSectorDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[400px]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px]">
           <DialogTitle className="font-semibold text-xl">Xóa ngành theo dõi</DialogTitle>
           <DialogDescription className="text-[#999]">
             Bạn có chắc chắn muốn xóa ngành "{sectorToDelete?.name}" khỏi danh sách theo dõi?
           </DialogDescription>
           
-          <div className="bg-[#252525] p-3 rounded-lg border border-[#333] mt-2 mb-4">
+          <div className="bg-gray-100 dark:bg-[#252525] p-3 rounded-lg border border-gray-200 dark:border-[#333] mt-2 mb-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-[#FF6B00]" />
               <p className="text-[#FF6B00] font-medium">Lưu ý:</p>
@@ -1865,7 +2138,7 @@ const WatchlistPage = () => {
             <Button
               variant="outline"
               onClick={() => setIsDeleteSectorDialogOpen(false)}
-              className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               disabled={isDeletingSector}
             >
               Hủy
@@ -1889,17 +2162,17 @@ const WatchlistPage = () => {
 
       {/* Delete Stock Confirmation Dialog */}
       <Dialog open={isDeleteStockDialogOpen} onOpenChange={setIsDeleteStockDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[400px]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px]">
           <DialogTitle className="font-semibold text-xl">Xóa cổ phiếu</DialogTitle>
-          <DialogDescription className="text-[#999]">
-            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-white font-medium">{stockToDelete?.stockCode}</span> khỏi danh sách theo dõi?
+          <DialogDescription className="text-gray-500 dark:text-[#999]">
+            Bạn có chắc chắn muốn xóa cổ phiếu <span className="text-gray-900 dark:text-white font-medium">{stockToDelete?.stockCode}</span> khỏi danh sách theo dõi?
           </DialogDescription>
           
           <div className="flex justify-end gap-3 mt-6">
             <Button
               variant="outline"
               onClick={() => setIsDeleteStockDialogOpen(false)}
-              className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               disabled={isDeletingStock}
             >
               Hủy
@@ -1923,7 +2196,7 @@ const WatchlistPage = () => {
 
       {/* Add Stock Dialog */}
       <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px] w-[95vw] max-h-[80vh]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <DialogTitle className="text-xl font-semibold mb-1">Thêm cổ phiếu theo dõi</DialogTitle>
@@ -1940,7 +2213,7 @@ const WatchlistPage = () => {
               value={stockSearchQuery}
               onChange={(e) => setStockSearchQuery(e.target.value)}
               placeholder="Tìm kiếm mã cổ phiếu..."
-              className="w-full bg-[#252525] border border-[#333] rounded-lg pl-10 pr-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
+              className="w-full bg-gray-100 dark:bg-[#252525] border border-gray-200 dark:border-[#333] rounded-lg pl-10 pr-3 py-2 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-[#666] focus:outline-none focus:border-[#09D1C7]"
             />
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1962,7 +2235,7 @@ const WatchlistPage = () => {
                 .map(stock => (
                   <div
                     key={stock.id}
-                    className="flex items-center gap-3 p-3 bg-[#252525] hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -1975,18 +2248,18 @@ const WatchlistPage = () => {
                           setSelectedStockIds(selectedStockIds.filter(id => id !== stock.id));
                         }
                       }}
-                      className="w-4 h-4 rounded border-[#333] bg-[#1a1a1a] checked:bg-[#4A72FF] focus:ring-[#4A72FF] focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-[#333] bg-white dark:bg-[#1a1a1a] checked:bg-[#09D1C7] focus:ring-[#09D1C7] focus:ring-offset-0"
                     />
                     <label
                       htmlFor={`stock-${stock.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-white font-medium">{stock.ticketSymbol}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
-                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500'
+                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
+                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
+                          'bg-red-500/10 text-red-500 dark:text-red-500'
                         }`}>
                           SMG: {stock.smg}
                         </span>
@@ -2003,8 +2276,10 @@ const WatchlistPage = () => {
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-[#333]">
-            <div className="text-[#666] text-sm">
+          {/* Footer with buttons */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+            <div className="flex items-center justify-between">
+            <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedStockIds.length} cổ phiếu
             </div>
             <div className="flex gap-2">
@@ -2015,13 +2290,13 @@ const WatchlistPage = () => {
                   setIsAddStockDialogOpen(false);
                 }}
                 variant="outline"
-                className="bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
               >
                 Hủy
               </Button>
               <Button
                 onClick={addSelectedStocksToWatchlist}
-                className="bg-[#4A72FF] hover:bg-[#3a5ad9] text-white"
+                  className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[100px]"
                 disabled={selectedStockIds.length === 0 || isAddingStocks}
               >
                 {isAddingStocks ? (
@@ -2033,8 +2308,153 @@ const WatchlistPage = () => {
                   `Thêm (${selectedStockIds.length})`
                 )}
               </Button>
+              </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Notification Dialog */}
+      <Dialog open={isNotificationDialogOpen} onOpenChange={setIsNotificationDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333]">
+          <DialogHeader>
+            <DialogTitle>Tạo thông báo giá</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Thiết lập thông báo khi giá cổ phiếu {selectedNotificationStock?.stockCode} đạt đến mức mong muốn
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="type">Loại thông báo</Label>
+              <Select
+                value={notificationData.type}
+                onValueChange={(value) => setNotificationData(prev => ({ ...prev, type: value }))}
+              >
+                <SelectTrigger className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
+                  <SelectValue placeholder="Chọn loại thông báo" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]">
+                  <SelectItem 
+                    value="increase" 
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
+                  >
+                    Khi giá tăng
+                  </SelectItem>
+                  <SelectItem 
+                    value="decrease" 
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525] focus:bg-gray-100 dark:focus:bg-[#252525]"
+                  >
+                    Khi giá giảm
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Giá mục tiêu</Label>
+              <div className="space-y-2">
+                <Input
+                  id="price"
+                  type="number"
+                  value={notificationData.price}
+                  onChange={(e) => setNotificationData(prev => ({ ...prev, price: e.target.value }))}
+                  className="bg-gray-50 dark:bg-[#0a0a14] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white"
+                  placeholder="Nhập giá mục tiêu"
+                />
+                <div className="text-sm text-gray-500 dark:text-[#666] flex items-center justify-between">
+                  <span>Giá hiện tại: {selectedNotificationStock?.matchPrice}</span>
+                  <div className="flex gap-2">
+                    <span>Giá trần: {selectedNotificationStock?.ceilPrice}</span>
+                    <span>Giá sàn: {selectedNotificationStock?.floorPrice}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNotificationDialogOpen(false)}
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSubmitNotification}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
+              disabled={isCreatingNotification}
+            >
+              {isCreatingNotification ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang tạo...
+                </>
+              ) : (
+                'Tạo thông báo'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Upgrade Package Dialog */}
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Nâng cấp gói dịch vụ</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Để sử dụng tính năng này, bạn cần nâng cấp lên gói Premium
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-gray-100 dark:bg-[#252525] rounded-lg p-4 mt-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-[#09D1C7]/10 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">Tính năng của gói Premium</h4>
+                <ul className="space-y-2 text-sm text-gray-500 dark:text-[#999]">
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Theo dõi cổ phiếu theo ngành
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Phân tích chuyên sâu theo ngành
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#09D1C7]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Thông báo biến động ngành
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setIsUpgradeDialogOpen(false)}
+              className="bg-transparent border-gray-200 dark:border-[#333] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#252525]"
+            >
+              Để sau
+            </Button>
+            <Link to="/upgrade-package">
+              <Button className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white">
+                Nâng cấp ngay
+              </Button>
+            </Link>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

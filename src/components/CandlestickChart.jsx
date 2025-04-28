@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, LineStyle } from 'lightweight-charts';
+import { createChart, LineStyle, CrosshairMode } from 'lightweight-charts';
 
 const CandlestickChart = ({ stockCode, data }) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
+  const volumeSeriesRef = useRef(null);
   const canvasRef = useRef(null);
   const [activeTool, setActiveTool] = useState('cursor');
-  const [selectedColor, setSelectedColor] = useState('#ffffff');
+  const [selectedColor, setSelectedColor] = useState(document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000');
   const [drawings, setDrawings] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState(null);
@@ -19,15 +20,20 @@ const CandlestickChart = ({ stockCode, data }) => {
   const [showLineTools, setShowLineTools] = useState(false);
   const [lineToolsPosition, setLineToolsPosition] = useState({ x: 0, y: 0 });
 
+  // State to store notifications
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+
   // Danh sách màu sắc
   const colorOptions = [
-    '#ffffff', // Trắng
+    document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000', // Trắng/Đen
     '#00C9FF', // Xanh dương
     '#26a69a', // Xanh lá
     '#ef5350', // Đỏ
     '#F4BE37', // Vàng
     '#FF9800', // Cam
-    '#E040FB'  // Tím
   ];
 
   // Định nghĩa các nhóm công cụ
@@ -49,10 +55,14 @@ const CandlestickChart = ({ stockCode, data }) => {
     { id: 'delete', icon: '🗑️', tooltip: 'Xóa tất cả' }
   ];
 
-  // Thêm state cho công cụ text
-  const [showTextInput, setShowTextInput] = useState(false);
-  const [textInputValue, setTextInputValue] = useState('');
-  const [textInputPosition, setTextInputPosition] = useState({ x: 0, y: 0 });
+  // Thêm state cho text input
+  const [textInput, setTextInput] = useState({
+    show: false,
+    value: '',
+    position: { x: 0, y: 0 }
+  });
+
+  // Thêm state cho annotations
   const [annotations, setAnnotations] = useState([]);
 
   // Thêm state cho công cụ đo lường
@@ -356,6 +366,25 @@ const CandlestickChart = ({ stockCode, data }) => {
     const y = e.clientY - rect.top;
     const point = { x, y };
 
+    if (activeTool === 'text') {
+      // Đặt vị trí input text tương đối với canvas
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      setTextInput({
+        show: true,
+        value: '',
+        position: {
+          x: e.clientX - canvasRect.left,
+          y: e.clientY - canvasRect.top
+        }
+      });
+      // Focus vào input ngay khi hiển thị
+      setTimeout(() => {
+        const input = document.querySelector('.chart-text-input');
+        if (input) input.focus();
+      }, 0);
+      return;
+    }
+
     if (activeTool === 'eraser') {
       setIsErasing(true);
       // Tìm và xóa drawing gần nhất với điểm click
@@ -378,10 +407,6 @@ const CandlestickChart = ({ stockCode, data }) => {
         setDrawings(newDrawings);
         redrawAllDrawings();
       }
-    } else if (activeTool === 'text') {
-      setTextInputPosition(point);
-      setShowTextInput(true);
-      setTextInputValue('');
     } else if (activeTool === 'brush') {
       setIsDrawing(true);
       setBrushPath([point]);
@@ -497,36 +522,62 @@ const CandlestickChart = ({ stockCode, data }) => {
     setCurrentPoint(null);
   };
 
-  // Thêm hàm xử lý submit text
-  const handleTextSubmit = () => {
-    if (!textInputValue.trim()) return;
-    
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.font = '14px Arial';
-    ctx.fillStyle = selectedColor;
-    ctx.fillText(textInputValue, textInputPosition.x, textInputPosition.y);
-    
-    setAnnotations([
-      ...annotations,
-      {
-        text: textInputValue,
-        position: textInputPosition,
-        color: selectedColor
-      }
-    ]);
-    
-    setShowTextInput(false);
-    setTextInputValue('');
+  // Xử lý click để thêm text
+  const handleChartClick = (e) => {
+    if (activeTool === 'text') {
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      setTextInput({
+        show: true,
+        value: '',
+        position: { x, y }
+      });
+    }
   };
 
-  // Cập nhật hàm xử lý phím
-  const handleTextInputKeyDown = (e) => {
+  // Xử lý khi text thay đổi
+  const handleTextChange = (e) => {
+    setTextInput(prev => ({
+      ...prev,
+      value: e.target.value
+    }));
+  };
+
+  // Xử lý khi nhấn Enter hoặc click ra ngoài
+  const handleTextSubmit = () => {
+    if (textInput.value.trim()) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.font = '14px Arial';
+      ctx.fillStyle = selectedColor;
+      ctx.fillText(textInput.value, textInput.position.x, textInput.position.y);
+      
+      setAnnotations(prev => [...prev, {
+        text: textInput.value,
+        position: textInput.position,
+        color: selectedColor
+      }]);
+    }
+    
+    setTextInput({
+      show: false,
+      value: '',
+      position: { x: 0, y: 0 }
+    });
+  };
+
+  // Xử lý phím tắt
+  const handleTextKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleTextSubmit();
     } else if (e.key === 'Escape') {
-      setShowTextInput(false);
-      setTextInputValue('');
+      setTextInput({
+        show: false,
+        value: '',
+        position: { x: 0, y: 0 }
+      });
     }
   };
 
@@ -536,7 +587,7 @@ const CandlestickChart = ({ stockCode, data }) => {
       // Lấy vị trí của button để hiển thị dialog
       const rect = event.currentTarget.getBoundingClientRect();
       setLineToolsPosition({ 
-        x: rect.right + 5, 
+        x: rect.width + 2, 
         y: rect.top 
       });
       setShowLineTools(true);
@@ -566,53 +617,92 @@ const CandlestickChart = ({ stockCode, data }) => {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    const isDark = document.documentElement.classList.contains('dark');
+
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       layout: {
-        background: { color: '#131722' },
-        textColor: '#a9a9a9',
-        fontSize: 12,
+        background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
+        textColor: isDark ? '#d1d4dc' : '#333333',
       },
       grid: {
-        vertLines: { color: '#2a2e39' },
-        horzLines: { color: '#2a2e39' },
+        vertLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+        horzLines: { color: isDark ? '#1e222d' : '#e9ecef' },
       },
       crosshair: {
-        mode: 1,
+        mode: CrosshairMode.Normal,
         vertLine: {
           width: 1,
-          color: '#4e5b71',
-          style: 2,
+          color: '#9B7DFF',
+          style: LineStyle.Dashed,
         },
         horzLine: {
           width: 1,
-          color: '#4e5b71',
-          style: 2,
-        },
-      },
-      timeScale: {
-        borderColor: '#2a2e39',
-        timeVisible: true,
-        secondsVisible: false,
-        tickMarkFormatter: (time) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
+          color: '#9B7DFF',
+          style: LineStyle.Dashed,
         },
       },
       rightPriceScale: {
-        borderColor: '#2a2e39',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
+        borderColor: isDark ? '#1e222d' : '#e9ecef',
       },
+      timeScale: {
+        borderColor: isDark ? '#1e222d' : '#e9ecef',
+      },
+    });
+
+    // Watch for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          const isDark = document.documentElement.classList.contains('dark');
+          chart.applyOptions({
+            layout: {
+              background: { type: 'solid', color: isDark ? '#131722' : '#ffffff' },
+              textColor: isDark ? '#d1d4dc' : '#333333',
+            },
+            grid: {
+              vertLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+              horzLines: { color: isDark ? '#1e222d' : '#e9ecef' },
+            },
+            crosshair: {
+              mode: CrosshairMode.Normal,
+              vertLine: {
+                width: 1,
+                color: '#9B7DFF',
+                style: LineStyle.Dashed,
+              },
+              horzLine: {
+                width: 1,
+                color: '#9B7DFF',
+                style: LineStyle.Dashed,
+              },
+            },
+            rightPriceScale: {
+              borderColor: isDark ? '#1e222d' : '#e9ecef',
+            },
+            timeScale: {
+              borderColor: isDark ? '#1e222d' : '#e9ecef',
+            },
+          });
+
+          // Update candlestick series colors
+          if (candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.applyOptions({
+              upColor: isDark ? '#26a69a' : '#26a69a',
+              downColor: isDark ? '#ef5350' : '#ef5350',
+              wickUpColor: isDark ? '#26a69a' : '#26a69a', 
+              wickDownColor: isDark ? '#ef5350' : '#ef5350',
+              borderVisible: false,
+            });
+          }
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -623,6 +713,19 @@ const CandlestickChart = ({ stockCode, data }) => {
       wickDownColor: '#ef5350',
     });
 
+    // Add volume series
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '',
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
 
@@ -630,6 +733,11 @@ const CandlestickChart = ({ stockCode, data }) => {
       const formattedData = formatAndSortData(data);
       try {
         candlestickSeries.setData(formattedData);
+        volumeSeries.setData(formattedData.map(item => ({
+          time: item.time,
+          value: item.volume,
+          color: item.close >= item.open ? '#26a69a80' : '#ef535080'
+        })));
         chart.timeScale().fitContent();
       } catch (error) {
         console.error('Error setting chart data:', error);
@@ -659,20 +767,9 @@ const CandlestickChart = ({ stockCode, data }) => {
 
     window.addEventListener('resize', handleResize);
 
-    // Thêm tooltip hiển thị giá
-    chart.subscribeCrosshairMove((param) => {
-      if (param.time && param.point && param.seriesData.size > 0) {
-        const data = param.seriesData.get(candlestickSeries);
-        if (data) {
-          const price = data.close;
-          const time = new Date(param.time * 1000).toLocaleString('vi-VN');
-          // Có thể thêm tooltip ở đây nếu cần
-        }
-      }
-    });
-
     return () => {
       window.removeEventListener('resize', handleResize);
+      observer.disconnect();
       chart.remove();
     };
   }, []);
@@ -683,6 +780,11 @@ const CandlestickChart = ({ stockCode, data }) => {
       const formattedData = formatAndSortData(data);
       try {
         candlestickSeriesRef.current.setData(formattedData);
+        volumeSeriesRef.current.setData(formattedData.map(item => ({
+          time: item.time,
+          value: item.volume,
+          color: item.close >= item.open ? '#26a69a80' : '#ef535080'
+        })));
         chartRef.current.timeScale().fitContent();
       } catch (error) {
         console.error('Error updating chart data:', error);
@@ -698,86 +800,100 @@ const CandlestickChart = ({ stockCode, data }) => {
     }
   }, [selectedColor]);
 
+  // Theo dõi thay đổi theme để cập nhật màu vẽ
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (selectedColor === '#ffffff' || selectedColor === '#000000') {
+        setSelectedColor(isDark ? '#ffffff' : '#000000');
+      }
+    };
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          handleThemeChange();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, [selectedColor]);
+
   return (
     <div className="relative flex h-full">
-      {/* Toolbar */}
-      <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#1e222d] border-r border-[#2a2e39] z-20 flex flex-col items-center py-2 shadow-lg overflow-y-auto">
-        {/* Drawing Tools */}
-        <div className="space-y-1 w-full px-1">
-          {tools.map(tool => (
+      <div className="flex flex-col items-center w-8 bg-white dark:bg-[#131722] border-r border-gray-200 dark:border-gray-700">
+        {tools.map((tool) => (
+          <div key={tool.id} className="relative">
             <button
-              key={tool.id}
-              className={`w-10 h-10 flex items-center justify-center rounded transition-all duration-200 group relative ${
-                (activeTool === tool.id || (tool.isGroup && lineTools.some(t => t.id === activeTool)))
-                  ? 'bg-[#2962FF] text-white'
-                  : 'text-[#888] hover:bg-[#2a2e39] hover:text-white'
-              }`}
               onClick={(e) => handleToolClick(tool, e)}
+              className={`w-8 h-8 flex items-center justify-center text-base hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                (activeTool === tool.id || (tool.isGroup && lineTools.some(t => t.id === activeTool)))
+                  ? 'text-[#2962FF]' : 'text-black dark:text-white'
+              }`}
+              title={tool.tooltip}
             >
-              <span className="text-lg">{tool.icon}</span>
-              {/* Tooltip */}
-              <div className="absolute left-full ml-2 px-2 py-1 bg-[#1e222d] text-white text-xs whitespace-nowrap rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                {tool.tooltip}
-              </div>
+              {tool.icon}
             </button>
-          ))}
-        </div>
-
-        {/* Line Tools Dialog */}
-        {showLineTools && (
-          <div 
-            className="line-tools-dialog fixed bg-[#1e222d] border border-[#2a2e39] rounded shadow-lg py-1"
-            style={{ 
-              left: `${lineToolsPosition.x}px`, 
-              top: `${lineToolsPosition.y}px`,
-              zIndex: 1000
-            }}
-          >
-            {lineTools.map(tool => (
-              <button
-                key={tool.id}
-                className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-[#2a2e39] transition-colors ${
-                  activeTool === tool.id ? 'text-[#2962FF]' : 'text-white'
-                }`}
-                onClick={() => {
-                  setActiveTool(tool.id);
-                  setShowLineTools(false);
-                }}
+            {tool.isGroup && showLineTools && (
+              <div
+                className="line-tools-dialog absolute left-full top-0 z-50 bg-white dark:bg-[#131722] border border-gray-200 dark:border-gray-700 rounded shadow-lg"
+                style={{ left: '100%', top: '0' }}
               >
-                <span className="text-lg">{tool.icon}</span>
-                <span className="text-sm whitespace-nowrap">{tool.tooltip}</span>
-              </button>
-            ))}
+                {lineTools.map((lineTool) => (
+                  <button
+                    key={lineTool.id}
+                    onClick={() => {
+                      setActiveTool(lineTool.id);
+                      setShowLineTools(false);
+                    }}
+                    className="w-8 h-8 flex items-center justify-center text-base hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white"
+                    title={lineTool.tooltip}
+                  >
+                    {lineTool.icon}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Color Picker */}
-        <div className="mt-4 pt-4 border-t border-[#2a2e39] w-full px-2">
-          {colorOptions.map(color => (
-            <div
+        ))}
+        <div className="mt-2 flex flex-col items-center space-y-1">
+          {colorOptions.map((color) => (
+            <button
               key={color}
-              className={`w-8 h-8 mb-2 mx-auto rounded-full cursor-pointer transition-all duration-200 hover:scale-110 ${
-                selectedColor === color ? 'ring-2 ring-[#2962FF] ring-offset-2 ring-offset-[#1e222d]' : ''
+              onClick={() => setSelectedColor(color)}
+              className={`w-6 h-6 rounded-full ring-1 ring-offset-1 ${
+                selectedColor === color ? 'ring-[#2962FF]' : 'ring-gray-300 dark:ring-gray-600'
               }`}
               style={{ backgroundColor: color }}
-              onClick={() => setSelectedColor(color)}
             />
           ))}
         </div>
       </div>
-
-      {/* Chart Container */}
-      <div className="flex-1 ml-12 relative">
-        {/* Drawing Canvas Layer */}
+      <div 
+        className="relative flex-1 ml-8"
+        onClick={handleChartClick}
+      >
+        <div 
+          ref={chartContainerRef} 
+          className="w-full h-full"
+          style={{ 
+            position: 'relative',
+            zIndex: activeTool === 'cursor' ? 2 : 1
+          }}
+        />
         <canvas
           ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full z-10"
+          className="absolute top-0 left-0 w-full h-full"
           style={{
-            pointerEvents: activeTool === 'cursor' || activeTool === 'crosshair' ? 'none' : 'all',
-            opacity: activeTool === 'cursor' || activeTool === 'crosshair' ? 0 : 1,
-            transition: 'opacity 0.2s ease',
+            zIndex: activeTool === 'cursor' ? 1 : 2,
+            pointerEvents: activeTool === 'cursor' ? 'none' : 'all',
             cursor: activeTool === 'cursor' ? 'default' : 
-                   activeTool === 'crosshair' ? 'crosshair' : 
                    activeTool === 'text' ? 'text' : 'crosshair'
           }}
           onMouseDown={handleMouseDown}
@@ -792,52 +908,42 @@ const CandlestickChart = ({ stockCode, data }) => {
             }
           }}
         />
-        
-        {/* Text Input Dialog */}
-        {showTextInput && (
-          <div 
-            className="absolute z-20 bg-[#1e222d] border border-[#2a2e39] rounded shadow-lg"
-            style={{
-              left: textInputPosition.x + 'px',
-              top: textInputPosition.y + 'px',
-            }}
-          >
-            <div className="flex items-center p-2">
-              <input
-                type="text"
-                className="bg-[#131722] text-white border border-[#2a2e39] px-2 py-1 outline-none rounded mr-2 min-w-[200px]"
-                value={textInputValue}
-                onChange={(e) => setTextInputValue(e.target.value)}
-                onKeyDown={handleTextInputKeyDown}
-                placeholder="Nhập văn bản..."
-                autoFocus
-              />
-              <button
-                className="px-3 py-1 bg-[#2962FF] text-white rounded hover:bg-[#2451CC] transition-colors"
-                onClick={handleTextSubmit}
-              >
-                OK
-              </button>
-            </div>
-            <div className="text-[#666] text-xs px-2 pb-2">
-              Enter để xác nhận • Esc để hủy
-            </div>
+        {textInput.show && (
+          <div className="absolute flex items-center gap-2" style={{
+            left: textInput.position.x + 'px',
+            top: textInput.position.y + 'px',
+            zIndex: 999,
+          }}>
+            <input
+              type="text"
+              value={textInput.value}
+              onChange={handleTextChange}
+              onKeyDown={handleTextKeyDown}
+              onBlur={(e) => {
+                // Chỉ ẩn input khi click ra ngoài cả container
+                if (!e.relatedTarget || !e.relatedTarget.closest('.text-input-container')) {
+                  handleTextSubmit();
+                }
+              }}
+              className="bg-white dark:bg-[#1e222d] text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
+              style={{
+                minWidth: '100px',
+                outline: 'none'
+              }}
+              autoFocus
+              placeholder="Nhập text..."
+            />
+            <button
+              onClick={handleTextSubmit}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            >
+              Thêm
+            </button>
           </div>
         )}
-        
-        <div 
-          ref={chartContainerRef} 
-          className="w-full h-full"
-          style={{ 
-            cursor: activeTool === 'cursor' ? 'default' : 
-                   activeTool === 'crosshair' ? 'crosshair' : 'default',
-            position: 'relative',
-            zIndex: activeTool === 'cursor' || activeTool === 'crosshair' ? 10 : 1
-          }}
-        />
       </div>
     </div>
   );
 };
 
-export default CandlestickChart; 
+export default CandlestickChart;

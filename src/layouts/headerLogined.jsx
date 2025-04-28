@@ -5,20 +5,26 @@ import { Separator } from '@/components/ui/separator';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import SearchInput from '@/components/search-input';
 import { UserNav } from '@/components/layouts/user-nav';
-import ThemeToggle from '@/components/layouts/ThemeToggle/theme-toggle';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Bell, Check, AlertCircle, TrendingUp, TrendingDown, ChevronDown, Sun, Moon } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { getUserId } from '@/api/Api';
 import { stockService } from '@/api/StockApi';
 import TradingSessionBadge from '@/components/TradingSessionBadge';
 import signalRService from '@/api/signalRService';
 import axios from 'axios';
+import { useAuth } from '@/Authentication/AuthContext';
 
 export default function HeaderLogined() {
   // State to store notifications
@@ -29,10 +35,66 @@ export default function HeaderLogined() {
   const [isTradingHours, setIsTradingHours] = useState(false);
   const [marketIndices, setMarketIndices] = useState([]);
   const [isLoadingIndices, setIsLoadingIndices] = useState(true);
+  const [theme, setTheme] = useState('dark');
+  const { user } = useAuth();
+
+  // Add function to get read notifications from localStorage
+  const getReadNotifications = () => {
+    const userId = getUserId();
+    try {
+      const readNotifications = JSON.parse(localStorage.getItem(`readNotifications_${userId}`)) || {};
+      return readNotifications;
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return {};
+    }
+  };
+
+  // Add function to save read notifications to localStorage
+  const saveReadNotifications = (notificationIds) => {
+    const userId = getUserId();
+    try {
+      localStorage.setItem(`readNotifications_${userId}`, JSON.stringify(notificationIds));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
+
+  // Initialize theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme);
+    applyTheme(savedTheme);
+  }, []);
+
+  // Toggle between light and dark mode
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    applyTheme(newTheme);
+  };
+
+  // Apply theme to the document
+  const applyTheme = (theme) => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   // Function to check if current time is within trading hours
   const checkTradingHours = () => {
     const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sunday, 6 is Saturday
+
+    // Check if it's weekend first
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      setIsTradingHours(false);
+      return;
+    }
+
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentTime = hours * 60 + minutes; // Convert to minutes since midnight
@@ -66,14 +128,63 @@ export default function HeaderLogined() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch market indices initially and update every minute
+  // Fetch market indices initially and setup SignalR listener
   useEffect(() => {
+    // Initial fetch
     fetchMarketIndices();
-    const interval = setInterval(fetchMarketIndices, 60000);
-    return () => clearInterval(interval);
+
+    // Setup SignalR listener for market indices updates
+    const setupMarketIndicesListener = async () => {
+      try {
+        // Wait for connection to be established
+        await signalRService.getConnection();
+        
+        // Setup market indices listener
+        const handleMarketIndices = (event) => {
+          const { data } = event.detail;
+          if (data) {
+            setMarketIndices(data);
+          }
+        };
+
+        // Add event listener
+        window.addEventListener('ReceiveIndexUpdate', handleMarketIndices);
+
+        // Handle connection status changes
+        const handleConnectionStatus = (event) => {
+          const { status } = event.detail;
+          if (status === 'connected') {
+            console.log("[SignalR] Reconnected, re-fetching market indices");
+            fetchMarketIndices();
+          }
+        };
+
+        window.addEventListener('signalrConnectionStatus', handleConnectionStatus);
+
+        // Return cleanup function
+        return () => {
+          window.removeEventListener('ReceiveIndexUpdate', handleMarketIndices);
+          window.removeEventListener('signalrConnectionStatus', handleConnectionStatus);
+        };
+      } catch (error) {
+        console.error("[SignalR] Error setting up market indices listener:", error);
+        // Fallback to polling if SignalR fails
+        const interval = setInterval(fetchMarketIndices, 60000);
+        return () => clearInterval(interval);
+      }
+    };
+
+    const cleanup = setupMarketIndicesListener();
+    return () => {
+      if (cleanup && typeof cleanup.then === 'function') {
+        cleanup.then(cleanupFn => {
+          if (cleanupFn) cleanupFn();
+        });
+      }
+    };
   }, []);
 
-  // Fetch notifications when popup opens
+  // Modify fetchNotifications to include read status from localStorage
   const fetchNotifications = async () => {
     try {
       setLoading(true);
@@ -85,6 +196,7 @@ export default function HeaderLogined() {
 
       const response = await stockService.getNotificationMessages(userId);
       if (response?.value?.data) {
+        const readNotifications = getReadNotifications();
         const notificationMessages = response.value.data.map(notification => {
           // Extract information from message using regex
           const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
@@ -97,20 +209,17 @@ export default function HeaderLogined() {
           let messageTime = '';
           
           if (matches && matches.length >= 6) {
-            messageTime = matches[1]; // "2025-04-17 12:07:49"
-            stockCode = matches[2].trim(); // Ensure no whitespace
+            messageTime = matches[1];
+            stockCode = matches[2].trim();
             targetPrice = matches[3].trim();
             currentPrice = matches[4].trim();
-            exchange = matches[5].trim(); // Ensure no whitespace
+            exchange = matches[5].trim();
           }
 
-          // Determine if price is increasing or decreasing
           const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
-
-          // Convert message time string to Date object and adjust for Vietnam timezone (-7 hours)
           const timeStr = messageTime.replace(' ', 'T') + 'Z';
           const messageDate = new Date(timeStr);
-          messageDate.setHours(messageDate.getHours() - 7); // Adjust for Vietnam timezone
+          messageDate.setHours(messageDate.getHours() - 7);
 
           return {
             id: notification.id,
@@ -126,14 +235,13 @@ export default function HeaderLogined() {
               second: '2-digit',
               hour12: false
             }),
-            read: false,
+            read: readNotifications[notification.id] === true,
             stockCode: stockCode,
             exchange: exchange,
             createdAt: messageTime
           };
         });
 
-        // Sort by createdAt in descending order
         notificationMessages.sort((a, b) => 
           new Date(b.createdAt) - new Date(a.createdAt)
         );
@@ -164,9 +272,13 @@ export default function HeaderLogined() {
     // Setup SignalR listener for real-time notifications
     const setupNotificationListener = async () => {
       try {
-        const connection = await signalRService.getConnection();
-        if (!connection) {
-          console.error("[SignalR] No active connection available");
+        // Wait for connection to be established
+        await signalRService.getConnection();
+        
+        // Setup notification listeners
+        const result = await signalRService.setupNotificationListeners();
+        if (!result.success) {
+          console.error("[SignalR] Failed to setup notification listeners:", result.message);
           return;
         }
 
@@ -174,7 +286,6 @@ export default function HeaderLogined() {
           const data = event.detail;
           console.log("[SignalR] Received notification:", data);
           
-          // Extract information from message using regex
           const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
           const matches = data.message.match(messageRegex);
           
@@ -192,10 +303,9 @@ export default function HeaderLogined() {
             }
           }
 
-          // Determine if price is increasing or decreasing
           const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
+          const readNotifications = getReadNotifications();
 
-          // Add new notification to the list
           setNotifications(prev => {
             const newNotification = {
               id: crypto.randomUUID(),
@@ -211,7 +321,7 @@ export default function HeaderLogined() {
                 second: '2-digit',
                 hour12: false
               }),
-              read: false,
+              read: readNotifications[newNotification.id] === true,
               stockCode: stockCode,
               exchange: exchange,
               createdAt: data.time
@@ -219,7 +329,6 @@ export default function HeaderLogined() {
             return [newNotification, ...prev];
           });
 
-          // Show toast notification
           toast.info("Có thông báo giá mới!", {
             description: `${stockCode} - ${exchange}`,
             action: {
@@ -231,10 +340,6 @@ export default function HeaderLogined() {
 
         // Add event listener
         window.addEventListener('stockNotification', handleNotification);
-
-        // Setup SignalR notification listeners
-        await signalRService.setupNotificationListeners();
-        console.log("[SignalR] Notification listener setup complete");
 
         // Handle connection status changes
         const handleConnectionStatus = (event) => {
@@ -254,6 +359,8 @@ export default function HeaderLogined() {
         };
       } catch (error) {
         console.error("[SignalR] Error setting up notification listener:", error);
+        // Retry connection after 5 seconds
+        setTimeout(() => setupNotificationListener(), 5000);
       }
     };
 
@@ -267,8 +374,17 @@ export default function HeaderLogined() {
     };
   }, []);
 
-  // Mark all notifications as read
+  // Modify markAllAsRead to save to localStorage
   const markAllAsRead = () => {
+    const readNotifications = getReadNotifications();
+    const updatedReadNotifications = { ...readNotifications };
+    
+    notifications.forEach(notification => {
+      updatedReadNotifications[notification.id] = true;
+    });
+    
+    saveReadNotifications(updatedReadNotifications);
+    
     setNotifications(prevNotifications => 
       prevNotifications.map(notification => ({
         ...notification,
@@ -278,8 +394,12 @@ export default function HeaderLogined() {
     toast.success("Đã đánh dấu tất cả thông báo là đã đọc");
   };
 
-  // Mark single notification as read
+  // Modify markAsRead to save to localStorage
   const markAsRead = (id) => {
+    const readNotifications = getReadNotifications();
+    const updatedReadNotifications = { ...readNotifications, [id]: true };
+    saveReadNotifications(updatedReadNotifications);
+    
     setNotifications(prevNotifications => 
       prevNotifications.map(notification => 
         notification.id === id ? { ...notification, read: true } : notification
@@ -289,21 +409,21 @@ export default function HeaderLogined() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Modify handleNotificationClick to include read status
   const handleNotificationClick = (id) => {
     markAsRead(id);
     setExpandedId(expandedId === id ? null : id);
   };
 
   return (
-    <header className='bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
+    <header className='header-logined bg-gray-200 dark:bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-4 px-4 flex-1 overflow-hidden'>
-        <SidebarTrigger className='-ml-1 text-white' />
+        <SidebarTrigger className='-ml-1 text-gray-900 dark:text-white' />
         <Separator orientation='vertical' className='h-4 bg-[#15919B]/30' />
-        <Breadcrumb />
         <div className={`px-3 py-1.5 rounded-md text-sm font-medium ${
           isTradingHours 
-            ? 'bg-green-900/30 text-green-400' 
-            : 'bg-red-900/30 text-red-400'
+            ? 'bg-green-900/30 text-green-600 dark:text-green-400' 
+            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
         }`}>
           {isTradingHours ? 'Đang trong phiên' : 'Hết giờ'}
         </div>
@@ -311,7 +431,7 @@ export default function HeaderLogined() {
         
         {/* Market Indices */}
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
-          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[500px] overflow-hidden relative'>
+          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-gray-300 dark:bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
             <style>{`
               @keyframes scroll {
                 0% { transform: translateX(0); }
@@ -321,13 +441,19 @@ export default function HeaderLogined() {
                 animation: scroll 20s linear infinite;
                 display: flex;
                 width: max-content;
+                will-change: transform;
               }
               .scroll-container:hover {
                 animation-play-state: paused;
               }
+              @media (prefers-reduced-motion: reduce) {
+                .scroll-container {
+                  animation-play-state: paused;
+                }
+              }
             `}</style>
-            <div className="scroll-container">
-              <div className='flex items-center gap-6'>
+            <div className="scroll-container" key={marketIndices.length > 0 ? marketIndices[0].close : 'loading'}>
+              <div className='flex items-center gap-8'>
                 {isLoadingIndices ? (
                   <span className="text-[#666]">Đang tải...</span>
                 ) : (
@@ -335,7 +461,7 @@ export default function HeaderLogined() {
                     <span 
                       key={index.id} 
                       className={`whitespace-nowrap ${
-                        index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                        index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
                         index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
                         'text-[#F4BE37]'
                       }`}
@@ -348,12 +474,12 @@ export default function HeaderLogined() {
                   ))
                 )}
               </div>
-              <div className='flex items-center gap-6'>
+              <div className='flex items-center gap-8'>
                 {!isLoadingIndices && marketIndices.map((index) => (
                   <span 
                     key={`${index.id}-duplicate`}
                     className={`whitespace-nowrap ${
-                      index.changeClass === 'txt-green' ? 'text-[#00FF00]' : 
+                      index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
                       index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
                       'text-[#F4BE37]'
                     }`}
@@ -380,8 +506,8 @@ export default function HeaderLogined() {
         <Popover onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <div className="relative">
-              <button className="p-2 hover:bg-[#1a2e3f] rounded-full transition-colors">
-                <Bell className="w-5 h-5 text-gray-300" />
+              <button className="p-2 hover:bg-gray-200 dark:hover:bg-[#1a2e3f] rounded-full transition-colors">
+                <Bell className="w-5 h-5 text-gray-900 dark:text-gray-300" />
               </button>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
@@ -390,9 +516,9 @@ export default function HeaderLogined() {
               )}
             </div>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0 bg-[#213A51] border-[#15919B]/30" align="end">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#15919B]/30">
-              <h4 className="font-semibold text-sm text-white">Thông báo giá</h4>
+          <PopoverContent className="w-80 p-0 bg-white dark:bg-[#213A51] border-gray-200 dark:border-[#15919B]/30" align="end">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#15919B]/30">
+              <h4 className="font-semibold text-sm text-gray-900 dark:text-white">Thông báo giá</h4>
               <button 
                 className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
                 onClick={markAllAsRead}
@@ -409,33 +535,35 @@ export default function HeaderLogined() {
                 notifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className={`px-4 py-3 hover:bg-[#1a2e3f] transition-all duration-200 cursor-pointer border-b border-[#15919B]/30 last:border-0
-                      ${expandedId === notification.id ? 'bg-[#1a2e3f]' : ''}`}
+                    className={`px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a2e3f] transition-all duration-200 cursor-pointer border-b border-gray-200 dark:border-[#15919B]/30 last:border-0
+                      ${expandedId === notification.id ? 'bg-gray-100 dark:bg-[#1a2e3f]' : ''}`}
                     onClick={() => handleNotificationClick(notification.id)}
                   >
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
                         {notification.type === 'increase' && (
-                          <div className="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
-                            <TrendingUp className="w-4 h-4 text-green-400" />
+                          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-[#10B981] dark:text-green-400" />
                           </div>
                         )}
                         {notification.type === 'decrease' && (
-                          <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center">
-                            <TrendingDown className="w-4 h-4 text-red-400" />
+                          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <TrendingDown className="w-4 h-4 text-red-500 dark:text-red-400" />
                           </div>
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-white">{notification.title}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {notification.title}
+                          </p>
                           {notification.stockCode && (
                             <Badge 
                               variant="default"
                               className={`text-[10px] px-2 ${
                                 notification.type === 'increase' 
-                                  ? 'bg-green-900/30 text-green-400' 
-                                  : 'bg-red-900/30 text-red-400'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-[#10B981] dark:text-green-400' 
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
                               }`}
                             >
                               {notification.stockCode}
@@ -444,20 +572,20 @@ export default function HeaderLogined() {
                           {notification.exchange && (
                             <Badge 
                               variant="outline" 
-                              className="text-[10px] px-2 border-[#15919B]/30 text-gray-300 bg-[#1a2e3f]"
+                              className="text-[10px] px-2 border-gray-300 dark:border-[#15919B]/30 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#1a2e3f]"
                             >
                               {notification.exchange}
                             </Badge>
                           )}
                         </div>
-                        <div className={`text-sm text-gray-300 transition-all duration-200 overflow-hidden
+                        <div className={`text-sm text-gray-700 dark:text-gray-300 transition-all duration-200 overflow-hidden
                           ${expandedId === notification.id ? 'max-h-[500px]' : 'max-h-[20px]'}`}>
                           <p className={expandedId === notification.id ? '' : 'line-clamp-1'}>
                             {notification.message}
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-400">{notification.time}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{notification.time}</p>
                           {expandedId === notification.id && (
                             <button 
                               className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"
@@ -480,12 +608,12 @@ export default function HeaderLogined() {
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center text-gray-300 bg-[#213A51]">
+                <div className="py-8 text-center text-gray-700 dark:text-gray-300 bg-white dark:bg-[#213A51]">
                   <p>Không có thông báo nào</p>
                 </div>
               )}
             </div>
-            <div className="p-2 text-center border-t border-[#15919B]/30 bg-[#213A51]">
+            <div className="p-2 text-center border-t border-gray-200 dark:border-[#15919B]/30 bg-white dark:bg-[#213A51]">
               <Link to="/notifications?tab=history">
                 <button className="text-sm text-[#46DFB1] hover:text-[#0ABDB4] font-medium">
                   Xem tất cả thông báo
@@ -494,6 +622,19 @@ export default function HeaderLogined() {
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Theme Switcher */}
+        <button 
+          onClick={toggleTheme}
+          className="p-2 hover:bg-gray-200 dark:hover:bg-[#1a2e3f] rounded-full transition-colors"
+          title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-5 h-5 text-gray-300" />
+          ) : (
+            <Moon className="w-5 h-5 text-gray-900" />
+          )}
+        </button>
 
         <UserNav />
       </div>

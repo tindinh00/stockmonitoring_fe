@@ -211,19 +211,19 @@ export function TransactionHistory() {
   
   // Get status display properties
   const getStatusDisplay = (status) => {
-    if (!status) return { text: 'Không xác định', className: 'bg-gray-100 text-gray-800' };
+    if (!status) return { text: 'Không xác định', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' };
      
     switch(status.toUpperCase()) {
       case 'SUCCESS':
-        return { text: 'Thành công', className: 'bg-green-100 text-green-800' };
+        return { text: 'Thành công', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
       case 'PENDING':
-        return { text: 'Đang xử lý', className: 'bg-yellow-100 text-yellow-800' };
+        return { text: 'Đang xử lý', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' };
       case 'FAILED':
-        return { text: 'Đã hủy', className: 'bg-red-100 text-red-800' };
+        return { text: 'Đã hủy', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
       case 'CANCELLED':
-        return { text: 'Đã hủy', className: 'bg-red-100 text-red-800' };
+        return { text: 'Đã hủy', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
       default:
-        return { text: status, className: 'bg-gray-100 text-gray-800' };
+        return { text: status, className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' };
     }
   };
   
@@ -291,10 +291,10 @@ export function TransactionHistory() {
   
   if (loading && transactions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+      <div className="flex flex-col items-center justify-center p-8 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] rounded-lg">
         <div className="flex items-center gap-2">
           <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
-          <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
+          <span className="text-gray-500 dark:text-gray-400">Đang tải lịch sử giao dịch...</span>
         </div>
       </div>
     );
@@ -302,7 +302,7 @@ export function TransactionHistory() {
   
   if (error && transactions.length === 0) {
     return (
-      <div className="text-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+      <div className="text-center p-8 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] rounded-lg">
         <div className="text-red-500 mb-4">
           {error}
         </div>
@@ -317,7 +317,7 @@ export function TransactionHistory() {
   }
   
   return (
-    <Card className="bg-[#1a1a1a] border border-[#1f1f30]">
+    <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#1f1f30]">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -325,8 +325,8 @@ export function TransactionHistory() {
               <History className="w-5 h-5 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-bold">Lịch sử giao dịch</CardTitle>
-              <CardDescription>Xem lại các giao dịch đã thực hiện</CardDescription>
+              <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">Lịch sử giao dịch</CardTitle>
+              <CardDescription className="text-gray-500 dark:text-gray-400">Xem lại các giao dịch đã thực hiện</CardDescription>
             </div>
           </div>
         </div>
@@ -341,14 +341,14 @@ export function TransactionHistory() {
               placeholder="Tìm kiếm theo mã đơn hàng..."
               value={searchTerm}
               onChange={handleSearchChange}
-              className="pl-10 bg-[#1a1a1a] border-[#1f1f30]"
+              className="pl-10 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#1f1f30] text-gray-900 dark:text-white"
             />
           </div>
           <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-            <SelectTrigger className="w-full md:w-[180px] bg-[#1a1a1a] border-[#1f1f30]">
+            <SelectTrigger className="w-full md:w-[180px] bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#1f1f30] text-gray-900 dark:text-white">
               <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#1f1f30] text-gray-900 dark:text-white">
               <SelectItem value="ALL">Tất cả</SelectItem>
               <SelectItem value="SUCCESS">Thành công</SelectItem>
               <SelectItem value="FAILED">Thất bại</SelectItem>
@@ -366,19 +366,19 @@ export function TransactionHistory() {
         
         {/* Loading state */}
         {loading && (
-          <div className="flex flex-col items-center justify-center p-8 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] rounded-lg">
+          <div className="flex flex-col items-center justify-center p-8 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] rounded-lg">
             <div className="flex items-center gap-2">
               <div className="animate-spin h-5 w-5 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
-              <span className="text-gray-400">Đang tải lịch sử giao dịch...</span>
+              <span className="text-gray-500 dark:text-gray-400">Đang tải lịch sử giao dịch...</span>
             </div>
           </div>
         )}
         
         {/* No transactions */}
         {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length === 0 && !error && (
-          <div className="text-center py-12 bg-gray-900 rounded-md border border-gray-800">
-            <Receipt className="mx-auto h-12 w-12 text-gray-600" />
-            <h3 className="mt-4 text-lg font-medium text-gray-300">Không có giao dịch nào</h3>
+          <div className="text-center py-12 bg-gray-100 dark:bg-gray-900 rounded-md border border-gray-200 dark:border-gray-800">
+            <Receipt className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" />
+            <h3 className="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">Không có giao dịch nào</h3>
             <p className="mt-2 text-sm text-gray-500">Bạn chưa có giao dịch nào trong lịch sử.</p>
           </div>
         )}
@@ -387,30 +387,30 @@ export function TransactionHistory() {
         {!loading && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
           <div className="relative overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase bg-[#1a1a1a] border-y border-[#1f1f30]">
+              <thead className="text-xs uppercase bg-gray-50 dark:bg-[#1a1a1a] border-y border-gray-200 dark:border-[#1f1f30]">
                 <tr>
-                  <th scope="col" className="px-4 py-3 text-gray-400">Mã đơn hàng</th>
-                  <th scope="col" className="px-4 py-3 text-gray-400">Gói dịch vụ</th>
-                  <th scope="col" className="px-4 py-3 text-gray-400">Số tiền</th>
-                  <th scope="col" className="px-4 py-3 text-gray-400">Ngày tạo</th>
-                  <th scope="col" className="px-4 py-3 text-gray-400">Trạng thái</th>
+                  <th scope="col" className="px-4 py-3 text-gray-600 dark:text-gray-400">Mã đơn hàng</th>
+                  <th scope="col" className="px-4 py-3 text-gray-600 dark:text-gray-400">Gói dịch vụ</th>
+                  <th scope="col" className="px-4 py-3 text-gray-600 dark:text-gray-400">Số tiền</th>
+                  <th scope="col" className="px-4 py-3 text-gray-600 dark:text-gray-400">Ngày tạo</th>
+                  <th scope="col" className="px-4 py-3 text-gray-600 dark:text-gray-400">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {currentItems.map((transaction, index) => {
                   const statusDisplay = getStatusDisplay(transaction.status);
                   return (
-                    <tr key={transaction.id || index} className="border-b border-[#1f1f30] bg-[#1a1a1a]">
-                      <td className="px-4 py-3 font-medium text-white">
+                    <tr key={transaction.id || index} className="border-b border-gray-200 dark:border-[#1f1f30] bg-white dark:bg-[#1a1a1a] hover:bg-gray-50 dark:hover:bg-[#252525]">
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                         {transaction.orderCode || 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-gray-300">
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                         {transaction.name || 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-gray-300">
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                         {transaction.amount ? `${transaction.amount.toLocaleString()} VND` : 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-gray-300">
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                         {transaction.createdAt ? formatDate(transaction.createdAt) : 'N/A'}
                       </td>
                       <td className="px-4 py-3">
@@ -427,15 +427,15 @@ export function TransactionHistory() {
             
             {/* Phân trang */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-800 bg-[#1a1a1a] px-4 py-3 sm:px-6">
+              <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1a1a] px-4 py-3 sm:px-6">
                 <div className="flex flex-1 justify-between sm:hidden">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className={`relative inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
                       currentPage === 1 
-                        ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
-                        : 'bg-[#1a1a1a] text-white hover:bg-gray-700'
+                        ? 'bg-white dark:bg-[#1a1a1a] text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                        : 'bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     Trước
@@ -445,8 +445,8 @@ export function TransactionHistory() {
                     disabled={currentPage === totalPages}
                     className={`relative ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
                       currentPage === totalPages 
-                        ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
-                        : 'bg-[#1a1a1a] text-white hover:bg-gray-700'
+                        ? 'bg-white dark:bg-[#1a1a1a] text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                        : 'bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     Sau
@@ -454,7 +454,7 @@ export function TransactionHistory() {
                 </div>
                 <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Hiển thị <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến{' '}
                       <span className="font-medium">
                         {Math.min(currentPage * itemsPerPage, filteredTransactions.length)}
@@ -469,8 +469,8 @@ export function TransactionHistory() {
                         disabled={currentPage === 1}
                         className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
                           currentPage === 1 
-                            ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
-                            : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
+                            ? 'bg-white dark:bg-[#1a1a1a] text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                            : 'bg-white dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-white'
                         }`}
                       >
                         <ChevronLeft className="h-5 w-5" />
@@ -483,8 +483,8 @@ export function TransactionHistory() {
                           onClick={() => handlePageChange(idx + 1)}
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === idx + 1
-                              ? 'bg-[#09D1C7] text-black'
-                              : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
+                              ? 'bg-[#09D1C7] text-white'
+                              : 'bg-white dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-white'
                           }`}
                         >
                           {idx + 1}
@@ -496,8 +496,8 @@ export function TransactionHistory() {
                         disabled={currentPage === totalPages}
                         className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
                           currentPage === totalPages 
-                            ? 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed' 
-                            : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-700 hover:text-white'
+                            ? 'bg-white dark:bg-[#1a1a1a] text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                            : 'bg-white dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-white'
                         }`}
                       >
                         <ChevronRight className="h-5 w-5" />

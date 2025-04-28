@@ -23,6 +23,7 @@ const ChatPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isWithinSupportHours, setIsWithinSupportHours] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [currentRoomId, setCurrentRoomId] = useState(null);
@@ -215,6 +216,32 @@ const ChatPage = () => {
     };
   }, [currentRoomId, userId]);
 
+  // Check if current time is within support hours
+  const checkSupportHours = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+    
+    // Support hours: 8:00 - 17:00
+    return currentTime >= 8 && currentTime < 17;
+  };
+
+  // Update support hours status every minute
+  useEffect(() => {
+    const updateSupportStatus = () => {
+      setIsWithinSupportHours(checkSupportHours());
+    };
+
+    // Check initially
+    updateSupportStatus();
+
+    // Update every minute
+    const interval = setInterval(updateSupportStatus, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -320,26 +347,28 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-132px)] bg-[#0a0a14] relative">
+    <div className="flex h-[calc(100vh-132px)] bg-gray-50 dark:bg-[#0a0a14] relative">
       {/* Sidebar */}
-      <div className="w-80 border-r border-[#1C1C28] bg-[#0E0E15] p-4">
+      <div className="w-80 border-r border-gray-200 dark:border-[#1C1C28] bg-gray-100 dark:bg-[#0E0E15] p-4">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white mb-2">Hỗ trợ trực tuyến</h2>
-          <p className="text-sm text-[#808191]">Thời gian hỗ trợ: 8:00 - 17:00</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Hỗ trợ trực tuyến</h2>
+          <p className="text-sm text-gray-500 dark:text-[#808191]">Thời gian hỗ trợ: 8:00 - 17:00</p>
         </div>
         
         <div className="space-y-2">
-          <div className="bg-[#1C1C28] rounded-lg p-3">
+          <div className="bg-white dark:bg-[#1C1C28] rounded-lg p-3">
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-[#26A65B] rounded-full"></div>
-              <span className="text-sm text-white">Đang hoạt động</span>
+              <div className={`w-2 h-2 rounded-full ${isWithinSupportHours ? 'bg-[#26A65B]' : 'bg-gray-400'}`}></div>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {isWithinSupportHours ? 'Đang hoạt động' : 'Ngoài giờ hỗ trợ'}
+              </span>
             </div>
           </div>
           
-          <div className="bg-[#1C1C28] rounded-lg p-3">
-            <h3 className="text-sm font-medium text-white mb-1">Thông tin hỗ trợ</h3>
-            <p className="text-xs text-[#808191]">Email: support@example.com</p>
-            <p className="text-xs text-[#808191]">Hotline: 1900 xxxx</p>
+          <div className="bg-white dark:bg-[#1C1C28] rounded-lg p-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">Thông tin hỗ trợ</h3>
+            <p className="text-xs text-gray-500 dark:text-[#808191]">Email: support@example.com</p>
+            <p className="text-xs text-gray-500 dark:text-[#808191]">Hotline: 1900 xxxx</p>
           </div>
         </div>
       </div>
@@ -347,25 +376,25 @@ const ChatPage = () => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Chat Header */}
-        <div className="h-16 border-b border-[#1C1C28] px-6 flex items-center justify-between">
+        <div className="h-16 border-b border-gray-200 dark:border-[#1C1C28] px-6 flex items-center justify-between bg-white dark:bg-[#0a0a14]">
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 text-primary">
               <AvatarImage src="/avatars/support.png" />
               <AvatarFallback>HT</AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="text-sm text-left font-medium text-white">Hỗ trợ viên</h3>
+              <h3 className="text-sm text-left font-medium text-gray-900 dark:text-white">Hỗ trợ viên</h3>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-[#26A65B]">Đang hoạt động</p>
-                <span className="text-xs text-[#808191]">·</span>
-                <p className="text-xs text-[#808191]">ID của bạn: {userId}</p>
+                <p className={`text-xs ${isWithinSupportHours ? 'text-[#26A65B]' : 'text-gray-400'}`}>
+                  {isWithinSupportHours ? 'Đang hoạt động' : 'Ngoài giờ hỗ trợ'}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-[#0a0a14]">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -382,10 +411,10 @@ const ChatPage = () => {
                 message.userId === userId ? 'items-end' : ''
               }`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {message.userName}
                   </span>
-                  <span className="text-xs text-[#808191]">
+                  <span className="text-xs text-gray-500 dark:text-[#808191]">
                     {formatTimestamp(message.timestamp)}
                   </span>
                 </div>
@@ -393,7 +422,7 @@ const ChatPage = () => {
                 <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
                   message.userId === userId
                     ? 'bg-[#26A65B] text-white'
-                    : 'bg-[#1C1C28] text-white'
+                    : 'bg-white dark:bg-[#1C1C28] text-gray-900 dark:text-white'
                 }`}>
                   {message.type === 'image' ? (
                     <div 
@@ -420,7 +449,7 @@ const ChatPage = () => {
           ))}
 
           {isTyping && (
-            <div className="flex items-center gap-2 text-[#808191]">
+            <div className="flex items-center gap-2 text-gray-500 dark:text-[#808191]">
               <div className="animate-bounce">●</div>
               <div className="animate-bounce delay-100">●</div>
               <div className="animate-bounce delay-200">●</div>
@@ -432,8 +461,8 @@ const ChatPage = () => {
 
         {/* Selected Image Preview */}
         {imagePreview && (
-          <div className="px-4 pt-2">
-            <div className="bg-[#1C1C28] rounded-lg p-2 flex items-center justify-between">
+          <div className="px-4 pt-2 bg-gray-50 dark:bg-[#0a0a14]">
+            <div className="bg-white dark:bg-[#1C1C28] rounded-lg p-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="relative w-14 h-14 overflow-hidden rounded-md">
                   <img 
@@ -442,13 +471,13 @@ const ChatPage = () => {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className="text-sm text-white">Ảnh đã chọn</span>
+                <span className="text-sm text-gray-900 dark:text-white">Ảnh đã chọn</span>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-red-500 hover:text-red-600 hover:bg-[#2A2A3C] rounded-full p-1"
+                className="text-red-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-[#2A2A3C] rounded-full p-1"
                 onClick={removeSelectedImage}
               >
                 <X className="h-4 w-4" />
@@ -460,7 +489,7 @@ const ChatPage = () => {
         {/* Input Area */}
         <form 
           onSubmit={handleSendMessage}
-          className="h-20 border-t border-[#1C1C28] p-4 flex items-center gap-4"
+          className="h-20 border-t border-gray-200 dark:border-[#1C1C28] p-4 flex items-center gap-4 bg-white dark:bg-[#0a0a14]"
         >
           <div className="flex-1 flex items-center gap-2">
             <Input
@@ -474,7 +503,7 @@ const ChatPage = () => {
                   updateUserActivity();
                 }
               }}
-              className="flex-1 bg-[#1C1C28] border-[#333] text-white placeholder:text-[#808191]"
+              className="flex-1 bg-gray-100 dark:bg-[#1C1C28] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#808191]"
               disabled={isSending}
             />
             <input
@@ -488,7 +517,7 @@ const ChatPage = () => {
               type="button"
               variant="ghost"
               size="icon"
-              className="text-[#808191] hover:text-white hover:bg-[#1C1C28]"
+              className="text-gray-500 dark:text-[#808191] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1C1C28]"
               onClick={() => fileInputRef.current?.click()}
               disabled={isSending}
             >
