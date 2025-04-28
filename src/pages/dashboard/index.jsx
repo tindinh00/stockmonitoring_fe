@@ -30,7 +30,29 @@ export default function DashboardPage() {
     return (
       <div className="flex-1 p-4 md:p-8 pt-6 bg-[#0a0a14]">
         <div className="flex items-center justify-center h-full">
-          <div className="text-gray-400">Loading dashboard data...</div>
+          <div className="flex items-center space-x-2 text-gray-400">
+            <svg
+              className="animate-spin h-5 w-5 text-blue-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span>Đang tải dữ liệu bảng điều khiển...</span>
+          </div>
         </div>
       </div>
     )
@@ -51,50 +73,59 @@ export default function DashboardPage() {
   const revenueChange = lastMonthRevenue ? 
     ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1) : 0
 
+  // Hàm định dạng tiền VNĐ
+  const formatVND = (amount) => {
+    return new Intl.NumberFormat('vi-VN', { 
+      style: 'currency', 
+      currency: 'VND',
+      maximumFractionDigits: 0
+    }).format(amount);
+  }
+
   return (
     <div className="flex-1 p-4 md:p-8 pt-6 bg-[#0a0a14]">
       <div className="flex items-center justify-between mb-8">
         <div className="space-y-1">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">Dashboard</h2>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">Bảng điều khiển</h2>
           <p className="text-sm text-gray-400">
-            Your business analytics and overview.
+            Phân tích và tổng quan kinh doanh của bạn.
           </p>
         </div>
       </div>
       <div className="space-y-8">
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard
-            title="Total Revenue"
-            value={`$${currentMonthStats.totalRevenue.toLocaleString()}`}
+            title="Tổng doanh thu"
+            value={formatVND(currentMonthStats.totalRevenue)}
             icon={<DollarSign className="h-4 w-4" />}
-            helperText={`${revenueChange > 0 ? '+' : ''}${revenueChange}% from last month`}
+            helperText={`${revenueChange > 0 ? '+' : ''}${revenueChange}% so với tháng trước`}
             trend={revenueChange >= 0 ? "up" : "down"}
             className="bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border-0 shadow-xl shadow-blue-500/5"
             iconClassName="bg-blue-500/10 text-blue-500"
           />
           <StatsCard
-            title="Total Purchases"
+            title="Tổng lượt mua"
             value={currentMonthStats.totalPurchases.toString()}
             icon={<Users className="h-4 w-4" />}
-            helperText="This month"
+            helperText="Trong tháng này"
             trend="up"
             className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border-0 shadow-xl shadow-emerald-500/5"
             iconClassName="bg-emerald-500/10 text-emerald-500"
           />
           <StatsCard
-            title="Top Package Revenue"
-            value={`$${dashboardData?.packageStatsByRevenue[0]?.totalRevenue.toLocaleString() || '0'}`}
+            title="Gói dịch vụ doanh thu cao nhất"
+            value={formatVND(dashboardData?.packageStatsByRevenue[0]?.totalRevenue || 0)}
             icon={<CreditCard className="h-4 w-4" />}
-            helperText={dashboardData?.packageStatsByRevenue[0]?.packageName || 'No data'}
+            helperText={dashboardData?.packageStatsByRevenue[0]?.packageName || 'Không có dữ liệu'}
             trend="up"
             className="bg-gradient-to-br from-violet-500/10 via-violet-500/5 to-transparent border-0 shadow-xl shadow-violet-500/5"
             iconClassName="bg-violet-500/10 text-violet-500"
           />
           <StatsCard
-            title="Most Purchased"
+            title="Gói được mua nhiều nhất"
             value={dashboardData?.packageStatsByPurchases[0]?.purchaseCount.toString() || '0'}
             icon={<Activity className="h-4 w-4" />}
-            helperText={dashboardData?.packageStatsByPurchases[0]?.packageName || 'No data'}
+            helperText={dashboardData?.packageStatsByPurchases[0]?.packageName || 'Không có dữ liệu'}
             trend="up"
             className="bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent border-0 shadow-xl shadow-orange-500/5"
             iconClassName="bg-orange-500/10 text-orange-500"

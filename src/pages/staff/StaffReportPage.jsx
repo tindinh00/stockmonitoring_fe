@@ -586,7 +586,7 @@ export default function StaffReportPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-left">
-                        {format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        {report.createdAt ? format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
                       </TableCell>
                       <TableCell className="text-left space-x-2">
                         <Button
@@ -733,7 +733,7 @@ export default function StaffReportPage() {
                   <div>
                     <h4 className="text-sm font-medium mb-2">Ngày tạo</h4>
                     <p className="text-base bg-muted/50 p-3 rounded-lg">
-                      {format(new Date(selectedReport.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      {selectedReport.createdAt ? format(new Date(selectedReport.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
                     </p>
                   </div>
                   <div>
