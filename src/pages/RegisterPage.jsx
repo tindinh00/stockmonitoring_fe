@@ -20,7 +20,7 @@ import { useAuth } from "@/Authentication/AuthContext";
 import TermsAndConditions from "@/components/TermsAndConditions";
 
 // API URL 
-const API_URL = "https://stockmonitoring.onrender.com";
+const API_URL = "https://stockmonitoring-api-gateway.onrender.com";
 
 const Register = () => {
   const [loading, setLoading] = useState(false);
