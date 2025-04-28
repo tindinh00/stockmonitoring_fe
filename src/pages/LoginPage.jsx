@@ -21,7 +21,7 @@ import logo from "../assets/logo.png";
 import axios from "axios";
 
 // API URL
-const API_URL = "https://stockmonitoring.onrender.com";
+const API_URL = "https://stockmonitoring-api-gateway.onrender.com";
 
 // Schema validation với Zod
 const loginSchema = z.object({
