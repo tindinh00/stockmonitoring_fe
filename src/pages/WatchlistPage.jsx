@@ -1862,7 +1862,6 @@ const WatchlistPage = () => {
                   className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-200/50 dark:hover:bg-[#2a2a2a] border-b border-gray-200 dark:border-[#333] last:border-0 transition-colors"
                 >
                   <div className="col-span-2 flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4 text-[#09D1C7]" />
                     <span className="font-medium">{stock.ticketSymbol}</span>
                   </div>
                   <div className="col-span-3">

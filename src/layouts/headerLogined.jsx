@@ -216,35 +216,72 @@ export default function HeaderLogined() {
             exchange = matches[5].trim();
           }
 
-          const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
-          const timeStr = messageTime.replace(' ', 'T') + 'Z';
-          const messageDate = new Date(timeStr);
-          messageDate.setHours(messageDate.getHours() - 7);
+          // Xác định kiểu thông báo dựa trên phân tích giá
+          let notificationType = 'neutral';
+          let priceChange = 0;
+          
+          if (targetPrice && currentPrice) {
+            try {
+              priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
+              notificationType = priceChange >= 0 ? 'increase' : 'decrease';
+            } catch (e) {
+              console.error('Error calculating price change:', e);
+            }
+          }
+
+          // Xử lý thời gian thông báo để tránh Invalid Date
+          let formattedTime = '';
+          try {
+            if (messageTime) {
+              const date = new Date(messageTime.replace(' ', 'T') + '.000Z');
+              formattedTime = date.toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+              });
+            }
+          } catch (e) {
+            console.error('Error formatting time:', e, messageTime);
+            formattedTime = messageTime; // Fallback to raw time if formatting fails
+          }
 
           return {
             id: notification.id,
-            type: priceChange >= 0 ? 'increase' : 'decrease',
+            type: notificationType,
             title: 'Thông báo giá',
             message: notification.message,
-            time: messageDate.toLocaleString('vi-VN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false
-            }),
+            time: formattedTime || 'N/A',
             read: readNotifications[notification.id] === true,
             stockCode: stockCode,
             exchange: exchange,
-            createdAt: messageTime
+            createdAt: notification.createdAt || messageTime
           };
         });
 
-        notificationMessages.sort((a, b) => 
-          new Date(b.createdAt) - new Date(a.createdAt)
-        );
+        notificationMessages.sort((a, b) => {
+          // Ensure we have valid dates for comparison
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          
+          // Use isValid check for Date objects
+          const isValidA = !isNaN(dateA.getTime());
+          const isValidB = !isNaN(dateB.getTime());
+          
+          // If both dates are valid, compare them
+          if (isValidA && isValidB) {
+            return dateB - dateA;
+          }
+          // If only one date is valid, prioritize the valid one
+          if (isValidA) return -1;
+          if (isValidB) return 1;
+          
+          // If neither date is valid, maintain original order
+          return 0;
+        });
 
         setNotifications(notificationMessages);
       }
@@ -415,6 +452,12 @@ export default function HeaderLogined() {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  // Hàm kiểm tra ngày hợp lệ
+  const isValidDate = (dateString) => {
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  };
+
   return (
     <header className='header-logined bg-gray-200 dark:bg-[#213A51] flex h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-4 px-4 flex-1 overflow-hidden'>
@@ -526,7 +569,32 @@ export default function HeaderLogined() {
                 Đánh dấu tất cả đã đọc
               </button>
             </div>
-            <div className="max-h-[400px] overflow-auto">
+            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+              <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                  width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                  background: rgba(0, 0, 0, 0.1);
+                  border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                  background: rgba(21, 145, 155, 0.5);
+                  border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                  background: rgba(21, 145, 155, 0.7);
+                }
+                .dark .custom-scrollbar::-webkit-scrollbar-track {
+                  background: rgba(255, 255, 255, 0.05);
+                }
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                  background: rgba(21, 145, 155, 0.5);
+                }
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                  background: rgba(21, 145, 155, 0.7);
+                }
+              `}</style>
               {loading ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#46DFB1]"></div>
@@ -585,7 +653,13 @@ export default function HeaderLogined() {
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{notification.time}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {notification.time && notification.time !== 'Invalid Date' 
+                              ? notification.time 
+                              : (isValidDate(notification.createdAt) 
+                                ? new Date(notification.createdAt).toLocaleString('vi-VN') 
+                                : notification.createdAt)}
+                          </p>
                           {expandedId === notification.id && (
                             <button 
                               className="text-xs text-[#46DFB1] hover:text-[#0ABDB4]"

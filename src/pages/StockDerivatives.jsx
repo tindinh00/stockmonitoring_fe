@@ -900,31 +900,66 @@ export default function StockDerivatives() {
   // Update handleSavePriceAlert function
   const handleSavePriceAlert = async () => {
     try {
-      // Validate price before proceeding
+      // Validate input
       if (!validateNotificationPrice(alertPrice, selectedAlertStock, alertType)) {
         return;
       }
-
+      
       setIsSubmittingAlert(true);
       
       // Convert alertType to API format
-      const alertTypeApi = alertType === 'above' ? 'increase' : 'decrease';
+      let alertTypeApi;
+      if (alertType === 'above') {
+        alertTypeApi = 'increase';
+      } else if (alertType === 'below') {
+        alertTypeApi = 'decrease';
+      }
       
-      const result = await apiService.createPriceAlert(
-        selectedAlertStock.code.toUpperCase(),
-        parseFloat(alertPrice),
-        alertTypeApi
-      );
+      // Gọi API trực tiếp thay vì qua apiService để xử lý lỗi tốt hơn
+      const token = Cookies.get("auth_token");
+      const userId = getUserId();
       
-      if (result.success) {
-        toast.success(result.message);
+      if (!token || !userId) {
+        toast.error("Vui lòng đăng nhập để sử dụng tính năng này");
+        setIsSubmittingAlert(false);
+        return;
+      }
+      
+      try {
+        const response = await axios.post(
+          `${APP_BASE_URL}/api/notifications`,
+          {
+            tickerSymbol: selectedAlertStock.code.toUpperCase(),
+            userId: userId,
+            price: parseFloat(alertPrice),
+            type: alertTypeApi
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': '*/*'
+            }
+          }
+        );
+        
+        toast.success(`Đã cài đặt thông báo khi giá ${selectedAlertStock.code} ${alertTypeApi === 'increase' ? 'tăng lên' : 'giảm xuống'} ${alertPrice}`);
         setIsPriceAlertOpen(false);
-      } else {
-        toast.error(result.message || 'Không thể tạo cảnh báo giá');
+      } catch (apiError) {
+        console.error("API Error:", apiError);
+        
+        // Xử lý lỗi từ API
+        if (apiError.response?.data?.value?.message) {
+          toast.error(apiError.response.data.value.message);
+        } else if (apiError.response?.status === 400) {
+          toast.error("Notification đã tồn tại với giá tương tự.");
+        } else {
+          toast.error(apiError.message || "Không thể tạo cảnh báo giá");
+        }
       }
     } catch (error) {
-      console.error('Error creating price alert:', error);
-      toast.error(error.message || 'Đã xảy ra lỗi khi tạo cảnh báo giá');
+      console.error('Error in handleSavePriceAlert:', error);
+      toast.error("Đã xảy ra lỗi không mong muốn");
     } finally {
       setIsSubmittingAlert(false);
     }
@@ -1169,17 +1204,6 @@ export default function StockDerivatives() {
     // Basic validation
     if (targetPrice <= 0) {
       toast.error('Giá phải lớn hơn 0');
-      return false;
-    }
-
-    // Validate against current price
-    if (type === 'above' && targetPrice <= currentPrice) {
-      toast.error('Giá mục tiêu phải cao hơn giá hiện tại');
-      return false;
-    }
-
-    if (type === 'below' && targetPrice >= currentPrice) {
-      toast.error('Giá mục tiêu phải thấp hơn giá hiện tại');
       return false;
     }
 
@@ -1859,8 +1883,8 @@ export default function StockDerivatives() {
                 checked={showWatchlist}
                 onChange={handleToggleWatchlist}
               />
-              <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${hasFeature("Quản lý thông báo theo nhu cầu") ? "dark:bg-gray-700 bg-gray-200" : "dark:bg-gray-600 bg-gray-300"} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600`}></div>
-              <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Danh sách theo dõi</span>
+              <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${hasFeature("Quản lý thông báo theo nhu cầu") ? "dark:bg-gray-700 bg-gray-300 border-2 border-gray-400 dark:border-gray-600" : "dark:bg-gray-600 bg-gray-300 border border-gray-400 dark:border-gray-600"} peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border-2 after:rounded-full after:h-5 after:w-5 after:shadow-md after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:border-blue-700 dark:peer-checked:border-blue-800 transition-all duration-200`}></div>
+              <span className="ml-3 text-sm font-semibold text-gray-900 dark:text-gray-300">Danh sách theo dõi</span>
               {!hasFeature("Quản lý thông báo theo nhu cầu") && (
                 <img 
                   src="/icons/workspace_premium.svg" 
