@@ -159,10 +159,17 @@ const PersonalAnalyticsPage = () => {
 
   // Kiểm tra tổng trọng số
   const calculateTotalWeight = () => {
-    const weights = stocks.map(stock => 
-      editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight
-    );
-    return weights.reduce((sum, weight) => sum + (weight || 0), 0);
+    // Convert all weights to numbers with 2 decimal places to avoid floating point precision issues
+    const weights = stocks.map(stock => {
+      const weight = editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight;
+      return parseFloat(parseFloat(weight || 0).toFixed(2));
+    });
+    
+    // Sum all weights
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    
+    // Return the total with 2 decimal places
+    return parseFloat(total.toFixed(2));
   };
 
   // Reset edited weights
@@ -410,8 +417,8 @@ const PersonalAnalyticsPage = () => {
             <div className="min-w-full inline-block align-middle">
               <div className="overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-[#333] table-fixed">
-                  <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0">
-                    <tr>
+              <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0">
+                <tr>
                       <th className="w-[8%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
                         <div className="flex items-center justify-center gap-1">
                           <span>Mã CK</span>
@@ -472,30 +479,30 @@ const PersonalAnalyticsPage = () => {
                           {getSortIcon('recommendation')}
                         </div>
                       </th>
-                    </tr>
-                  </thead>
+                </tr>
+              </thead>
                   <tbody className="bg-gray-50 dark:bg-[#0a0a14] divide-y divide-gray-200 dark:divide-[#333]">
-                    {getCurrentPageData().map((stock) => (
+                {getCurrentPageData().map((stock) => (
                       <tr key={stock.id} className="hover:bg-gray-100 dark:hover:bg-[#1a1a1a]">
                         <td className="px-3 py-3 whitespace-nowrap font-medium text-gray-900 dark:text-white text-center">{stock.ticketSymbol}</td>
                         <td className="px-3 py-3 whitespace-nowrap text-gray-900 dark:text-white text-center">{stock.weight.toFixed(2)}%</td>
-                        {renderValueCell(stock, 'stockReturn', 'percentage')}
-                        {renderValueCell(stock, 'returnWeight', 'percentage')}
-                        {renderValueCell(stock, 'beta', 'beta')}
-                        {renderValueCell(stock, 'betaWeight', 'betaWeight')}
-                        {renderValueCell(stock, 'returnLevel', 'returnLevel')}
-                        {renderValueCell(stock, 'riskLevel', 'riskLevel')}
-                        {renderValueCell(stock, 'recommendation', 'recommendation')}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    {renderValueCell(stock, 'stockReturn', 'percentage')}
+                    {renderValueCell(stock, 'returnWeight', 'percentage')}
+                    {renderValueCell(stock, 'beta', 'beta')}
+                    {renderValueCell(stock, 'betaWeight', 'betaWeight')}
+                    {renderValueCell(stock, 'returnLevel', 'returnLevel')}
+                    {renderValueCell(stock, 'riskLevel', 'riskLevel')}
+                    {renderValueCell(stock, 'recommendation', 'recommendation')}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
               </div>
             </div>
           </div>
-          
-          {/* Phân trang */}
-          {stocks.length > 0 && <Pagination />}
+            
+            {/* Phân trang */}
+            {stocks.length > 0 && <Pagination />}
         </div>
         
         <div className="mt-6 text-sm text-gray-500 dark:text-[#666] px-4">

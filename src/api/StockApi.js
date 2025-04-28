@@ -98,6 +98,7 @@ export const stockService = {
     try {
       // Đảm bảo exchange được cung cấp và đúng định dạng
       const formattedExchange = exchange ? exchange.toLowerCase() : 'hsx';
+      console.log(`Input exchange value: "${exchange}", Formatted exchange value: "${formattedExchange}"`);
       
       // Tạo danh sách các endpoint có thể thử
       const endpoints = [
@@ -119,11 +120,12 @@ export const stockService = {
           
           if (response && response.status === 200) {
             console.log(`Endpoint ${endpoint} succeeded:`, response.status);
+            console.log(`Full request URL: ${API_URL}${endpoint}`);
             return response.data;
           }
         } catch (endpointError) {
           console.error(`Error with endpoint ${endpoint}:`, endpointError.message);
-          console.error("Full error:", endpointError);
+          console.error(`Full request URL that failed: ${API_URL}${endpoint}`);
           // Tiếp tục thử endpoint tiếp theo
         }
       }
@@ -173,17 +175,22 @@ export const stockService = {
   // Lấy danh sách mã chứng khoán trong watchlist của user
   getWatchlistByUser: async (userId, exchange = 'hsx', timestamp = null) => {
     try {
-      console.log("Trying to get watchlist for user ID:", userId);
+      console.log(`=== Getting watchlist for user ID: ${userId}, exchange: ${exchange} ===`);
       
       const params = new URLSearchParams();
       if (exchange) {
-        params.append('exchange', exchange.toLowerCase());
+        const formattedExchange = exchange.toLowerCase();
+        params.append('exchange', formattedExchange);
+        console.log(`Input exchange value: "${exchange}", Formatted exchange value: "${formattedExchange}"`);
       }
       if (timestamp) {
         params.append('timestamps', timestamp.toString());
       }
       
-      const response = await axiosInstance.get(`/api/watchlist-stock/${userId}?${params.toString()}`, {
+      const fullUrl = `/api/watchlist-stock/${userId}?${params.toString()}`;
+      console.log(`Making API call to: ${fullUrl}`);
+      
+      const response = await axiosInstance.get(fullUrl, {
         timeout: 15000
       });
       
