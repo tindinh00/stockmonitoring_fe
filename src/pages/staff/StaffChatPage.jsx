@@ -375,7 +375,7 @@ export default function StaffChatPage() {
                         <div className="flex items-center justify-between mt-1">
                           <div className="flex items-center gap-1">
                             
-                            <p className="text-sm text-[#808191] truncate">
+                            <p className="text-sm text-[#808191] truncate max-w-[200px] overflow-hidden text-ellipsis">
                               {room.lastMessage || 'Chưa có tin nhắn'}
                             </p>
                           </div>
@@ -480,7 +480,7 @@ export default function StaffChatPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-left">{message.content}</p>
+                                  <p className="text-sm text-left break-words">{message.content}</p>
                                 )}
                               </div>
                             </div>

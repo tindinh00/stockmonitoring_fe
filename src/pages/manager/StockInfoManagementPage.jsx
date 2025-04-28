@@ -91,6 +91,7 @@ export default function StockInfoManagementPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileType, setFileType] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [selectedExchange, setSelectedExchange] = useState("");
   
   // Fetch stock data
   const fetchStocks = async () => {
@@ -281,13 +282,26 @@ export default function StockInfoManagementPage() {
       return;
     }
     
+    // Kiểm tra xem nếu là loại stock thì cần chọn sàn
+    if (fileType === "stock" && !selectedExchange) {
+      toast.error("Vui lòng chọn sàn giao dịch");
+      return;
+    }
+    
     setUploading(true);
     const formData = new FormData();
     formData.append('file', selectedFile);
     
     try {
+      let endpoint = `${API_URL}/api/file-csv/${fileType}`;
+      
+      // Nếu là loại stock và có chọn sàn, thêm tham số exchange
+      if (fileType === "stock" && selectedExchange) {
+        endpoint += `?exchange=${selectedExchange}`;
+      }
+      
       const response = await axios.post(
-        `${API_URL}/api/file-csv/${fileType}`,
+        endpoint,
         formData,
         {
           headers: {
@@ -302,14 +316,36 @@ export default function StockInfoManagementPage() {
         setUploadDialogOpen(false);
         setSelectedFile(null);
         setFileType("");
+        setSelectedExchange("");
         // Refresh the data
         fetchStocks();
       } else {
-        toast.error(response.data.message || "Tải lên file thất bại");
+        // Hiển thị thông báo lỗi từ response
+        const errorMessage = response.data.value?.message || response.data.message || "Tải lên file thất bại";
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error("Không thể tải lên file");
+      
+      // Xử lý thông báo lỗi từ response
+      if (error.response) {
+        const responseData = error.response.data;
+        
+        // Kiểm tra các dạng cấu trúc lỗi khác nhau có thể có
+        let errorMessage = "Không thể tải lên file";
+        
+        if (responseData.value && responseData.value.message) {
+          errorMessage = responseData.value.message;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        } else if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        }
+        
+        toast.error(errorMessage);
+      } else {
+        toast.error("Không thể tải lên file. Vui lòng thử lại sau");
+      }
     } finally {
       setUploading(false);
     }
@@ -665,9 +701,15 @@ export default function StockInfoManagementPage() {
               </label>
               <Select
                 value={fileType}
-                onValueChange={setFileType}
+                onValueChange={(value) => {
+                  setFileType(value);
+                  // Reset exchange khi đổi loại dữ liệu
+                  if (value !== "stock") {
+                    setSelectedExchange("");
+                  }
+                }}
               >
-                <SelectTrigger className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                <SelectTrigger id="fileType" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
                   <SelectValue placeholder="Chọn loại dữ liệu" />
                 </SelectTrigger>
                 <SelectContent>
@@ -676,6 +718,26 @@ export default function StockInfoManagementPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {fileType === "stock" && (
+              <div className="space-y-2">
+                <label htmlFor="exchange" className="text-sm font-medium">
+                  Sàn giao dịch
+                </label>
+                <Select
+                  value={selectedExchange}
+                  onValueChange={setSelectedExchange}
+                >
+                  <SelectTrigger id="exchange" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                    <SelectValue placeholder="Chọn sàn giao dịch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hsx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HOSE</SelectItem>
+                    <SelectItem value="hnx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HNX</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             <div className="space-y-2">
               <label htmlFor="csvFile" className="text-sm font-medium">
@@ -692,12 +754,17 @@ export default function StockInfoManagementPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setUploadDialogOpen(false);
+              setSelectedFile(null);
+              setFileType("");
+              setSelectedExchange("");
+            }}>
               Hủy
             </Button>
             <Button 
               onClick={handleUpload}
-              disabled={uploading || !selectedFile || !fileType}
+              disabled={uploading || !selectedFile || !fileType || (fileType === "stock" && !selectedExchange)}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               {uploading ? (
