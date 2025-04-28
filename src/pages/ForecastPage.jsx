@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 const ForecastPage = () => {
   const [forecastData, setForecastData] = useState(null);
@@ -17,6 +18,9 @@ const ForecastPage = () => {
   const [sortDirection, setSortDirection] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Reusable classes for badges
+  const badgeClass = "text-xs bg-gray-100 dark:bg-[#252525] text-gray-500 dark:text-[#999] border-gray-200 dark:border-[#333]";
 
   useEffect(() => {
     fetchForecastData();
@@ -143,14 +147,14 @@ const ForecastPage = () => {
     switch (type) {
       case 'percentage':
         formattedValue = value ? `${value > 0 ? '+' : ''}${value.toFixed(2)}%` : '--';
-        color = value > 0 ? 'text-[#00FF00]' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
+        color = value > 0 ? 'text-emerald-500 dark:text-emerald-400' : value < 0 ? 'text-[#FF4A4A]' : 'text-white';
         break;
       case 'price':
         formattedValue = value ? value.toFixed(2) : '--';
         break;
       case 'trend':
         switch (value) {
-          case 'Xu hướng tăng': color = 'text-[#00FF00]'; break;
+          case 'Xu hướng tăng': color = 'text-emerald-500 dark:text-emerald-400'; break;
           case 'Xu hướng giảm': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
@@ -158,7 +162,7 @@ const ForecastPage = () => {
       case 'recommendation':
         switch (value) {
           case 'Nên mua':
-          case 'Nên mua mạnh': color = 'text-[#00FF00]'; break;
+          case 'Nên mua mạnh': color = 'text-emerald-500 dark:text-emerald-400'; break;
           case 'Nên bán': color = 'text-[#FF4A4A]'; break;
           default: color = 'text-[#F4BE37]';
         }
@@ -193,18 +197,18 @@ const ForecastPage = () => {
     const bgColor = isPositive ? 'bg-[#002108]' : 'bg-[#290000]';
     
     return (
-      <Card className="bg-[#1a1a1a] border-[#333]">
+      <Card className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]">
         <CardContent className="p-4">
           <div className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#666]">{title}</p>
-              <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+              <Badge variant="outline" className={badgeClass}>
                 {formatDate(date)}
               </Badge>
             </div>
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline space-x-2">
-                <span className="text-2xl font-bold text-white">
+                <span className={cn("text-2xl font-bold", "dark:text-white text-gray-900")}>
                   {type === 'percentage' ? `${value.toFixed(2)}%` : value.toFixed(2)}
                 </span>
               </div>
@@ -231,11 +235,11 @@ const ForecastPage = () => {
   }
 
   return (
-    <div className="bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
+    <div className="bg-white dark:bg-[#0a0a14] min-h-screen -mx-4 md:-mx-8">
       {/* Header */}
-      <div className="border-b border-[#1a1a1a]">
+      <div className="border-b border-gray-200 dark:border-[#1a1a1a]">
         <div className="px-4 py-4 md:px-8 flex items-center justify-between">
-          <h1 className="text-lg font-medium text-white">Dự đoán giá</h1>
+          <h1 className={cn("text-lg font-medium", "dark:text-white text-gray-900")}>Dự đoán giá</h1>
           <Button
             onClick={fetchForecastData}
             className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white h-8 px-3 rounded-md text-sm"
@@ -257,10 +261,10 @@ const ForecastPage = () => {
         <div className="p-4 md:p-8 space-y-8">
           {/* Portfolio Overview - Beta and Recommendation */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">Khuyến nghị</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   {formatDate(forecastData.predictionDate)}
                 </Badge>
               </div>
@@ -272,17 +276,17 @@ const ForecastPage = () => {
               </div>
             </div>
 
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">Chỉ số Beta</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   Độ nhạy thị trường
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-medium text-white">
+                    <span className={cn("text-2xl font-medium", "dark:text-white text-gray-900")}>
                       {forecastData.portfolioPrediction.portfolioBeta.toFixed(2)}
                     </span>
                     <span className="text-lg text-[#666]">β</span>
@@ -306,10 +310,10 @@ const ForecastPage = () => {
 
           {/* Time Period Predictions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">1 Ngày</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   1D
                 </Badge>
               </div>
@@ -321,7 +325,7 @@ const ForecastPage = () => {
                 {forecastData.portfolioPrediction.nextDayChange > 0 ? '+' : ''}
                 {forecastData.portfolioPrediction.nextDayChange.toFixed(2)}%
               </div>
-              <div className="mt-4 text-xs text-[#666] flex items-center gap-2">
+              <div className="mt-4 text-xs text-gray-500 dark:text-[#666] flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
                   forecastData.portfolioPrediction.nextDayChange > 0 
                     ? 'bg-[#00FF00]' 
@@ -331,10 +335,10 @@ const ForecastPage = () => {
               </div>
             </div>
 
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">1 Tuần</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   1W
                 </Badge>
               </div>
@@ -346,7 +350,7 @@ const ForecastPage = () => {
                 {forecastData.portfolioPrediction.nextWeekChange > 0 ? '+' : ''}
                 {forecastData.portfolioPrediction.nextWeekChange.toFixed(2)}%
               </div>
-              <div className="mt-4 text-xs text-[#666] flex items-center gap-2">
+              <div className="mt-4 text-xs text-gray-500 dark:text-[#666] flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
                   forecastData.portfolioPrediction.nextWeekChange > 0 
                     ? 'bg-[#00FF00]' 
@@ -356,10 +360,10 @@ const ForecastPage = () => {
               </div>
             </div>
 
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">1 Tháng</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   1M
                 </Badge>
               </div>
@@ -371,7 +375,7 @@ const ForecastPage = () => {
                 {forecastData.portfolioPrediction.nextMonthChange > 0 ? '+' : ''}
                 {forecastData.portfolioPrediction.nextMonthChange.toFixed(2)}%
               </div>
-              <div className="mt-4 text-xs text-[#666] flex items-center gap-2">
+              <div className="mt-4 text-xs text-gray-500 dark:text-[#666] flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
                   forecastData.portfolioPrediction.nextMonthChange > 0 
                     ? 'bg-[#00FF00]' 
@@ -381,10 +385,10 @@ const ForecastPage = () => {
               </div>
             </div>
 
-            <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-[#666]">1 Quý</span>
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   1Q
                 </Badge>
               </div>
@@ -396,7 +400,7 @@ const ForecastPage = () => {
                 {forecastData.portfolioPrediction.nextQuarterChange > 0 ? '+' : ''}
                 {forecastData.portfolioPrediction.nextQuarterChange.toFixed(2)}%
               </div>
-              <div className="mt-4 text-xs text-[#666] flex items-center gap-2">
+              <div className="mt-4 text-xs text-gray-500 dark:text-[#666] flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
                   forecastData.portfolioPrediction.nextQuarterChange > 0 
                     ? 'bg-[#00FF00]' 
@@ -408,11 +412,11 @@ const ForecastPage = () => {
           </div>
 
           {/* Stock Details */}
-          <div className="bg-[#1a1a1a] border border-[#333] rounded-lg">
-            <div className="p-4 border-b border-[#333] flex items-center justify-between">
-              <div className="text-sm font-medium text-white">Chi tiết dự đoán</div>
+          <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg">
+            <div className="p-4 border-b border-gray-200 dark:border-[#333] flex items-center justify-between">
+              <div className={cn("text-sm font-medium", "dark:text-white text-gray-900")}>Chi tiết dự đoán</div>
               <div className="flex gap-2">
-                <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                <Badge variant="outline" className={badgeClass}>
                   {formatDate(forecastData.predictionDate)}
                 </Badge>
               </div>
@@ -420,40 +424,40 @@ const ForecastPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#333]">
-                    <th className="text-left text-xs font-medium text-[#666] p-4">Mã CK</th>
-                    <th className="text-right text-xs font-medium text-[#666] p-4">Giá hiện tại</th>
-                    <th className="text-center text-xs font-medium text-[#666] p-4">Xu hướng</th>
-                    <th className="text-right text-xs font-medium text-[#666] p-4">Dự đoán 1D</th>
-                    <th className="text-right text-xs font-medium text-[#666] p-4">Dự đoán 1W</th>
-                    <th className="text-right text-xs font-medium text-[#666] p-4">Dự đoán 1M</th>
-                    <th className="text-right text-xs font-medium text-[#666] p-4">Dự đoán 1Q</th>
-                    <th className="text-center text-xs font-medium text-[#666] p-4">Khuyến nghị</th>
+                  <tr className="border-b border-gray-200 dark:border-[#333]">
+                    <th className="text-left text-xs font-medium text-gray-500 dark:text-[#666] p-4">Mã CK</th>
+                    <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Giá hiện tại</th>
+                    <th className="text-center text-xs font-medium text-gray-500 dark:text-[#666] p-4">Xu hướng</th>
+                    <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1D</th>
+                    <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1W</th>
+                    <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1M</th>
+                    <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1Q</th>
+                    <th className="text-center text-xs font-medium text-gray-500 dark:text-[#666] p-4">Khuyến nghị</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getCurrentPageData().map((stock) => (
-                    <tr key={stock.id} className="border-b border-[#333] hover:bg-[#252525]">
+                    <tr key={stock.id} className="border-b border-gray-200 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#252525]">
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-white">{stock.ticketSymbol}</span>
-                          <Badge variant="outline" className="text-xs bg-[#252525] text-[#999] border-[#333]">
+                          <span className={cn("font-medium", "dark:text-white text-gray-900")}>{stock.ticketSymbol}</span>
+                          <Badge variant="outline" className={badgeClass}>
                             {stock.weight}%
                           </Badge>
                         </div>
                       </td>
-                      <td className="p-4 text-right font-medium text-white">
+                      <td className="p-4 text-right font-medium dark:text-white text-gray-900">
                         {stock.currentPrice.toFixed(2)}
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center">
                           <Badge className={`${
                             stock.trend === 'Xu hướng tăng'
-                              ? 'bg-[#002108] text-[#00FF00]'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.trend === 'Xu hướng giảm'
-                              ? 'bg-[#290000] text-[#FF4A4A]'
-                              : 'bg-[#252525] text-[#F4BE37]'
-                          }`}>
+                              ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
+                              : 'bg-yellow-100 hover:bg-yellow-200 dark:bg-[#252525] dark:hover:bg-[#333333] text-yellow-600 dark:text-[#F4BE37]'
+                          } transition-colors duration-200`}>
                             {stock.trend}
                           </Badge>
                         </div>
@@ -461,7 +465,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextDayChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextDayChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextDayChange > 0 ? '+' : ''}
                             {stock.nextDayChange.toFixed(2)}%
@@ -471,7 +475,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextWeekChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextWeekChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextWeekChange > 0 ? '+' : ''}
                             {stock.nextWeekChange.toFixed(2)}%
@@ -481,7 +485,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextMonthChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextMonthChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextMonthChange > 0 ? '+' : ''}
                             {stock.nextMonthChange.toFixed(2)}%
@@ -491,7 +495,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           <span className={
-                            stock.nextQuarterChange > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
+                            stock.nextQuarterChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-[#FF4A4A]'
                           }>
                             {stock.nextQuarterChange > 0 ? '+' : ''}
                             {stock.nextQuarterChange.toFixed(2)}%
@@ -502,11 +506,11 @@ const ForecastPage = () => {
                         <div className="flex justify-center">
                           <Badge className={`${
                             stock.recommendation.includes('mua')
-                              ? 'bg-[#002108] text-[#00FF00]'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.recommendation === 'Nên bán'
-                              ? 'bg-[#290000] text-[#FF4A4A]'
-                              : 'bg-[#252525] text-[#F4BE37]'
-                          }`}>
+                              ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
+                              : 'bg-yellow-100 hover:bg-yellow-200 dark:bg-[#252525] dark:hover:bg-[#333333] text-yellow-600 dark:text-[#F4BE37]'
+                          } transition-colors duration-200`}>
                             {stock.recommendation}
                           </Badge>
                         </div>
@@ -518,7 +522,7 @@ const ForecastPage = () => {
             </div>
 
             {forecastData?.stocks?.length > 0 && (
-              <div className="p-4 border-t border-[#333] flex items-center justify-between">
+              <div className="p-4 border-t border-gray-200 dark:border-[#333] flex items-center justify-between">
                 <div className="text-xs text-[#666]">
                   Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, forecastData.stocks.length)} 
                   trên tổng số {forecastData.stocks.length} cổ phiếu
@@ -527,7 +531,7 @@ const ForecastPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2 bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                    className={cn("h-7 px-2 bg-transparent", "dark:text-white text-gray-900", "dark:border-[#333] border-gray-200", "dark:hover:bg-[#252525] hover:bg-gray-100")}
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                   >
@@ -542,7 +546,7 @@ const ForecastPage = () => {
                       className={`${
                         currentPage === pageNum
                           ? "bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
-                          : "bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                          : cn("bg-transparent", "dark:text-white text-gray-900", "dark:border-[#333] border-gray-200", "dark:hover:bg-[#252525] hover:bg-gray-100")
                       } h-7 w-7 p-0`}
                       onClick={() => handlePageChange(pageNum)}
                     >
@@ -553,7 +557,7 @@ const ForecastPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2 bg-transparent border-[#333] text-white hover:bg-[#252525]"
+                    className={cn("h-7 px-2 bg-transparent", "dark:text-white text-gray-900", "dark:border-[#333] border-gray-200", "dark:hover:bg-[#252525] hover:bg-gray-100")}
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                   >
@@ -564,7 +568,7 @@ const ForecastPage = () => {
             )}
           </div>
 
-          <div className="text-xs text-[#666] space-y-1.5 bg-[#1a1a1a] border border-[#333] rounded-lg p-3">
+          <div className="text-xs text-gray-500 dark:text-[#666] space-y-1.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg p-3">
             <div className="flex items-start gap-2">
               <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
               <p>Các phân tích trên chỉ mang tính chất tham khảo. Nhà đầu tư cần cân nhắc kỹ trước khi đưa ra quyết định.</p>

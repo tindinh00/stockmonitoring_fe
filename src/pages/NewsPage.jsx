@@ -267,19 +267,19 @@ const NewsPage = () => {
     <div className="grid grid-cols-3 gap-6 pl-4 pr-4">
       {/* Featured Article Skeleton */}
       <div className="animate-pulse">
-        <div className="aspect-[16/9] bg-gray-700 rounded-lg mb-4"></div>
-        <div className="h-6 bg-gray-700 rounded w-3/4 mb-2"></div>
-        <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+        <div className="aspect-[16/9] bg-gray-200 dark:bg-gray-700 rounded-lg mb-4"></div>
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
       </div>
 
       {/* Middle Column Skeleton */}
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex gap-4 animate-pulse">
-            <div className="w-32 h-24 bg-gray-700 rounded"></div>
+            <div className="w-32 h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <div className="flex-1">
-              <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
             </div>
           </div>
         ))}
@@ -289,8 +289,8 @@ const NewsPage = () => {
       <div className="space-y-4">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-4 bg-gray-700 rounded w-full mb-2"></div>
-            <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
           </div>
         ))}
       </div>
@@ -309,15 +309,15 @@ const NewsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a14] text-white">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a14] text-gray-900 dark:text-white">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-[#0a0a14]/95 backdrop-blur-sm border-b border-[#333] mb-6">
+        <div className="sticky top-0 z-10 bg-white/90 dark:bg-[#0a0a14]/95 backdrop-blur-sm border-b border-gray-200 dark:border-[#333] mb-6">
           <div className="px-4 py-6">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold">
                 <span className="text-[#09D1C7]">Stock</span>
-                <span className="text-white">News</span>
+                <span className="text-gray-900 dark:text-white">News</span>
               </h1>
               <div className="flex items-center gap-3">
                 <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#09D1C7]/10 text-[#09D1C7] hover:bg-[#09D1C7]/20 transition-all duration-300">
@@ -337,7 +337,7 @@ const NewsPage = () => {
               {/* Featured Article - Left Column */}
               <div>
                 <div 
-                  className="group relative hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg overflow-hidden"
+                  className="group relative hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg overflow-hidden"
                   onClick={() => openArticleDetail(currentItems[0])}
                 >
                   {/* Featured Image with Overlay */}
@@ -357,7 +357,7 @@ const NewsPage = () => {
                       {currentItems[0]?.title}
                     </h2>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         <Clock className="w-4 h-4" />
                         <span>{currentItems[0]?.timeAgo}</span>
                         <span>•</span>
@@ -369,9 +369,9 @@ const NewsPage = () => {
                             e.stopPropagation();
                             shareArticle(currentItems[0]);
                           }}
-                          className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                          className="p-2 rounded-full hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
                         >
-                          <Share2 className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                          <Share2 className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-[#09D1C7]" />
                         </button>
                       </div>
                     </div>
@@ -384,7 +384,7 @@ const NewsPage = () => {
                 {currentItems.slice(1, 4).map((item) => (
                   <div
                     key={item.id}
-                    className="group flex gap-4 p-3 hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg"
+                    className="group flex gap-4 p-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg"
                     onClick={() => openArticleDetail(item)}
                   >
                     {/* News Image */}
@@ -403,7 +403,7 @@ const NewsPage = () => {
                         {item.title}
                       </h3>
                       <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                           <Clock className="w-3 h-3" />
                           <span>{item.timeAgo}</span>
                           <span>•</span>
@@ -415,9 +415,9 @@ const NewsPage = () => {
                               e.stopPropagation();
                               shareArticle(item);
                             }}
-                            className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
+                            className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
                           >
-                            <Share2 className="w-3 h-3 text-gray-400 hover:text-[#09D1C7]" />
+                            <Share2 className="w-3 h-3 text-gray-500 dark:text-gray-400 hover:text-[#09D1C7]" />
                           </button>
                         </div>
                       </div>
@@ -431,14 +431,14 @@ const NewsPage = () => {
                 {currentItems.slice(4, 10).map((item) => (
                   <div
                     key={item.id}
-                    className="group p-3 hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg"
+                    className="group p-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer rounded-lg"
                     onClick={() => openArticleDetail(item)}
                   >
                     <h3 className="text-sm text-left font-medium group-hover:text-[#09D1C7] transition-colors duration-300 line-clamp-2 mb-2">
                       {item.title}
                     </h3>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="w-3 h-3" />
                         <span>{item.timeAgo}</span>
                         <span>•</span>
@@ -450,9 +450,9 @@ const NewsPage = () => {
                             e.stopPropagation();
                             shareArticle(item);
                           }}
-                          className="p-1.5 rounded-full hover:bg-gray-700/50 transition-colors"
+                          className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
                         >
-                          <Share2 className="w-3 h-3 text-gray-400 hover:text-[#09D1C7]" />
+                          <Share2 className="w-3 h-3 text-gray-500 dark:text-gray-400 hover:text-[#09D1C7]" />
                         </button>
                       </div>
                     </div>
@@ -466,7 +466,7 @@ const NewsPage = () => {
               <Button
                 variant="outline"
                 size="icon"
-                className="w-8 h-8 bg-[#1a1a1a] border-[#333] text-white hover:bg-[#333] disabled:opacity-50 transition-colors"
+                className="w-8 h-8 bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50 transition-colors"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
@@ -481,7 +481,7 @@ const NewsPage = () => {
                   className={`w-8 h-8 transition-all duration-300 ${
                     currentPage === page
                       ? "bg-[#09D1C7] text-white hover:bg-[#09D1C7]/80"
-                      : "bg-[#1a1a1a] border-[#333] text-white hover:bg-[#333]"
+                      : "bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#333]"
                   }`}
                   onClick={() => handlePageChange(page)}
                 >
@@ -492,7 +492,7 @@ const NewsPage = () => {
               <Button
                 variant="outline"
                 size="icon"
-                className="w-8 h-8 bg-[#1a1a1a] border-[#333] text-white hover:bg-[#333] disabled:opacity-50 transition-colors"
+                className="w-8 h-8 bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50 transition-colors"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
@@ -504,13 +504,13 @@ const NewsPage = () => {
 
         {/* Article Detail Dialog */}
         <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
-          <DialogContent className="bg-[#1a1a1a] text-white border-[#333] max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-4xl max-h-[90vh] overflow-y-auto">
             {selectedArticle && (
               <div className="space-y-6">
                 {loadingDetail ? (
                   <div className="flex flex-col items-center justify-center py-10">
                     <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#09D1C7] mb-4"></div>
-                    <p className="text-lg text-gray-400">Đang tải chi tiết bài viết...</p>
+                    <p className="text-lg text-gray-500 dark:text-gray-400">Đang tải chi tiết bài viết...</p>
                   </div>
                 ) : (
                   <>
@@ -521,7 +521,7 @@ const NewsPage = () => {
                         </h2>
                         
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                             <Clock className="w-4 h-4" />
                             <span>{newsDetail ? newsDetail.publishDate : selectedArticle.timeAgo}</span>
                             {newsDetail && newsDetail.category && (
@@ -536,17 +536,17 @@ const NewsPage = () => {
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => shareArticle(selectedArticle)}
-                              className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                              className="p-2 rounded-full hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
                             >
-                              <Share2 className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                              <Share2 className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-[#09D1C7]" />
                             </button>
                             {selectedArticleUrl && (
                               <button 
                                 onClick={() => openNewsInNewTab(selectedArticleUrl)}
-                                className="p-2 rounded-full hover:bg-gray-700/50 transition-colors"
+                                className="p-2 rounded-full hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
                                 title="Mở trong tab mới"
                               >
-                                <ExternalLink className="w-4 h-4 text-gray-400 hover:text-[#09D1C7]" />
+                                <ExternalLink className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-[#09D1C7]" />
                               </button>
                             )}
                           </div>
@@ -555,8 +555,8 @@ const NewsPage = () => {
                     </div>
 
                     {newsDetail && newsDetail.description && (
-                      <div className="bg-gray-800/50 p-4 rounded-lg">
-                        <p className="text-gray-300 italic text-sm">
+                      <div className="bg-gray-100/80 dark:bg-gray-800/50 p-4 rounded-lg">
+                        <p className="text-gray-600 dark:text-gray-300 italic text-sm">
                           {newsDetail.description}
                         </p>
                       </div>
@@ -575,7 +575,7 @@ const NewsPage = () => {
                       />
                     </div>
 
-                    <div className="prose prose-invert max-w-none">
+                    <div className="prose dark:prose-invert max-w-none">
                       <NewsContent 
                         content={newsDetail ? newsDetail.content : selectedArticle.content} 
                       />

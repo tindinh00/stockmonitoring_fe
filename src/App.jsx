@@ -97,11 +97,11 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['staff']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
                     <StaffSidebar />
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                     <HeaderManager />
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
@@ -125,11 +125,11 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
                     <AdminSidebar />
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                     <HeaderManager />
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
@@ -155,11 +155,11 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['manager']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
                     <AppSidebar />
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                     <HeaderManager />
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
@@ -192,11 +192,11 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer', 'admin', 'manager', 'staff']}>
               <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                   <div className="flex-shrink-0">
                     <SidebarLogined />
                   </div>
-                  <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                  <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                     <HeaderLogined />
                     <main className="p-4 md:p-8 w-full overflow-auto">
                       <div className="max-w-full">
@@ -227,11 +227,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -262,11 +262,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -297,11 +297,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -333,11 +333,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -368,11 +368,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -434,11 +434,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -497,11 +497,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -533,11 +533,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -568,11 +568,11 @@ function App() {
                 }
               >
                 <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                  <div className="flex min-h-screen w-full bg-[#0a0a14] overflow-hidden">
+                  <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
                     <div className="flex-shrink-0">
                       <SidebarLogined />
                     </div>
-                    <div className="flex-1 flex flex-col bg-[#0a0a14] text-white min-w-0">
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
                       <HeaderLogined />
                       <main className="p-4 md:p-8 w-full overflow-auto">
                         <div className="max-w-full">
@@ -591,7 +591,7 @@ function App() {
         <Route 
           path="/header-news" 
           element={
-            <div className="flex flex-col min-h-screen">
+            <div className="flex flex-col min-h-screen bg-white dark:bg-[#0a0a14] text-gray-900 dark:text-white">
               <Header />
               <main className="flex-grow mt-16">
                 <HeaderNewsPage />
@@ -604,7 +604,7 @@ function App() {
 
         {/* Regular routes with Header and Footer */}
         <Route path="*" element={
-          <div className="flex flex-col min-h-screen">
+          <div className="flex flex-col min-h-screen bg-white dark:bg-[#0a0a14] text-gray-900 dark:text-white">
             <Header />
             <main className="flex-grow mt-16">
               <Routes>
