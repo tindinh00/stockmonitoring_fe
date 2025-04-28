@@ -429,7 +429,7 @@ const ProfilePage = () => {
   };
   
   return (
-    <div className="relative min-h-screen bg-[#09090B]">
+    <div className="relative min-h-screen bg-gray-50 dark:bg-[#09090B]">
       {/* Animated gradient overlay */}
       <div 
         className="absolute inset-0 opacity-30"
@@ -473,7 +473,7 @@ const ProfilePage = () => {
       `}</style>
 
       <div className="container mx-auto py-8 px-4 md:px-6 relative">
-        <h1 className="text-3xl font-bold mb-8 text-center text-white relative">
+        <h1 className="text-3xl font-bold mb-8 text-center text-gray-900 dark:text-white relative">
           Hồ sơ người dùng
           <div className="absolute inset-0 bg-[#09D1C7]/20 blur-xl -z-10"></div>
         </h1>
@@ -481,7 +481,7 @@ const ProfilePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="md:col-span-1">
-            <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+            <Card className="bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
               <CardHeader className="text-center">
                 <div className="flex justify-center mb-4 relative">
                   <Avatar className="h-24 w-24">
@@ -507,11 +507,11 @@ const ProfilePage = () => {
                     </div>
                   )}
                 </div>
-                <CardTitle>{userInfo.name}</CardTitle>
-                <CardDescription>{userInfo.email}</CardDescription>
+                <CardTitle className="text-gray-900 dark:text-white">{userInfo.name}</CardTitle>
+                <CardDescription className="text-gray-500 dark:text-gray-400">{userInfo.email}</CardDescription>
                 {/* Component hiển thị trong sidebar */}
                 {loadingSubscription ? (
-                  <div className="text-xs text-muted-foreground mt-2 bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] p-4 rounded-lg">
+                  <div className="text-xs text-gray-500 dark:text-muted-foreground mt-2 bg-gray-100/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] p-4 rounded-lg">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin h-4 w-4 border-2 border-b-0 border-r-0 border-[#09D1C7] rounded-full"></div>
                       Đang tải thông tin gói...
@@ -533,7 +533,7 @@ const ProfilePage = () => {
                       {subscription.packageName || userInfo.tier || "Free"}
                     </Badge>
                     <div className="flex items-center justify-center mt-1 text-xs">
-                      <div className="flex items-center text-muted-foreground">
+                      <div className="flex items-center text-gray-500 dark:text-muted-foreground">
                         <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
                         Đang hoạt động
                       </div>
@@ -556,7 +556,7 @@ const ProfilePage = () => {
                     </Badge>
                     <div className="flex items-center justify-center mt-1">
                       <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></div>
-                      <span className="text-xs text-muted-foreground">Đang hoạt động</span>
+                      <span className="text-xs text-gray-500 dark:text-muted-foreground">Đang hoạt động</span>
                     </div>
                   </div>
                 )}
@@ -568,7 +568,7 @@ const ProfilePage = () => {
                     className={`w-full justify-start ${
                       activeTab === "profile" 
                         ? "bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white" 
-                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7]"
+                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7] text-gray-700 dark:text-gray-300"
                     }`}
                     onClick={() => handleTabChange("profile")}
                   >
@@ -580,7 +580,7 @@ const ProfilePage = () => {
                     className={`w-full justify-start ${
                       activeTab === "subscriptions" 
                         ? "bg-[#09D1C7] hover:bg-[#09D1C7]/90 text-white" 
-                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7]"
+                        : "hover:bg-[#09D1C7]/10 hover:text-[#09D1C7] text-gray-700 dark:text-gray-300"
                     }`}
                     onClick={() => handleTabChange("subscriptions")}
                   >
@@ -592,7 +592,7 @@ const ProfilePage = () => {
               <CardFooter className="flex flex-col space-y-2">
                 <Button 
                   variant="outline" 
-                  className="w-full bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
+                  className="w-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
                   onClick={() => setIsPasswordDialogOpen(true)}
                 >
                   <Lock className="h-4 w-4 mr-2" />
@@ -600,7 +600,7 @@ const ProfilePage = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
+                  className="w-full bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white transition-colors duration-200"
                   onClick={() => navigate('/stock')}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -615,11 +615,11 @@ const ProfilePage = () => {
             {/* Thông tin cá nhân */}
             {activeTab === "profile" && (
               <div className="space-y-6">
-                <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                <Card className="bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
                   <CardHeader>
                     <div className="flex flex-col items-center text-center mb-4">
-                      <CardTitle>Thông tin cá nhân</CardTitle>
-                      <CardDescription>
+                      <CardTitle className="text-gray-900 dark:text-white">Thông tin cá nhân</CardTitle>
+                      <CardDescription className="text-gray-500 dark:text-gray-400">
                         {isEditing 
                           ? "Chỉnh sửa thông tin cá nhân của bạn" 
                           : "Xem thông tin cá nhân của bạn"}
@@ -631,7 +631,7 @@ const ProfilePage = () => {
                         className={`${
                           isEditing 
                             ? "bg-red-500 hover:bg-red-600 text-white" 
-                            : "bg-[#1a1a1a] text-gray-300 border border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white"
+                            : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1f1f30] hover:bg-[#09D1C7] hover:text-white"
                         } transition-colors duration-200`}
                       >
                         {isEditing ? (
@@ -652,9 +652,9 @@ const ProfilePage = () => {
                     <form className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="name" className="text-gray-400 text-left block pl-7">Họ và tên</Label>
+                          <Label htmlFor="name" className="text-gray-500 dark:text-gray-400 text-left block pl-7">Họ và tên</Label>
                           <div className="flex items-center space-x-3">
-                            <User className="h-4 w-4 text-gray-500" />
+                            <User className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                             <Input
                               id="name"
                               name="name"
@@ -662,15 +662,15 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Họ và tên"
-                              className="flex-1"
+                              className="flex-1 text-gray-900 dark:text-white"
                             />
                           </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="email" className="text-gray-400 text-left block pl-7">Email</Label>
+                          <Label htmlFor="email" className="text-gray-500 dark:text-gray-400 text-left block pl-7">Email</Label>
                           <div className="flex items-center space-x-3">
-                            <Mail className="h-4 w-4 text-gray-500" />
+                            <Mail className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                             <Input
                               id="email"
                               name="email"
@@ -678,15 +678,15 @@ const ProfilePage = () => {
                               value={userInfo.email}
                               disabled={true}
                               placeholder="Email"
-                              className="flex-1 cursor-not-allowed opacity-60"
+                              className="flex-1 cursor-not-allowed opacity-60 text-gray-900 dark:text-white"
                             />
                           </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="phone" className="text-gray-400 text-left block pl-7">Số điện thoại</Label>
+                          <Label htmlFor="phone" className="text-gray-500 dark:text-gray-400 text-left block pl-7">Số điện thoại</Label>
                           <div className="flex items-center space-x-3">
-                            <Phone className="h-4 w-4 text-gray-500" />
+                            <Phone className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                             <Input
                               id="phone"
                               name="phone"
@@ -694,15 +694,15 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Số điện thoại"
-                              className="flex-1"
+                              className="flex-1 text-gray-900 dark:text-white"
                             />
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="dateOfBirth" className="text-gray-400 text-left block pl-7">Ngày sinh</Label>
+                          <Label htmlFor="dateOfBirth" className="text-gray-500 dark:text-gray-400 text-left block pl-7">Ngày sinh</Label>
                           <div className="flex items-center space-x-3">
-                            <Calendar className="h-4 w-4 text-gray-500" />
+                            <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                             <Input
                               id="dateOfBirth"
                               name="dateOfBirth"
@@ -714,15 +714,15 @@ const ProfilePage = () => {
                                 ''}
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
-                              className="flex-1"
+                              className="flex-1 text-gray-900 dark:text-white"
                             />
                           </div>
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="address" className="text-gray-400 text-left block pl-7">Địa chỉ</Label>
+                          <Label htmlFor="address" className="text-gray-500 dark:text-gray-400 text-left block pl-7">Địa chỉ</Label>
                           <div className="flex items-center space-x-3">
-                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <MapPin className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                             <Input
                               id="address"
                               name="address"
@@ -730,7 +730,7 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Địa chỉ"
-                              className="flex-1"
+                              className="flex-1 text-gray-900 dark:text-white"
                             />
                           </div>
                         </div>
@@ -767,7 +767,7 @@ const ProfilePage = () => {
               <div className="space-y-6">
                 {/* Component hiển thị gói dịch vụ hiện tại */}
                 {!loadingSubscription && (
-                  <Card className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
+                  <Card className="bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
@@ -783,8 +783,8 @@ const ProfilePage = () => {
                             <Star className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <CardTitle className="text-lg font-bold text-white">Gói dịch vụ hiện tại</CardTitle>
-                            <CardDescription className="text-gray-400">Thông tin gói dịch vụ bạn đang sử dụng</CardDescription>
+                            <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">Gói dịch vụ hiện tại</CardTitle>
+                            <CardDescription className="text-gray-500 dark:text-gray-400">Thông tin gói dịch vụ bạn đang sử dụng</CardDescription>
                           </div>
                         </div>
                       </div>
@@ -792,14 +792,14 @@ const ProfilePage = () => {
                     
                     <CardContent className="p-0">
                       {userInfo.tier === 'Free' || !userInfo.tier ? (
-                        <div className="flex items-center justify-between bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
+                        <div className="flex items-center justify-between bg-gray-100 dark:bg-[#171727] p-4 mx-2 mb-4 rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className="bg-yellow-500/20 p-2 rounded-full">
                               <AlertCircle className="w-5 h-5 text-yellow-500" />
                             </div>
                             <div>
-                              <h3 className="font-medium text-white">Bạn đang dùng gói Free</h3>
-                              <p className="text-sm text-gray-400">Vui lòng chọn một gói dịch vụ phù hợp để nâng cấp tài khoản</p>
+                              <h3 className="font-medium text-gray-900 dark:text-white">Bạn đang dùng gói Free</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Vui lòng chọn một gói dịch vụ phù hợp để nâng cấp tài khoản</p>
                             </div>
                           </div>
                           <Button 
@@ -835,31 +835,31 @@ const ProfilePage = () => {
                           <div className="p-4">
                             {/* Thông tin thời gian */}
                             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="bg-[#171727] p-3 rounded-md">
-                                <span className="text-sm text-gray-400">Ngày thanh toán</span>
-                                <p className="font-medium text-white">
+                              <div className="bg-gray-100 dark:bg-[#171727] p-3 rounded-md">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Ngày thanh toán</span>
+                                <p className="font-medium text-gray-900 dark:text-white">
                                   {subscription?.createdAt ? new Date(subscription.createdAt).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
                                 </p>
                               </div>
-                              <div className="bg-[#171727] p-3 rounded-md">
-                                <span className="text-sm text-gray-400">Ngày hết hạn</span>
-                                <p className="font-medium text-white">
+                              <div className="bg-gray-100 dark:bg-[#171727] p-3 rounded-md">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Ngày hết hạn</span>
+                                <p className="font-medium text-gray-900 dark:text-white">
                                   {subscription?.expireDate ? new Date(subscription.expireDate).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}
                                 </p>
                               </div>
                             </div>
 
-                            <h4 className="text-sm font-medium text-gray-400 mb-3">Tính năng của gói:</h4>
+                            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Tính năng của gói:</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {Array.isArray(userInfo.features) && userInfo.features.length > 0 ? 
                                 userInfo.features.map((feature, index) => (
                                   <div key={index} className="flex items-center gap-2">
                                     <CheckCircle className="w-4 h-4 text-green-500" />
-                                    <span className="text-sm">{feature}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
                                   </div>
                                 )) : 
                                 (
-                                  <div className="col-span-2 text-center text-gray-400">
+                                  <div className="col-span-2 text-center text-gray-500 dark:text-gray-400">
                                     <p>Không có thông tin về tính năng gói</p>
                                   </div>
                                 )
@@ -882,7 +882,7 @@ const ProfilePage = () => {
                 )}
                 
                 {/* Thêm lịch sử giao dịch */}
-                <TransactionHistory className="bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 rounded-md overflow-hidden" />
+                <TransactionHistory className="bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-200 dark:border-[#1f1f30] shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 rounded-md overflow-hidden" />
               </div>
             )}
             
@@ -982,17 +982,17 @@ const ProfilePage = () => {
         
         {/* Dialog đổi mật khẩu */}
         <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-          <DialogContent className="bg-[#1a1a1a]/90 backdrop-blur-md border border-[#1f1f30] shadow-xl">
+          <DialogContent className="bg-white/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md border border-gray-200 dark:border-[#1f1f30] shadow-xl">
             <DialogHeader>
-              <DialogTitle>Đổi mật khẩu</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-gray-900 dark:text-white">Đổi mật khẩu</DialogTitle>
+              <DialogDescription className="text-gray-500 dark:text-gray-400">
                 Nhập mật khẩu hiện tại và mật khẩu mới để thay đổi
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleChangePassword}>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+                  <Label htmlFor="currentPassword" className="text-gray-900 dark:text-white">Mật khẩu hiện tại</Label>
                   <Input
                     id="currentPassword"
                     name="currentPassword"
@@ -1000,11 +1000,12 @@ const ProfilePage = () => {
                     value={passwordData.currentPassword}
                     onChange={handlePasswordChange}
                     required
+                    className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
                   />
                 </div>
-                <Separator />
+                <Separator className="bg-gray-200 dark:bg-[#333]" />
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">Mật khẩu mới</Label>
+                  <Label htmlFor="newPassword" className="text-gray-900 dark:text-white">Mật khẩu mới</Label>
                   <Input
                     id="newPassword"
                     name="newPassword"
@@ -1012,10 +1013,11 @@ const ProfilePage = () => {
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
                     required
+                    className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+                  <Label htmlFor="confirmPassword" className="text-gray-900 dark:text-white">Xác nhận mật khẩu mới</Label>
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -1023,12 +1025,13 @@ const ProfilePage = () => {
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordChange}
                     required
+                    className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
                   />
                 </div>
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" className="bg-white/5 hover:bg-white/10 border-white/10 text-white hover:text-white transition-colors">
+                  <Button type="button" variant="outline" className="bg-white/5 dark:bg-white/5 hover:bg-white/10 dark:hover:bg-white/10 border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
                     Hủy
                   </Button>
                 </DialogClose>

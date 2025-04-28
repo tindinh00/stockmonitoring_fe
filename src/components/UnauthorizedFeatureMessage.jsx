@@ -36,43 +36,43 @@ const UnauthorizedFeatureMessage = ({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4 bg-gray-900/80">
-      <div className="max-w-md w-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl overflow-hidden">
+      <div className="max-w-md w-full bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-2xl overflow-hidden">
         <div className="p-8">
           <div className="flex justify-center">
             <div className="p-3 flex items-center justify-center mb-6">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center bg-gray-700/30 shadow-[0_0_25px_rgba(9,209,199,0.8)]">
+              <div className="w-20 h-20 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700/30 shadow-[0_0_25px_rgba(9,209,199,0.8)]">
                 <img src={premiumIconPath} alt="Premium" className="w-12 h-12" />
               </div>
             </div>
           </div>
           
-          <h2 className="text-2xl font-bold text-center text-white mb-3">
+          <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-3">
             Tính năng cao cấp
           </h2>
           
-          <div className="bg-gray-700/20 rounded-lg p-4 mb-6">
-            <p className="text-center text-gray-300">
+          <div className="bg-gray-100 dark:bg-gray-700/20 rounded-lg p-4 mb-6">
+            <p className="text-center text-gray-700 dark:text-gray-300">
               <span className="text-[#09D1C7] font-semibold">{featureName}</span> là tính năng của gói nâng cao
             </p>
-            <p className="text-center text-gray-300 mt-2">
+            <p className="text-center text-gray-700 dark:text-gray-300 mt-2">
               Vui lòng nâng cấp gói để sử dụng dịch vụ này
             </p>
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-[#09D1C7] flex items-center justify-center shadow-[0_0_10px_rgba(9,209,199,0.8)]">
                 <Check size={12} className="text-white" strokeWidth={3} />
               </div>
               <span>Theo dõi thị trường theo thời gian thực</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-[#09D1C7] flex items-center justify-center shadow-[0_0_10px_rgba(9,209,199,0.8)]">
                 <Check size={12} className="text-white" strokeWidth={3} />
               </div>
               <span>Phân tích dữ liệu nâng cao</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-[#09D1C7] flex items-center justify-center shadow-[0_0_10px_rgba(9,209,199,0.8)]">
                 <Check size={12} className="text-white" strokeWidth={3} />
               </div>
@@ -96,7 +96,7 @@ const UnauthorizedFeatureMessage = ({
             <Button
               onClick={handleReturn}
               variant="outline"
-              className="flex-1 flex items-center justify-center gap-2 bg-transparent border border-gray-600 text-gray-300 hover:bg-gray-700 py-3 rounded-lg"
+              className="flex-1 flex items-center justify-center gap-2 bg-transparent border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 py-3 rounded-lg"
             >
               <span>Quay lại</span>
             </Button>

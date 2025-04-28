@@ -162,13 +162,13 @@ export default function AppSidebar() {
           </div>
           <div className='grid flex-1 text-left text-sm leading-tight'>
             <span className='truncate font-semibold text-primary'>{company.name}</span>
-            <span className='truncate text-xs text-[#09D1C7]'>Manager</span>
+            <span className='truncate text-xs text-[#09D1C7]'>Quản lý</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent className='overflow-x-hidden'>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>Mục lục</SidebarGroupLabel>
           <SidebarMenu>
             {navItems.map((item) => {
               const Icon = item.icon ? Icons[item.icon] : Icons.logo;
@@ -243,89 +243,7 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size='lg'
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-                >
-                  <Avatar className='h-8 w-8 rounded-lg'>
-                    {user?.avatar ? (
-                      <AvatarImage src={user.avatar} alt={user.name || "User"} className="rounded-lg" />
-                    ) : null}
-                    <AvatarFallback className='rounded-lg'>
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='grid flex-1 text-left text-sm leading-tight'>
-                    <span className='truncate font-semibold'>
-                      {user?.name || "Người dùng"}
-                    </span>
-                    <span className='truncate text-xs'>
-                      {user?.email || "email@example.com"}
-                    </span>
-                  </div>
-                  <ChevronsUpDown className='ml-auto size-4' />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-[#1a1a1a] border-[#333] text-white'
-                side='bottom'
-                align='end'
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className='p-0 font-normal'>
-                  <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
-                    <Avatar className='h-8 w-8 rounded-lg text-primary'>
-                      {user?.avatar ? (
-                        <AvatarImage src={user.avatar} alt={user.name || "User"} className="rounded-lg" />
-                      ) : null}
-                      <AvatarFallback className='rounded-lg'>
-                        {getInitials()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className='grid flex-1 text-left text-sm leading-tight'>
-                      <span className='truncate font-semibold'>
-                        {user?.name || "Người dùng"}
-                      </span>
-                      <span className='truncate text-xs'>
-                        {user?.email || "email@example.com"}
-                      </span>
-                      {user?.role && (
-                        <span className='truncate text-xs text-[#09D1C7]'>
-                          {user.role === "admin" ? "Quản trị viên" : user.role}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User className="mr-2 h-4 w-4" />
-                    Hồ sơ
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=subscriptions')}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Gói dịch vụ {user?.tier && `(${user.tier})`}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile?tab=settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Cài đặt
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:text-red-300">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Đăng xuất
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* Removed user dropdown menu */}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
