@@ -494,9 +494,13 @@ export default function HeaderLogined() {
                   animation-play-state: paused;
                 }
               }
+              /* Khoảng cách giữa repeating blocks */
+              .indices-block:last-child {
+                margin-left: 40px; /* Thêm khoảng cách lớn giữa 2 khối */
+              }
             `}</style>
             <div className="scroll-container" key={marketIndices.length > 0 ? marketIndices[0].close : 'loading'}>
-              <div className='flex items-center gap-8'>
+              <div className='flex items-center gap-8 indices-block'>
                 {isLoadingIndices ? (
                   <span className="text-[#666]">Đang tải...</span>
                 ) : (
@@ -517,7 +521,7 @@ export default function HeaderLogined() {
                   ))
                 )}
               </div>
-              <div className='flex items-center gap-8'>
+              <div className='flex items-center gap-8 indices-block'>
                 {!isLoadingIndices && marketIndices.map((index) => (
                   <span 
                     key={`${index.id}-duplicate`}
