@@ -16,6 +16,22 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import useFeatureStore from '@/store/featureStore';
+import debounce from 'lodash/debounce';
+
+// Tạo hàm debounce dự phòng trong trường hợp không import được từ lodash
+const createDebounce = (fn, delay) => {
+  let timer = null;
+  return function(...args) {
+    const context = this;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(context, args);
+    }, delay);
+  };
+};
+
+// Sử dụng debounce từ lodash nếu có, nếu không thì dùng hàm createDebounce
+const safeDebounce = typeof debounce === 'function' ? debounce : createDebounce;
 
 const WatchlistPage = () => {
   const [watchlist, setWatchlist] = useState([]);
@@ -206,61 +222,93 @@ const WatchlistPage = () => {
     fetchUserSectors();
   }, [shouldRefreshIndustries]); // Add dependency on shouldRefreshIndustries
 
-  // CSS Animations cho thay đổi giá và khối lượng
+  // Lấy thông tin cổ phiếu đã theo dõi
+  useEffect(() => {
+    if (watchlist.length > 0) {
+      const codes = watchlist.map(stock => stock.stockCode);
+      setWatchlistCodes(codes);
+    }
+  }, [watchlist]);
+
+  // CSS for animations, using the same logic as StockDerivatives
   const priceChangeAnimations = `
     @keyframes priceUp {
-      0% { background-color: rgba(0, 255, 0, 0); }
-      50% { background-color: rgba(0, 255, 0, 0.2); }
-      100% { background-color: rgba(0, 255, 0, 0); }
+      0% { background-color: rgba(0, 255, 0, 0.3); }
+      100% { background-color: transparent; }
     }
-
+    
     @keyframes priceDown {
-      0% { background-color: rgba(255, 74, 74, 0); }
-      50% { background-color: rgba(255, 74, 74, 0.2); }
-      100% { background-color: rgba(255, 74, 74, 0); }
+      0% { background-color: rgba(255, 0, 0, 0.3); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes volumeUp {
+      0% { background-color: rgba(0, 255, 0, 0.2); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes volumeDown {
+      0% { background-color: rgba(255, 0, 0, 0.2); }
+      100% { background-color: transparent; }
     }
 
-    .price-up-animation {
+    .price-up {
       animation: priceUp 1s ease-out;
     }
-
-    .price-down-animation {
+    
+    .price-down {
       animation: priceDown 1s ease-out;
+    }
+    
+    .volume-up {
+      animation: volumeUp 1s ease-out;
+    }
+    
+    .volume-down {
+      animation: volumeDown 1s ease-out;
     }
   `;
 
-  // Tạo hiệu ứng flash khi giá thay đổi
-  const createFlashEffect = (stockCode, field, newValue, oldValue) => {
-    if (!newValue || !oldValue) return;
+  // Hàm xác định animation class (giống StockDerivatives)
+  const getChangeAnimation = (currentValue, previousValue, type = 'price') => {
+    if (!currentValue || !previousValue) return '';
     
-    try {
-      const current = parseFloat(newValue);
-      const previous = parseFloat(oldValue);
-      
-      if (current !== previous) {
-        setFlashingCells(prev => ({
-          ...prev,
-          [`${stockCode}-${field}`]: current > previous ? 'increase' : 'decrease'
-        }));
-        
-        // Xóa hiệu ứng flash sau 1 giây
-        setTimeout(() => {
-          setFlashingCells(prev => {
-            const newState = {...prev};
-            delete newState[`${stockCode}-${field}`];
-            return newState;
-          });
-        }, 1000);
+    // Chuyển đổi cả hai giá trị sang số
+    const current = parseFloat(String(currentValue).replace(/,/g, ''));
+    const previous = parseFloat(String(previousValue).replace(/,/g, ''));
+    
+    if (isNaN(current) || isNaN(previous)) return '';
+    
+    // Thêm threshold để tránh animation với thay đổi rất nhỏ
+    const priceChangeThreshold = 0.001; // 0.1% cho giá
+    const volumeChangeThreshold = 0.01; // 1% cho khối lượng
+    
+    if (type === 'price') {
+      // Chỉ hiệu ứng khi thay đổi đáng kể
+      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > priceChangeThreshold) {
+        if (current > previous) return 'price-up';
+        if (current < previous) return 'price-down';
+      } else if (previous === 0 && current !== 0) {
+        // Trường hợp đặc biệt khi giá trước đó là 0
+        if (current > 0) return 'price-up';
+        if (current < 0) return 'price-down';
       }
-    } catch (error) {
-      console.error(`Error creating flash effect for ${stockCode}-${field}:`, error);
+      return '';
     }
-  };
-
-  // Lấy class cho animation
-  const getFlashClass = (stockCode, field) => {
-    const flashType = flashingCells[`${stockCode}-${field}`];
-    return flashType ? `${flashType === 'increase' ? 'price-up-animation' : 'price-down-animation'}` : '';
+    
+    if (type === 'volume') {
+      // Với khối lượng, chỉ hiệu ứng khi thay đổi đáng kể
+      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > volumeChangeThreshold) {
+        if (current > previous) return 'volume-up';
+        if (current < previous) return 'volume-down';
+      } else if (previous === 0 && current > 0) {
+        // Trường hợp đặc biệt khi khối lượng trước đó là 0
+        return 'volume-up';
+      }
+      return '';
+    }
+    
+    return '';
   };
 
   // Hàm xác định màu sắc dựa trên giá
@@ -305,71 +353,40 @@ const WatchlistPage = () => {
   const getCellClasses = (stock, field) => {
     if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1';
     
+    // Xác định màu sắc cơ bản
     const colorClass = getPriceColor(stock, field);
-    const flashClass = getFlashClass(stock.stockCode, field);
     
-    return `${colorClass} ${flashClass} border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1`;
+    // Xác định animation class
+    let animationClass = '';
+    const stockCode = stock.stockCode;
+    const changeKey = `${stockCode}-${field}`;
+    
+    // Kiểm tra có animation được lưu trữ cho field này không
+    if (priceChangeColors[changeKey]) {
+      animationClass = priceChangeColors[changeKey];
+    }
+    
+    return `${colorClass} ${animationClass} border-r border-gray-200/60 dark:border-[#333] text-center whitespace-nowrap py-1`;
   };
 
-  // Update watchlist data khi có dữ liệu mới từ SignalR
-  const updateWatchlistData = (newStockData) => {
-    if (!Array.isArray(newStockData) || newStockData.length === 0) {
-      console.warn("[SignalR] Invalid or empty stock data received");
-      return;
-    }
-
-    setWatchlist(prevWatchlist => {
-      return prevWatchlist.map(stock => {
-        const updatedStock = newStockData.find(s => 
-          s.stockCode && stock.stockCode && s.stockCode.toLowerCase() === stock.stockCode.toLowerCase()
-        );
-        
-        if (!updatedStock) return stock;
-
-        // So sánh và tạo hiệu ứng cho các trường thay đổi
-        const fieldsToCheck = {
-          matchPrice: true,
-          matchedOrderVolume: true,
-          volumeAccumulation: true,
-          price3Buy: true,
-          price2Buy: true,
-          price1Buy: true,
-          price1Sell: true,
-          price2Sell: true,
-          price3Sell: true,
-          volume3Buy: true,
-          volume2Buy: true,
-          volume1Buy: true,
-          volume1Sell: true,
-          volume2Sell: true,
-          volume3Sell: true,
-          foreignBuyVolume: true,
-          foreignSellVolume: true
-        };
-
-        // Kiểm tra và tạo hiệu ứng cho các trường thay đổi
-        Object.keys(fieldsToCheck).forEach(field => {
-          if (stock[field] !== updatedStock[field]) {
-            createFlashEffect(stock.stockCode, field, updatedStock[field], stock[field]);
-          }
-        });
-
-        // Cập nhật dữ liệu mới
-        return {
-          ...stock,
-          ...updatedStock,
-          matchChange: updatedStock.plusMinus !== undefined ? 
-            `${updatedStock.plusMinus > 0 ? '+' : ''}${updatedStock.plusMinus.toFixed(2)}%` : 
-            stock.matchChange
-        };
-      });
-    });
+  // Lưu giá trị cũ trong một ref để duy trì giữa các lần render
+  const previousStockValues = useRef({});
+  
+  // Thêm log để debug animation
+  const logAnimationDetails = (stockCode, field, oldValue, newValue, animClass) => {
+    console.log(
+      `%c[Animation] ${stockCode}-${field}: ${oldValue} → ${newValue} (${animClass || 'no animation'})`, 
+      `color: ${animClass === 'price-up' ? 'green' : animClass === 'price-down' ? 'red' : 'gray'}`
+    );
   };
 
   // Fetch stock data from API
   const fetchStockData = async () => {
     console.log("=== Fetching watchlist data ===");
-    setIsLoading(true);
+    // Chỉ hiển thị loading khi là lần tải ban đầu
+    if (isInitialLoading) {
+      setIsLoading(true);
+    }
     
     try {
       const userId = getUserId();
@@ -379,9 +396,13 @@ const WatchlistPage = () => {
         console.warn("No user ID found");
         setWatchlist([]);
         setIsLoading(false);
+        setIsInitialLoading(false);
         toast.error("Bạn cần đăng nhập để xem danh sách theo dõi");
         return false;
       }
+
+      // Lấy thời gian bắt đầu để đo performance
+      const startTime = performance.now();
 
       // Gọi API watchlist với exchange parameter
       const response = await axios.get(
@@ -397,13 +418,87 @@ const WatchlistPage = () => {
         }
       );
       
+      // Tính thời gian API call
+      const apiTime = performance.now() - startTime;
+      console.log(`Watchlist API call took ${apiTime.toFixed(0)}ms`);
+      
       console.log("Watchlist API response:", response);
+      
+      // Lấy thời gian bắt đầu xử lý dữ liệu
+      const processStart = performance.now();
       
       if (response?.data?.value?.data) {
         const watchlistStocks = response.data.value.data;
-        // Kiểm tra là mảng trước khi set
+        
+        // Kiểm tra là mảng trước khi xử lý
         if (Array.isArray(watchlistStocks)) {
+          // Tạo một object lưu trữ animation classes mới
+          const newAnimations = {};
+          
+          // Kiểm tra thay đổi và tạo animation classes
+          watchlistStocks.forEach(newStock => {
+            const stockCode = newStock.stockCode;
+            
+            // Truy xuất giá trị cũ từ ref
+            const previousStock = previousStockValues.current[stockCode];
+            
+            if (previousStock) {
+              // Các trường cần kiểm tra
+              const fieldsToTrack = [
+                'matchPrice', 'matchedOrderVolume', 'volumeAccumulation',
+                'price3Buy', 'price2Buy', 'price1Buy',
+                'price1Sell', 'price2Sell', 'price3Sell',
+                'volume3Buy', 'volume2Buy', 'volume1Buy',
+                'volume1Sell', 'volume2Sell', 'volume3Sell',
+                'foreignBuyVolume', 'foreignSellVolume'
+              ];
+              
+              // Kiểm tra thay đổi từng trường
+              fieldsToTrack.forEach(field => {
+                const newValue = newStock[field];
+                const oldValue = previousStock[field];
+                
+                // Chỉ xử lý khi cả 2 giá trị đều tồn tại và không phải '--'
+                if (
+                  newValue !== undefined && 
+                  oldValue !== undefined && 
+                  newValue !== oldValue &&
+                  newValue !== '--' && 
+                  oldValue !== '--'
+                ) {
+                  // Xác định loại trường (giá hoặc khối lượng)
+                  const fieldType = field.includes('volume') || field.includes('Volume') ? 'volume' : 'price';
+                  
+                  // Lấy animation class
+                  const animClass = getChangeAnimation(newValue, oldValue, fieldType);
+                  
+                  // Log chi tiết
+                  logAnimationDetails(stockCode, field, oldValue, newValue, animClass);
+                  
+                  // Lưu animation class nếu có
+                  if (animClass) {
+                    newAnimations[`${stockCode}-${field}`] = animClass;
+                  }
+                }
+              });
+            }
+            
+            // Luôn cập nhật giá trị vào ref, bất kể có thay đổi hay không
+            previousStockValues.current[stockCode] = { ...newStock };
+          });
+          
+          // Cập nhật state animation một lần duy nhất sau khi xử lý tất cả
+          const animationCount = Object.keys(newAnimations).length;
+          console.log('Updating animations:', animationCount, 'items');
+          if (animationCount > 0) {
+            setPriceChangeColors(prev => ({ ...prev, ...newAnimations }));
+          }
+          
+          // Cập nhật danh sách cổ phiếu
           setWatchlist(watchlistStocks);
+          
+          // Lưu danh sách mã cổ phiếu
+          setWatchlistCodes(watchlistStocks.map(stock => stock.stockCode));
         } else {
           console.warn("Watchlist data is not an array:", watchlistStocks);
           setWatchlist([]);
@@ -413,8 +508,23 @@ const WatchlistPage = () => {
         setWatchlist([]);
       }
       
-      setIsLoading(false);
-      setIsInitialLoading(false);
+      // Tính thời gian xử lý dữ liệu
+      const processTime = performance.now() - processStart;
+      console.log(`Data processing took ${processTime.toFixed(0)}ms`);
+      
+      // Tổng thời gian thực hiện
+      const totalTime = performance.now() - startTime;
+      console.log(`Total fetchStockData time: ${totalTime.toFixed(0)}ms`);
+      
+      // Chỉ khi là lần tải ban đầu thì mới cần tắt loading
+      if (isInitialLoading) {
+        setIsLoading(false);
+        setIsInitialLoading(false);
+      }
+      
+      // Cập nhật timestamp
+      setLastTimestamp(new Date());
+      
       return true;
     } catch (error) {
       console.error("Error in fetchStockData:", error);
@@ -425,6 +535,17 @@ const WatchlistPage = () => {
       return false;
     }
   };
+
+  // Xóa hiệu ứng sau khi hiển thị
+  useEffect(() => {
+    if (Object.keys(priceChangeColors).length > 0) {
+      const timer = setTimeout(() => {
+        setPriceChangeColors({});
+      }, 1000); // Hiển thị trong 1 giây
+      
+      return () => clearTimeout(timer);
+    }
+  }, [priceChangeColors]);
 
   // Tách riêng việc thiết lập SignalR ra khỏi fetching data
   const setupSignalRConnection = async () => {
@@ -437,190 +558,61 @@ const WatchlistPage = () => {
         return;
       }
 
+      // Tạo một debounce function để tránh gọi API quá nhiều lần khi nhận nhiều thông báo
+      const debouncedFetchData = safeDebounce((exchange) => {
+        console.log(`[SignalR] Debounced fetching ${exchange} data`);
+        // Đánh dấu không phải là lần tải đầu tiên để tránh hiển thị loading spinner
+        setIsInitialLoading(false);
+        fetchStockData();
+      }, 300);
+
       // Lắng nghe sự kiện HSX
       signalRService.onStock("ReceiveHSXStockUpdate", async (data) => {
         if (activeTab === 'hsx') {
           try {
             console.log("[SignalR] Received HSX update:", data);
-            // Lưu trữ giá trị cũ trước khi cập nhật
-            const oldPrices = {};
-            const oldVolumes = {};
-            watchlist.forEach(stock => {
-              oldPrices[stock.stockCode] = {
-                matchPrice: stock.matchPrice,
-                price1Buy: stock.price1Buy,
-                price2Buy: stock.price2Buy,
-                price3Buy: stock.price3Buy,
-                price1Sell: stock.price1Sell,
-                price2Sell: stock.price2Sell,
-                price3Sell: stock.price3Sell
-              };
-              oldVolumes[stock.stockCode] = {
-                volumeAccumulation: stock.volumeAccumulation,
-                volume1Buy: stock.volume1Buy,
-                volume2Buy: stock.volume2Buy,
-                volume3Buy: stock.volume3Buy,
-                volume1Sell: stock.volume1Sell,
-                volume2Sell: stock.volume2Sell,
-                volume3Sell: stock.volume3Sell,
-                matchedOrderVolume: stock.matchedOrderVolume
-              };
-            });
-
-            // Gọi API để lấy dữ liệu mới nhất của sàn HSX
-            const userId = getUserId();
-            const response = await axios.get(
-              `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
-              {
-                params: {
-                  exchange: 'hsx'
-                },
-                headers: {
-                  'Authorization': `Bearer ${Cookies.get('auth_token')}`,
-                  'accept': '*/*'
-                }
-              }
-            );
-            
-            if (response?.data?.value?.data) {
-              const watchlistStocks = response.data.value.data;
-              if (Array.isArray(watchlistStocks)) {
-                // So sánh và tạo hiệu ứng flash cho các giá trị thay đổi
-                watchlistStocks.forEach(newStock => {
-                  const oldPrice = oldPrices[newStock.stockCode];
-                  const oldVolume = oldVolumes[newStock.stockCode];
-                  
-                  if (oldPrice) {
-                    // Kiểm tra thay đổi giá
-                    Object.keys(oldPrice).forEach(field => {
-                      if (newStock[field] !== oldPrice[field]) {
-                        const newValue = parseFloat(newStock[field]);
-                        const oldValue = parseFloat(oldPrice[field]);
-                        if (!isNaN(newValue) && !isNaN(oldValue)) {
-                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
-                        }
-                      }
-                    });
-                  }
-                  
-                  if (oldVolume) {
-                    // Kiểm tra thay đổi khối lượng
-                    Object.keys(oldVolume).forEach(field => {
-                      if (newStock[field] !== oldVolume[field]) {
-                        const newValue = parseFloat(newStock[field]);
-                        const oldValue = parseFloat(oldVolume[field]);
-                        if (!isNaN(newValue) && !isNaN(oldValue)) {
-                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
-                        }
-                      }
-                    });
-                  }
-                });
-                
-                setWatchlist(watchlistStocks);
-              }
-            }
+            // Không hiển thị loading spinner khi đang cập nhật
+            setIsLoading(false);
+            setIsInitialLoading(false);
+            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
+            debouncedFetchData('hsx');
           } catch (error) {
             console.error("[SignalR] Error processing HSX update:", error);
           }
         }
       });
-      
-      // Lắng nghe sự kiện HNX - tương tự như HSX
+
+      // Lắng nghe sự kiện HNX
       signalRService.onStock("ReceiveHNXStockUpdate", async (data) => {
         if (activeTab === 'hnx') {
           try {
             console.log("[SignalR] Received HNX update:", data);
-            // Lưu trữ giá trị cũ
-            const oldPrices = {};
-            const oldVolumes = {};
-            watchlist.forEach(stock => {
-              oldPrices[stock.stockCode] = {
-                matchPrice: stock.matchPrice,
-                price1Buy: stock.price1Buy,
-                price2Buy: stock.price2Buy,
-                price3Buy: stock.price3Buy,
-                price1Sell: stock.price1Sell,
-                price2Sell: stock.price2Sell,
-                price3Sell: stock.price3Sell
-              };
-              oldVolumes[stock.stockCode] = {
-                volumeAccumulation: stock.volumeAccumulation,
-                volume1Buy: stock.volume1Buy,
-                volume2Buy: stock.volume2Buy,
-                volume3Buy: stock.volume3Buy,
-                volume1Sell: stock.volume1Sell,
-                volume2Sell: stock.volume2Sell,
-                volume3Sell: stock.volume3Sell,
-                matchedOrderVolume: stock.matchedOrderVolume
-              };
-            });
-
-            const userId = getUserId();
-            const response = await axios.get(
-              `https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock/${userId}`,
-              {
-                params: {
-                  exchange: 'hnx'
-                },
-                headers: {
-                  'Authorization': `Bearer ${Cookies.get('auth_token')}`,
-                  'accept': '*/*'
-                }
-              }
-            );
-            
-            if (response?.data?.value?.data) {
-              const watchlistStocks = response.data.value.data;
-              if (Array.isArray(watchlistStocks)) {
-                // So sánh và tạo hiệu ứng flash cho các giá trị thay đổi
-                watchlistStocks.forEach(newStock => {
-                  const oldPrice = oldPrices[newStock.stockCode];
-                  const oldVolume = oldVolumes[newStock.stockCode];
-                  
-                  if (oldPrice) {
-                    Object.keys(oldPrice).forEach(field => {
-                      if (newStock[field] !== oldPrice[field]) {
-                        const newValue = parseFloat(newStock[field]);
-                        const oldValue = parseFloat(oldPrice[field]);
-                        if (!isNaN(newValue) && !isNaN(oldValue)) {
-                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
-                        }
-                      }
-                    });
-                  }
-                  
-                  if (oldVolume) {
-                    Object.keys(oldVolume).forEach(field => {
-                      if (newStock[field] !== oldVolume[field]) {
-                        const newValue = parseFloat(newStock[field]);
-                        const oldValue = parseFloat(oldVolume[field]);
-                        if (!isNaN(newValue) && !isNaN(oldValue)) {
-                          createFlashEffect(newStock.stockCode, field, newValue, oldValue);
-                        }
-                      }
-                    });
-                  }
-                });
-                
-                setWatchlist(watchlistStocks);
-              }
-            }
+            // Không hiển thị loading spinner khi đang cập nhật
+            setIsLoading(false);
+            setIsInitialLoading(false);
+            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
+            debouncedFetchData('hnx');
           } catch (error) {
             console.error("[SignalR] Error processing HNX update:", error);
           }
         }
       });
 
-      console.log("[SignalR] Watchlist listeners setup complete");
+      return () => {
+        // Clean up SignalR event handlers if component unmounts
+        connection.off("ReceiveHSXStockUpdate");
+        connection.off("ReceiveHNXStockUpdate");
+      };
     } catch (error) {
-      console.error("[SignalR] Error setting up watchlist listeners:", error);
+      console.error("Error setting up SignalR:", error);
+      return () => {};
     }
   };
 
   // Initial data loading and SignalR setup
   useEffect(() => {
     console.log("WatchlistPage - Component mounted");
+    setIsInitialLoading(true); // Đánh dấu mỗi khi thay đổi tab là đang tải lần đầu
     fetchStockData();
     setupSignalRConnection();
     
@@ -837,31 +829,18 @@ const WatchlistPage = () => {
 
   // Hook để fetch dữ liệu ban đầu và thiết lập SignalR
   useEffect(() => {
-    console.log("WatchlistPage - Component mounted");
     fetchStockData();
     
-    // Thiết lập SignalR và kết nối
+    // Thiết lập kết nối SignalR
     const signalRCleanup = setupSignalRConnection();
     
-    // Cleanup khi unmount
+    // Cleanup khi component unmount
     return () => {
-      console.log("WatchlistPage - Component unmounting, cleaning up");
-      
-      // Hủy đăng ký các lắng nghe SignalR
-      try {
-        signalRService.offStock("ReceiveHSXStockUpdate");
-        signalRService.offStock("ReceiveHNXStockUpdate");
-        console.log("WatchlistPage - Unregistered SignalR listeners");
-      } catch (error) {
-        console.error("WatchlistPage - Error removing SignalR listeners:", error);
-      }
-      
-      // Gọi cleanup từ setupSignalR nếu có
       if (typeof signalRCleanup === 'function') {
         signalRCleanup();
       }
     };
-  }, []);
+  }, [activeTab]);
 
   // Hàm nội bộ để xử lý dữ liệu cổ phiếu
   function processStocks(stocks) {
@@ -1374,12 +1353,57 @@ const WatchlistPage = () => {
     }
   };
 
+  // CSS styles for table and animations
+  const tableStyles = `
+    tbody tr:hover {
+      background-color: #f9fafb;
+    }
+    .dark tbody tr:hover {
+      background-color: #1a1a1a;
+    }
+    
+    @keyframes priceUp {
+      0% { background-color: rgba(0, 255, 0, 0.3); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes priceDown {
+      0% { background-color: rgba(255, 0, 0, 0.3); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes volumeUp {
+      0% { background-color: rgba(0, 255, 0, 0.2); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes volumeDown {
+      0% { background-color: rgba(255, 0, 0, 0.2); }
+      100% { background-color: transparent; }
+    }
+
+    .price-up {
+      animation: priceUp 1s ease-out;
+    }
+    
+    .price-down {
+      animation: priceDown 1s ease-out;
+    }
+    
+    .volume-up {
+      animation: volumeUp 1s ease-out;
+    }
+    
+    .volume-down {
+      animation: volumeDown 1s ease-out;
+    }
+  `;
+
   // Update the tab buttons to use handleTabChange
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-screen">
       {/* Thêm animations vào CSS */}
-      <style jsx global>{priceChangeAnimations}</style>
-      
+      <style dangerouslySetInnerHTML={{ __html: priceChangeAnimations }} />
       {/* Page Header */}
       <div className="sticky top-0 z-50 bg-white dark:bg-[#0a0a14] border-b border-gray-200 dark:border-[#1a1a1a] px-4 py-4 md:px-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
