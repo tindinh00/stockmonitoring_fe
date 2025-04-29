@@ -66,10 +66,13 @@ const WorkspacePremiumIcon = ({ size = 24, className = "" }) => (
 
 // Debounce utility
 function debounce(fn, delay) {
-  let timer;
-  return (...args) => {
+  let timer = null;
+  return function(...args) {
+    const context = this;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
+    timer = setTimeout(() => {
+      fn.apply(context, args);
+    }, delay);
   };
 }
 
@@ -164,9 +167,15 @@ export default function StockDerivatives() {
   // Add filtered data logic
   const getFilteredData = (data) => {
     let filteredData = data.filter(stock => {
-      // Search filter
-      if (!stock.code.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
+      // Search filter - mở rộng tìm kiếm cả mã và tên
+      if (searchQuery && searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase().trim();
+        const stockCode = (stock.code || '').toLowerCase();
+        const stockName = (stock.stockName || stock.companyName || '').toLowerCase();
+        
+        if (!stockCode.includes(query) && !stockName.includes(query)) {
+          return false;
+        }
       }
 
       // Price change filter
@@ -442,36 +451,54 @@ export default function StockDerivatives() {
 
   // Cập nhật hàm getPriceColor để hỗ trợ cả light và dark mode
   const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
-    // Xử lý trường hợp giá trị là "--" (chuỗi đại diện cho giá trị null)
-    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--') {
-      return 'text-gray-900 dark:text-white';
+    // Bỏ qua các trường hợp giá trị không hợp lệ
+    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
+        price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
+      return 'text-gray-900 dark:text-white'; // Màu mặc định cho giá trị rỗng
     }
     
-    // Xử lý trường hợp null, undefined hoặc giá trị không phải số
-    if (price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-      return 'text-gray-900 dark:text-white';
-    }
-    
-    // Chuyển đổi sang số để so sánh, nhưng không làm tròn
-    let numPrice = parseFloat(price);
-    let numRefPrice = parseFloat(refPrice);
-    let numCeilPrice = parseFloat(ceilPrice);
-    let numFloorPrice = parseFloat(floorPrice);
+    // Xử lý số dấu phẩy trong chuỗi và chuyển đổi sang số
+    const numPrice = parseFloat(String(price).replace(/,/g, ''));
+    const numRefPrice = parseFloat(String(refPrice).replace(/,/g, ''));
+    const numCeilPrice = parseFloat(String(ceilPrice).replace(/,/g, ''));
+    const numFloorPrice = parseFloat(String(floorPrice).replace(/,/g, ''));
 
+    // Kiểm tra tính hợp lệ của các giá trị số
     if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-      return 'text-gray-900 dark:text-white';
+      return 'text-gray-900 dark:text-white'; // Màu mặc định cho giá trị không hợp lệ
     }
 
-    // So sánh với sai số
-    const epsilon = 0.001; // Sai số cho phép 0.001
-    const equals = (a, b) => Math.abs(a - b) < epsilon;
-
-    if (equals(numPrice, numRefPrice)) return 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
-    if (equals(numPrice, numCeilPrice)) return 'text-[#B388FF]'; // Tím - Bằng giá trần
-    if (equals(numPrice, numFloorPrice)) return 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
-    if (numPrice > numRefPrice && numPrice < numCeilPrice) return 'text-[#22c55e] dark:text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
-    if (numPrice < numRefPrice && numPrice > numFloorPrice) return 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
+    // Xác định màu sắc theo thứ tự ưu tiên rõ ràng
+    // Sử dụng sai số nhỏ hơn để so sánh số thực chính xác hơn
+    const epsilon = 0.0001;
     
+    // Kiểm tra từng trường hợp theo thứ tự ưu tiên
+    // 1. Kiểm tra giá trần (tím)
+    if (Math.abs(numPrice - numCeilPrice) < epsilon) {
+      return 'text-[#B388FF]'; // Màu tím - Bằng giá trần
+    }
+    
+    // 2. Kiểm tra giá sàn (xanh lam)
+    if (Math.abs(numPrice - numFloorPrice) < epsilon) {
+      return 'text-[#00BCD4]'; // Màu xanh lam - Bằng giá sàn
+    }
+    
+    // 3. Kiểm tra giá tham chiếu (vàng)
+    if (Math.abs(numPrice - numRefPrice) < epsilon) {
+      return 'text-[#F4BE37]'; // Màu vàng - Bằng giá tham chiếu
+    }
+    
+    // 4. Kiểm tra giá tăng (xanh lá)
+    if (numPrice > numRefPrice) {
+      return 'text-[#22c55e] dark:text-[#00FF00]'; // Màu xanh lá - Cao hơn giá tham chiếu
+    }
+    
+    // 5. Kiểm tra giá giảm (đỏ)
+    if (numPrice < numRefPrice) {
+      return 'text-[#FF4A4A]'; // Màu đỏ - Thấp hơn giá tham chiếu
+    }
+    
+    // Trường hợp mặc định (hiếm khi xảy ra)
     return 'text-gray-900 dark:text-white';
   };
 
@@ -479,56 +506,58 @@ export default function StockDerivatives() {
   const getChangeAnimation = (currentValue, previousValue, type = 'price') => {
     if (!currentValue || !previousValue) return '';
     
-    currentValue = parseFloat(currentValue.toString().replace(/,/g, ''));
-    previousValue = parseFloat(previousValue.toString().replace(/,/g, ''));
+    // Chuyển đổi cả hai giá trị sang số
+    const current = parseFloat(String(currentValue).replace(/,/g, ''));
+    const previous = parseFloat(String(previousValue).replace(/,/g, ''));
     
-    if (isNaN(currentValue) || isNaN(previousValue)) return '';
+    if (isNaN(current) || isNaN(previous)) return '';
+    
+    // Thêm threshold để tránh animation với thay đổi rất nhỏ
+    const priceChangeThreshold = 0.001; // 0.1% cho giá
+    const volumeChangeThreshold = 0.01; // 1% cho khối lượng
     
     if (type === 'price') {
-      if (currentValue > previousValue) return 'price-up';
-      if (currentValue < previousValue) return 'price-down';
-      return 'price-equal';
+      // Chỉ hiệu ứng khi thay đổi đáng kể
+      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > priceChangeThreshold) {
+        if (current > previous) return 'price-up';
+        if (current < previous) return 'price-down';
+      } else if (previous === 0 && current !== 0) {
+        // Trường hợp đặc biệt khi giá trước đó là 0
+        if (current > 0) return 'price-up';
+        if (current < 0) return 'price-down';
+      }
+      return '';
     }
     
-    if (type === 'volume' && currentValue !== previousValue) {
-      return 'volume-change';
+    if (type === 'volume') {
+      // Với khối lượng, chỉ hiệu ứng khi thay đổi đáng kể
+      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > volumeChangeThreshold) {
+        if (current > previous) return 'volume-up';
+        if (current < previous) return 'volume-down';
+      } else if (previous === 0 && current > 0) {
+        // Trường hợp đặc biệt khi khối lượng trước đó là 0
+        return 'volume-up';
+      }
+      return '';
     }
     
     return '';
   };
 
-  // Cập nhật hàm getCellClass để hỗ trợ cả light và dark mode
+  // Cập nhật hàm getCellClass để hỗ trợ hiển thị thay đổi khối lượng
   const getCellClass = (stock, field, type = 'price') => {
     // Kiểm tra stock và field tồn tại
     if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
-    
-    // Kiểm tra trường đặc biệt (tổng khối lượng luôn màu trắng)
-    if (field === 'totalVolume') {
-      return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
-    }
     
     // Kiểm tra giá trị field
     const fieldValue = stock[field];
     
     // Xử lý trường hợp giá trị rỗng
     if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
-      if (type === 'volume') {
-        // Đối với khối lượng, nếu giá trị rỗng, sử dụng màu của giá tương ứng
-        const priceField = getPriceFieldForVolume(field);
-        if (stock[priceField] && stock[priceField] !== '--') {
-          const colorClass = getPriceColor(
-            stock[priceField],
-            stock.ref,
-            stock.ceiling,
-            stock.floor
-          );
-          return `${colorClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2`;
-        }
-      }
       return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
     }
 
-    // Xác định màu sắc
+    // Xác định màu sắc cơ bản dựa trên giá
     let colorClass = 'text-gray-900 dark:text-white';
     
     if (type === 'price') {
@@ -553,23 +582,14 @@ export default function StockDerivatives() {
       }
     }
 
-    // Determine animation class based on current and previous values
+    // Xác định animation class dựa trên thay đổi
     let animationClass = '';
     const stockCode = stock.code;
-    
-    // Check if there's a specific animation stored for this stock and field in priceChangeColors
     const changeKey = `${stockCode}-${field}`;
+    
+    // Kiểm tra có animation được lưu trữ cho field này không
     if (priceChangeColors[changeKey]) {
       animationClass = priceChangeColors[changeKey];
-    } 
-    // Otherwise, determine animation based on previous values if they exist
-    else if (previousValues[stockCode] && previousValues[stockCode][field]) {
-      const prevValue = previousValues[stockCode][field];
-      animationClass = getChangeAnimation(
-        fieldValue, 
-        prevValue,
-        type
-      );
     }
 
     return `${colorClass} ${animationClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2`;
@@ -600,35 +620,38 @@ export default function StockDerivatives() {
     const stock = realTimeStockData.find(s => s.code === stockCode);
     if (!stock) return 'text-white';
 
-    const matchPrice = parseFloat(stock.matchPrice);
-    const refPrice = parseFloat(stock.ref);
-    const ceilPrice = parseFloat(stock.ceiling);
-    const floorPrice = parseFloat(stock.floor);
+    // Cập nhật thay đổi màu ngay lập tức
+    // Sử dụng setTimeout với độ trễ = 0 để đưa vào event loop tiếp theo
+    // giúp React render nhanh hơn
+    setTimeout(() => {
+      setPriceChangeColors(prev => ({
+        ...prev,
+        [`${stock.code}-matchPrice`]: getChangeAnimation(currentPrice, previousPrice, 'price')
+      }));
+    }, 0);
 
-    // So sánh với các mức giá
-    let colorClass = '';
-    if (matchPrice === refPrice) {
-      colorClass = 'text-[#F4BE37]'; // Vàng - Bằng giá tham chiếu
-    } else if (matchPrice === ceilPrice) {
-      colorClass = 'text-[#B388FF]'; // Tím - Bằng giá trần
-    } else if (matchPrice === floorPrice) {
-      colorClass = 'text-[#00BCD4]'; // Xanh biển - Bằng giá sàn
-    } else if (matchPrice > refPrice && matchPrice < ceilPrice) {
-      colorClass = 'text-[#00FF00]'; // Xanh lá - Giữa tham chiếu và trần
-    } else if (matchPrice < refPrice && matchPrice > floorPrice) {
-      colorClass = 'text-[#FF4A4A]'; // Đỏ - Giữa sàn và tham chiếu
-    }
+    return getPriceColor(currentPrice, stock.ref, stock.ceiling, stock.floor);
+  };
 
-    // Thêm animation dựa trên sự thay đổi
-    if (currentPrice > previousPrice) {
-      return `${colorClass} price-up`;
-    } else if (currentPrice < previousPrice) {
-      return `${colorClass} price-down`;
-    } else if (currentPrice === previousPrice) {
-      return `${colorClass} price-equal`;
-    }
+  // Temporary debug function - có thể xóa sau khi đã sửa xong 
+  const debugPriceColors = (stock) => {
+    if (!stock) return;
     
-    return colorClass;
+    const numPrice = parseFloat(String(stock.matchPrice).replace(/,/g, ''));
+    const numRefPrice = parseFloat(String(stock.ref).replace(/,/g, ''));
+    const numCeilPrice = parseFloat(String(stock.ceiling).replace(/,/g, ''));
+    const numFloorPrice = parseFloat(String(stock.floor).replace(/,/g, ''));
+    
+    console.log(`Stock: ${stock.code}`);
+    console.log(`Price: ${numPrice}, Ref: ${numRefPrice}, Ceil: ${numCeilPrice}, Floor: ${numFloorPrice}`);
+    console.log(`Is ceiling? ${Math.abs(numPrice - numCeilPrice) < 0.0001}`);
+    console.log(`Is floor? ${Math.abs(numPrice - numFloorPrice) < 0.0001}`);
+    console.log(`Is ref? ${Math.abs(numPrice - numRefPrice) < 0.0001}`);
+    console.log(`Is up? ${numPrice > numRefPrice}`);
+    console.log(`Is down? ${numPrice < numRefPrice}`);
+    
+    // Return empty to not affect UI
+    return '';
   };
 
   // Theo dõi thay đổi khối lượng
@@ -1120,28 +1143,70 @@ export default function StockDerivatives() {
     }
   };
 
-  // Add state for previous values after other state declarations
+  // Lưu trữ dữ liệu cũ từ lần cập nhật trước
   const [previousValues, setPreviousValues] = useState({});
 
-  // Add useEffect for handling animation cleanup
+  // Cập nhật dữ liệu trước đó khi có dữ liệu mới
   useEffect(() => {
-    const timeoutIds = [];
-    
-    Object.keys(priceChangeColors).forEach(key => {
-      const timeoutId = setTimeout(() => {
-        setPriceChangeColors(prev => {
-          const newColors = { ...prev };
-          delete newColors[key];
-          return newColors;
-        });
-      }, 2500); // 2.5s = duration of animation
+    if (realTimeStockData.length > 0) {
+      const newPreviousValues = { ...previousValues };
       
-      timeoutIds.push(timeoutId);
-    });
+      realTimeStockData.forEach(stock => {
+        if (!stock.code) return;
+        
+        // Nếu chưa có dữ liệu cho mã này, tạo mới
+        if (!newPreviousValues[stock.code]) {
+          newPreviousValues[stock.code] = {};
+        }
+        
+        // Lưu lại tất cả các trường liên quan đến giá và khối lượng
+        const fieldsToTrack = [
+          'matchPrice', 'matchVolume',
+          'buyPrice3', 'buyVolume3',
+          'buyPrice2', 'buyVolume2',
+          'buyPrice1', 'buyVolume1',
+          'sellPrice1', 'sellVolume1',
+          'sellPrice2', 'sellVolume2',
+          'sellPrice3', 'sellVolume3',
+          'totalVolume', 'foreignBuy', 'foreignSell'
+        ];
+        
+        fieldsToTrack.forEach(field => {
+          if (stock[field] !== undefined) {
+            // Chỉ cập nhật giá trị trước đó nếu có sự thay đổi
+            if (newPreviousValues[stock.code][field] !== stock[field]) {
+              // Sử dụng setTimeout với độ trễ = 0 để đưa vào event loop tiếp theo
+              // giúp React render nhanh hơn
+              setTimeout(() => {
+                // Lưu animation class vào priceChangeColors để hiển thị
+                setPriceChangeColors(prev => ({
+                  ...prev,
+                  [`${stock.code}-${field}`]: field.includes('Price') ? 
+                    getChangeAnimation(stock[field], newPreviousValues[stock.code][field], 'price') :
+                    getChangeAnimation(stock[field], newPreviousValues[stock.code][field], 'volume')
+                }));
+                
+                // Lưu giá trị hiện tại vào previous để sử dụng trong lần cập nhật tiếp theo
+                newPreviousValues[stock.code][field] = stock[field];
+              }, 0);
+            }
+          }
+        });
+      });
+      
+      setPreviousValues(newPreviousValues);
+    }
+  }, [realTimeStockData]);
 
-    return () => {
-      timeoutIds.forEach(id => clearTimeout(id));
-    };
+  // Xóa hiệu ứng sau khi hiển thị
+  useEffect(() => {
+    if (Object.keys(priceChangeColors).length > 0) {
+      const timer = setTimeout(() => {
+        setPriceChangeColors({});
+      }, 1000); // Hiển thị trong 1 giây thay vì 2 giây
+      
+      return () => clearTimeout(timer);
+    }
   }, [priceChangeColors]);
 
   // Add state for delete confirmation dialog
@@ -1242,7 +1307,7 @@ export default function StockDerivatives() {
         // Khi đã cập nhật xong, reset lại state
         setIsSignalRUpdating(false);
       });
-    }, 1000)
+    }, 500)  // Giảm từ 1000ms xuống 500ms để cập nhật nhanh hơn
   ).current;
 
   // Update the debounced function to use API format directly
@@ -1258,7 +1323,7 @@ export default function StockDerivatives() {
         // Khi đã cập nhật xong, reset lại state
         setIsSignalRUpdating(false);
       });
-    }, 1000)
+    }, 500)  // Giảm từ 1000ms xuống 500ms để cập nhật nhanh hơn
   ).current;
 
   // Add SignalR event listeners (debounced, only fetch when correct exchange)
@@ -1319,6 +1384,9 @@ export default function StockDerivatives() {
       // Đây là lần tải ban đầu, không phải SignalR update
       fetchStockData(null, false, null, false); // Load regular stock data
     }
+    
+    // Reset tìm kiếm khi chuyển đổi chế độ watchlist
+    setSearchQuery('');
   }, [showWatchlist]);
 
   // Add useEffect to refetch data when exchange changes
@@ -1352,6 +1420,9 @@ export default function StockDerivatives() {
       // Đây là lần tải ban đầu, không phải SignalR update
       fetchStockData(null, false, apiExchange, false);
     }
+    
+    // Reset tìm kiếm khi chuyển đổi sàn
+    setSearchQuery('');
   }, [selectedExchange]); // Only run when selectedExchange changes
 
   const subscribeToStockData = () => {
@@ -1412,11 +1483,16 @@ export default function StockDerivatives() {
       to { transform: rotate(360deg); }
     }
 
-    /* Price change animations */
+    /* Price change animations - Cải thiện */
     @keyframes priceUp {
       0% { 
-        background-color: rgba(0, 255, 0, 0.3);
+        background-color: rgba(0, 255, 0, 0.4);
         transform: scale(1.1);
+        border-right: 1px solid #333;
+      }
+      50% {
+        background-color: rgba(0, 255, 0, 0.2);
+        transform: scale(1.05);
         border-right: 1px solid #333;
       }
       100% { 
@@ -1428,8 +1504,13 @@ export default function StockDerivatives() {
 
     @keyframes priceDown {
       0% { 
-        background-color: rgba(255, 0, 0, 0.3);
+        background-color: rgba(255, 0, 0, 0.4);
         transform: scale(1.1);
+        border-right: 1px solid #333;
+      }
+      50% {
+        background-color: rgba(255, 0, 0, 0.2);
+        transform: scale(1.05);
         border-right: 1px solid #333;
       }
       100% { 
@@ -1442,7 +1523,21 @@ export default function StockDerivatives() {
     @keyframes priceEqual {
       0% { 
         background-color: rgba(255, 255, 0, 0.3);
-        transform: scale(1.1);
+        transform: scale(1.05);
+        border-right: 1px solid #333;
+      }
+      100% { 
+        background-color: transparent;
+        transform: scale(1);
+        border-right: 1px solid #333;
+      }
+    }
+    
+    /* Volume change animations - Cải thiện */
+    @keyframes volume-up {
+      0% { 
+        background-color: rgba(0, 255, 0, 0.25);
+        transform: scale(1.05);
         border-right: 1px solid #333;
       }
       100% { 
@@ -1452,25 +1547,46 @@ export default function StockDerivatives() {
       }
     }
 
+    @keyframes volume-down {
+      0% { 
+        background-color: rgba(255, 0, 0, 0.25);
+        transform: scale(1.05);
+        border-right: 1px solid #333;
+      }
+      100% { 
+        background-color: transparent;
+        transform: scale(1);
+        border-right: 1px solid #333;
+      }
+    }
+
+    .volume-up {
+      animation: volume-up 2s ease-out;
+    }
+
+    .volume-down {
+      animation: volume-down 2s ease-out;
+    }
+
     .price-up {
-      animation: priceUp 2s ease-out forwards;
+      animation: priceUp 2s ease-out;
     }
-    
+
     .price-down {
-      animation: priceDown 2s ease-out forwards;
+      animation: priceDown 2s ease-out;
     }
-    
+
     .price-equal {
-      animation: priceEqual 2s ease-out forwards;
+      animation: priceEqual 2s ease-out;
     }
-    
+
     /* Table styles */
     .stock-table-container {
       height: calc(83vh - 132px);
       overflow: auto;
       position: relative;
     }
-    
+
     .stock-table-container thead {
       position: sticky;
       top: 0;
@@ -1481,7 +1597,7 @@ export default function StockDerivatives() {
     .stock-table-container th {
       background-color: #f9fafb; /* light mode background */
     }
-    
+
     /* Dark mode styles */
     .dark .stock-table-container th {
       background-color: #1a1a1a; /* dark mode background */
@@ -1750,6 +1866,107 @@ export default function StockDerivatives() {
     }
   }, [lastTimestamp]);
 
+  // Add useEffect to setup SignalR connection
+  useEffect(() => {
+    // Khởi tạo và thiết lập kết nối SignalR khi component mount
+    const setupSignalR = async () => {
+      try {
+        console.log("[SignalR] Initializing SignalR connection for StockDerivatives");
+        // Import SignalR service
+        const signalRService = (await import('@/api/signalRService')).default;
+        
+        // Đảm bảo kết nối được thiết lập
+        await signalRService.getConnection();
+        
+        // Thiết lập các listener cho stock updates
+        const result = await signalRService.setupStockListeners();
+        console.log("[SignalR] Setup stock listeners result:", result);
+        
+        if (result.success) {
+          console.log(`[SignalR] Successfully connected with ID: ${result.status?.connectionId}`);
+          console.log(`[SignalR] HSX listener registered: ${result.status?.hsx}`);
+          console.log(`[SignalR] HNX listener registered: ${result.status?.hnx}`);
+        }
+      } catch (error) {
+        console.error("[SignalR] Error setting up SignalR in StockDerivatives:", error);
+      }
+    };
+    
+    // Gọi hàm thiết lập
+    setupSignalR();
+    
+    // Cleanup khi component unmount
+    return () => {
+      // Không cần tắt kết nối vì có thể được sử dụng ở các component khác
+      console.log("[SignalR] StockDerivatives component unmounting");
+    };
+  }, []); // Chỉ chạy một lần khi component mount
+
+  // Thêm state để lưu trữ dữ liệu trước đó khi tìm kiếm
+  const [prevDisplayedStocks, setPrevDisplayedStocks] = useState({});
+  
+  // This useEffect monitors changes in the filtered data to trigger animations
+  useEffect(() => {
+    // Create a small delay to allow price history to update first
+    if (filteredData.length > 0) {
+      setTimeout(() => {
+        const newDisplayedStocks = {};
+        
+        filteredData.forEach(stock => {
+          if (!stock.code) return;
+          
+          // Create a copy of the current stock to store
+          newDisplayedStocks[stock.code] = {...stock};
+          
+          // If there is previous data and it differs from the current data, trigger animation
+          if (prevDisplayedStocks[stock.code]) {
+            const prevStock = prevDisplayedStocks[stock.code];
+            
+            // List of fields to check
+            const fieldsToCheck = [
+              'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3',
+              'sellPrice1', 'sellPrice2', 'sellPrice3',
+              'buyVolume1', 'buyVolume2', 'buyVolume3',
+              'sellVolume1', 'sellVolume2', 'sellVolume3'
+            ];
+            
+            // Check each field and create an effect if there is a change
+            fieldsToCheck.forEach(field => {
+              if (stock[field] !== prevStock[field]) {
+                const isPrice = field.includes('Price');
+                const currentValue = parseFloat(String(stock[field]).replace(/,/g, ''));
+                const previousValue = parseFloat(String(prevStock[field]).replace(/,/g, ''));
+                
+                // Only trigger animation when there is a significant change
+                if (!isNaN(currentValue) && !isNaN(previousValue) && currentValue !== previousValue) {
+                  const fieldType = isPrice ? 'price' : 'volume';
+                  const animClass = getChangeAnimation(currentValue, previousValue, fieldType);
+                  
+                  if (animClass) {
+                    setPriceChangeColors(prev => ({
+                      ...prev,
+                      [`${stock.code}-${field}`]: animClass
+                    }));
+                  }
+                }
+              }
+            });
+          }
+        });
+        
+        // Update state with new data
+        setPrevDisplayedStocks(newDisplayedStocks);
+      }, 100);
+    }
+  }, [filteredData]); // Depend only on filteredData
+
+  // Tạo một hàm debounced để xử lý cập nhật tìm kiếm
+  const debouncedSetSearchQuery = useRef(
+    debounce((value) => {
+      setSearchQuery(value);
+    }, 300)
+  ).current;
+
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -1796,7 +2013,7 @@ export default function StockDerivatives() {
               type="text"
               placeholder="Tìm kiếm mã"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => debouncedSetSearchQuery(e.target.value)}
               className="w-[200px] bg-gray-50 dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#666] pl-10 transition-all duration-300 ease-in-out focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <svg
@@ -2105,7 +2322,7 @@ export default function StockDerivatives() {
                   </colgroup>
 
                   {/* Table header with sticky positioning */}
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1a1a1a] shadow-sm">
                     <tr className="border-b border-gray-200 dark:border-[#333]">
                       <th 
                         className="text-gray-500 dark:text-[#999] border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" 
@@ -2210,7 +2427,7 @@ export default function StockDerivatives() {
                           </div>
                         </td>
                       </tr>
-                    ) : (filteredData.length === 0 ? (
+                    ) : (dataToDisplay.length === 0 ? (
                       <tr>
                         <td colSpan="26" className="text-center py-8">
                           <div className="flex flex-col items-center gap-4">
@@ -2227,6 +2444,30 @@ export default function StockDerivatives() {
                                   : `Không có dữ liệu cho sàn ${selectedExchange} tại thời điểm này`
                                 }
                               </p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredData.length === 0 ? (
+                      <tr>
+                        <td colSpan="26" className="text-center py-8">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 text-gray-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400">Không tìm thấy kết quả phù hợp</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                                Không tìm thấy cổ phiếu phù hợp với từ khóa "{searchQuery}"
+                              </p>
+                              <button 
+                                onClick={() => setSearchQuery('')} 
+                                className="mt-3 text-sm text-blue-500 hover:text-blue-700 transition-colors"
+                              >
+                                Xóa bộ lọc tìm kiếm
+                              </button>
                             </div>
                           </div>
                         </td>
