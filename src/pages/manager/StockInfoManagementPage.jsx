@@ -351,6 +351,74 @@ export default function StockInfoManagementPage() {
     }
   };
   
+  // Tạo mẫu CSV cho chỉ số
+  const generateIndexSampleCsv = () => {
+    // Header và mẫu dữ liệu theo định dạng trong hình
+    const headers = ['<Ticker>', '<DTYYYY>', '<Open>', '<High>', '<Low>', '<Close>', '<Volume>'];
+    const sampleData = [
+      ['VNINDEX', '20250415', '1233.2', '1246.21', '1221.75', '1227.79', '1E+09'],
+      ['HNX-INDEX', '20250415', '215.0042', '214.9671', '210.0575', '210.2439', '70911943']
+    ];
+    
+    // Tạo nội dung file CSV
+    const csvContent = [
+      headers.join(','),
+      ...sampleData.map(row => row.join(','))
+    ].join('\n');
+    
+    // Tạo và tải xuống file
+    downloadCsv(csvContent, 'index_sample.csv');
+  };
+  
+  // Tạo mẫu CSV cho cổ phiếu
+  const generateStockSampleCsv = () => {
+    // Header và mẫu dữ liệu cho file cổ phiếu - theo hình mẫu
+    const headers = ['<Ticker>', '<DTYYYY>', '<Open>', '<High>', '<Low>', '<Close>', '<Volume>'];
+    const sampleData = [
+      ['AAV', '20250415', '5.5', '6', '5.4', '6', '1596569'],
+      ['ADC', '20250415', '21.8', '21.8', '21.8', '21.8', '104'],
+      ['ALT', '20250415', '12.4', '13.1', '12.4', '13.1', '401'],
+      ['AMC', '20250415', '17.3', '17.3', '16.7', '16.7', '2300'],
+      ['AME', '20250415', '5', '5', '4.8', '4.8', '1400']
+    ];
+    
+    // Tạo nội dung file CSV
+    const csvContent = [
+      headers.join(','),
+      ...sampleData.map(row => row.join(','))
+    ].join('\n');
+    
+    // Tạo và tải xuống file
+    downloadCsv(csvContent, 'stock_sample.csv');
+  };
+  
+  // Hàm tạo và tải xuống file CSV
+  const downloadCsv = (csvContent, filename) => {
+    // Tạo blob và đường dẫn URL
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Tạo thẻ a và click để tải xuống
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Tải mẫu CSV tương ứng với loại dữ liệu đã chọn
+  const downloadSampleCsv = () => {
+    if (fileType === "index") {
+      generateIndexSampleCsv();
+    } else if (fileType === "stock") {
+      generateStockSampleCsv();
+    } else {
+      toast.error("Vui lòng chọn loại dữ liệu trước khi tải mẫu");
+    }
+  };
+  
   return (
     <div className="w-full h-full p-2 sm:p-4 md:p-6 bg-gradient-to-b from-background/80 via-background to-background/90">
       <div className="max-w-[1400px] mx-auto">
@@ -740,9 +808,20 @@ export default function StockInfoManagementPage() {
             )}
             
             <div className="space-y-2">
-              <label htmlFor="csvFile" className="text-sm font-medium">
-                File CSV
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="csvFile" className="text-sm font-medium">
+                  File CSV
+                </label>
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  onClick={downloadSampleCsv}
+                  disabled={!fileType}
+                  className="h-auto p-0 text-primary"
+                >
+                  Tải mẫu CSV
+                </Button>
+              </div>
               <Input
                 id="csvFile"
                 type="file"
@@ -751,6 +830,100 @@ export default function StockInfoManagementPage() {
                 className="cursor-pointer"
               />
             </div>
+
+            {fileType && (
+              <div className="bg-muted/50 p-3 rounded-md text-xs space-y-2 text-muted-foreground">
+                <p className="font-medium text-foreground">Định dạng CSV yêu cầu:</p>
+                
+                {/* Hiển thị dưới dạng bảng Excel */}
+                <div className="overflow-x-auto mt-2">
+                  <table className="min-w-full border border-border/50 rounded overflow-hidden">
+                    <thead>
+                      <tr className="bg-accent/50">
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">A</th>
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">B</th>
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">C</th>
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">D</th>
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">E</th>
+                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">F</th>
+                        <th className="p-1.5 border-b border-border/50 text-center font-medium">G</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-accent/20">
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Ticker&gt;</td>
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;DTYYYY&gt;</td>
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Open&gt;</td>
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;High&gt;</td>
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Low&gt;</td>
+                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Close&gt;</td>
+                        <td className="p-1.5 border-b border-border/50 text-center">&lt;Volume&gt;</td>
+                      </tr>
+                      {fileType === "index" ? (
+                        <>
+                          <tr>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">VNINDEX</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">1233.2</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">1246.21</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">1221.75</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">1227.79</td>
+                            <td className="p-1.5 border-b border-border/50 text-center">1E+09</td>
+                          </tr>
+                          <tr className="bg-accent/10">
+                            <td className="p-1.5 border-r border-border/50 text-center">HNX-INDEX</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">20250415</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">215.0042</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">214.9671</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">210.0575</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">210.2439</td>
+                            <td className="p-1.5 border-border/50 text-center">70911943</td>
+                          </tr>
+                        </>
+                      ) : (
+                        <>
+                          <tr>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">AAV</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">5.5</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">6</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">5.4</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">6</td>
+                            <td className="p-1.5 border-b border-border/50 text-center">1596569</td>
+                          </tr>
+                          <tr className="bg-accent/10">
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">ADC</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
+                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
+                            <td className="p-1.5 border-b border-border/50 text-center">104</td>
+                          </tr>
+                          <tr>
+                            <td className="p-1.5 border-r border-border/50 text-center">ALT</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">20250415</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">12.4</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">13.1</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">12.4</td>
+                            <td className="p-1.5 border-r border-border/50 text-center">13.1</td>
+                            <td className="p-1.5 border-border/50 text-center">401</td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="space-y-1 pt-1">
+                  <p>- <code>&lt;Ticker&gt;</code>: {fileType === "index" ? "Mã chỉ số (VNINDEX, HNX-INDEX...)" : "Mã cổ phiếu (AAV, ADC, ALT...)"}</p>
+                  <p>- <code>&lt;DTYYYY&gt;</code>: Ngày định dạng YYYYMMDD (ví dụ: 20250415)</p>
+                  <p>- <code>&lt;Open&gt;, &lt;High&gt;, &lt;Low&gt;, &lt;Close&gt;</code>: Giá mở cửa, cao nhất, thấp nhất, đóng cửa</p>
+                  <p>- <code>&lt;Volume&gt;</code>: Khối lượng giao dịch</p>
+                  <p className="pt-1">- Tải xuống mẫu CSV để xem ví dụ về định dạng yêu cầu</p>
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
