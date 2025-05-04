@@ -541,7 +541,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('user_info');
       localStorage.removeItem('user_data');
       localStorage.removeItem('user_id_backup');
-      localStorage.removeItem('user_features');
       
       // Xóa thêm các dữ liệu liên quan đến thanh toán và đăng ký nếu có
       localStorage.removeItem('pending_payment_order');
@@ -592,14 +591,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Hàm đổi mật khẩu
-  const changePassword = async (userId, newPassword) => {
+  const changePassword = async (userId, oldPassword, newPassword) => {
     try {
       console.log(`Attempting to change password for user ID: ${userId}`);
       
-      const response = await axios.post(`${API_URL}/api/auth/change-password`, {
-        id: userId,
-        password: newPassword
-      });
+      const token = Cookies.get(TOKEN_KEY);
+      
+      const response = await axios.put(`${API_URL}/api/auth/change-password`, 
+        {
+          id: userId,
+          oldPassword: oldPassword,
+          newPassword: newPassword
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*'
+          }
+        }
+      );
       
       console.log("Change password API Response:", response);
       
@@ -621,8 +631,14 @@ export const AuthProvider = ({ children }) => {
         console.log("Extracted data from value:", data);
       }
       
-      // Kiểm tra thông báo thành công
-      const successMessage = data.message || "Đổi mật khẩu thành công";
+      // Kiểm tra thông báo thành công và chuyển đổi sang tiếng Việt nếu là tiếng Anh
+      let successMessage = data.message || "Đổi mật khẩu thành công";
+      
+      // Chuyển đổi message từ tiếng Anh sang tiếng Việt nếu cần
+      if (successMessage === "Change password sucessfully" || 
+          successMessage === "Change password successfully") {
+        successMessage = "Đổi mật khẩu thành công";
+      }
       
       return { success: true, message: successMessage };
     } catch (error) {
@@ -635,9 +651,34 @@ export const AuthProvider = ({ children }) => {
         // Lỗi từ server với status code
         console.log("Error response:", error.response);
         
-        // Xử lý tùy theo mã lỗi HTTP
+        // Xử lý lỗi validation 400
         if (error.response.status === 400) {
-          errorMessage = "Mật khẩu mới không hợp lệ";
+          if (error.response.data && error.response.data.errors) {
+            const errors = error.response.data.errors;
+            
+            // Kiểm tra lỗi cho oldPassword
+            if (errors.oldPassword && errors.oldPassword.length > 0) {
+              return { 
+                success: false, 
+                message: "Mật khẩu hiện tại phải có ít nhất 8 ký tự và chứa chữ hoa, chữ thường, số và ký tự đặc biệt"
+              };
+            }
+            
+            // Kiểm tra lỗi cho newPassword
+            if (errors.newPassword && errors.newPassword.length > 0) {
+              return { 
+                success: false, 
+                message: "Mật khẩu mới phải có ít nhất 8 ký tự và chứa chữ hoa, chữ thường, số và ký tự đặc biệt"
+              };
+            }
+            
+            // Nếu có cả hai lỗi
+            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự và chứa chữ hoa, chữ thường, số và ký tự đặc biệt";
+          } else {
+            errorMessage = "Mật khẩu không hợp lệ";
+          }
+        } else if (error.response.status === 401) {
+          errorMessage = "Mật khẩu hiện tại không chính xác";
         } else if (error.response.status === 404) {
           errorMessage = "Không tìm thấy tài khoản người dùng";
         } else if (error.response.status === 403) {
