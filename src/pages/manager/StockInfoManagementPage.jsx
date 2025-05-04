@@ -754,179 +754,184 @@ export default function StockInfoManagementPage() {
 
       {/* CSV Upload Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Tải lên file CSV</DialogTitle>
             <DialogDescription>
               Chọn loại dữ liệu và tải lên file CSV tương ứng
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="fileType" className="text-sm font-medium">
-                Loại dữ liệu
-              </label>
-              <Select
-                value={fileType}
-                onValueChange={(value) => {
-                  setFileType(value);
-                  // Reset exchange khi đổi loại dữ liệu
-                  if (value !== "stock") {
-                    setSelectedExchange("");
-                  }
-                }}
-              >
-                <SelectTrigger id="fileType" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
-                  <SelectValue placeholder="Chọn loại dữ liệu" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="index" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Chỉ số</SelectItem>
-                  <SelectItem value="stock" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Cổ phiếu</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {fileType === "stock" && (
+          <div className="overflow-y-auto pl-2 pr-4 -mr-2 custom-scrollbar">
+            <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <label htmlFor="exchange" className="text-sm font-medium">
-                  Sàn giao dịch
+                <label htmlFor="fileType" className="text-sm font-medium">
+                  Loại dữ liệu
                 </label>
                 <Select
-                  value={selectedExchange}
-                  onValueChange={setSelectedExchange}
+                  value={fileType}
+                  onValueChange={(value) => {
+                    setFileType(value);
+                    // Reset exchange khi đổi loại dữ liệu
+                    if (value !== "stock") {
+                      setSelectedExchange("");
+                    }
+                  }}
                 >
-                  <SelectTrigger id="exchange" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
-                    <SelectValue placeholder="Chọn sàn giao dịch" />
+                  <SelectTrigger id="fileType" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                    <SelectValue placeholder="Chọn loại dữ liệu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hsx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HOSE</SelectItem>
-                    <SelectItem value="hnx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HNX</SelectItem>
+                    <SelectItem value="index" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Chỉ số</SelectItem>
+                    <SelectItem value="stock" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">Cổ phiếu</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="csvFile" className="text-sm font-medium">
-                  File CSV
-                </label>
-                <Button 
-                  variant="link" 
-                  size="sm" 
-                  onClick={downloadSampleCsv}
-                  disabled={!fileType}
-                  className="h-auto p-0 text-primary"
-                >
-                  Tải mẫu CSV
-                </Button>
+              
+              {fileType === "stock" && (
+                <div className="space-y-2">
+                  <label htmlFor="exchange" className="text-sm font-medium">
+                    Sàn giao dịch
+                  </label>
+                  <Select
+                    value={selectedExchange}
+                    onValueChange={setSelectedExchange}
+                  >
+                    <SelectTrigger id="exchange" className="w-full border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                      <SelectValue placeholder="Chọn sàn giao dịch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hsx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HOSE</SelectItem>
+                      <SelectItem value="hnx" className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">HNX</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="csvFile" className="text-sm font-medium">
+                    File CSV
+                  </label>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    onClick={downloadSampleCsv}
+                    disabled={!fileType}
+                    className="h-auto p-0 text-primary"
+                  >
+                    Tải mẫu CSV
+                  </Button>
+                </div>
+                <Input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  className="cursor-pointer"
+                />
+                {fileType === "stock" && (
+                  <p className="text-yellow-500 text-xs">Tên file CSV phải chứa tên sàn mà bạn chọn, ví dụ: <code>hsx_stock.csv</code> hoặc <code>hnx_stock.csv</code></p>
+                )}
               </div>
-              <Input
-                id="csvFile"
-                type="file"
-                accept=".csv"
-                onChange={handleFileSelect}
-                className="cursor-pointer"
-              />
-            </div>
 
-            {fileType && (
-              <div className="bg-muted/50 p-3 rounded-md text-xs space-y-2 text-muted-foreground">
-                <p className="font-medium text-foreground">Định dạng CSV yêu cầu:</p>
-                
-                {/* Hiển thị dưới dạng bảng Excel */}
-                <div className="overflow-x-auto mt-2">
-                  <table className="min-w-full border border-border/50 rounded overflow-hidden">
-                    <thead>
-                      <tr className="bg-accent/50">
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">A</th>
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">B</th>
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">C</th>
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">D</th>
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">E</th>
-                        <th className="p-1.5 border-r border-b border-border/50 text-center font-medium">F</th>
-                        <th className="p-1.5 border-b border-border/50 text-center font-medium">G</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="bg-accent/20">
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Ticker&gt;</td>
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;DTYYYY&gt;</td>
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Open&gt;</td>
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;High&gt;</td>
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Low&gt;</td>
-                        <td className="p-1.5 border-r border-b border-border/50 text-center">&lt;Close&gt;</td>
-                        <td className="p-1.5 border-b border-border/50 text-center">&lt;Volume&gt;</td>
-                      </tr>
-                      {fileType === "index" ? (
-                        <>
-                          <tr>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">VNINDEX</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">1233.2</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">1246.21</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">1221.75</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">1227.79</td>
-                            <td className="p-1.5 border-b border-border/50 text-center">1E+09</td>
-                          </tr>
-                          <tr className="bg-accent/10">
-                            <td className="p-1.5 border-r border-border/50 text-center">HNX-INDEX</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">20250415</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">215.0042</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">214.9671</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">210.0575</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">210.2439</td>
-                            <td className="p-1.5 border-border/50 text-center">70911943</td>
-                          </tr>
-                        </>
-                      ) : (
-                        <>
-                          <tr>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">AAV</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">5.5</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">6</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">5.4</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">6</td>
-                            <td className="p-1.5 border-b border-border/50 text-center">1596569</td>
-                          </tr>
-                          <tr className="bg-accent/10">
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">ADC</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">20250415</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
-                            <td className="p-1.5 border-r border-b border-border/50 text-center">21.8</td>
-                            <td className="p-1.5 border-b border-border/50 text-center">104</td>
-                          </tr>
-                          <tr>
-                            <td className="p-1.5 border-r border-border/50 text-center">ALT</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">20250415</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">12.4</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">13.1</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">12.4</td>
-                            <td className="p-1.5 border-r border-border/50 text-center">13.1</td>
-                            <td className="p-1.5 border-border/50 text-center">401</td>
-                          </tr>
-                        </>
-                      )}
-                    </tbody>
-                  </table>
+              {fileType && (
+                <div className="bg-muted/50 p-3 rounded-md text-xs space-y-2 text-muted-foreground mb-2">
+                  <p className="font-medium text-foreground">Định dạng CSV yêu cầu:</p>
+                  
+                  {/* Hiển thị dưới dạng bảng Excel - điều chỉnh để không bị cuộn ngang */}
+                  <div className="w-full overflow-visible mt-2">
+                    <table className="w-full border border-border/50 rounded overflow-hidden">
+                      <thead>
+                        <tr className="bg-accent/50">
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">A</th>
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">B</th>
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">C</th>
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">D</th>
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">E</th>
+                          <th className="py-1 px-2 border-r border-b border-border/50 text-center font-medium text-[10px] w-[14%]">F</th>
+                          <th className="py-1 px-2 border-b border-border/50 text-center font-medium text-[10px] w-[14%]">G</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-accent/20">
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;Ticker&gt;</td>
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;DTYYYY&gt;</td>
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;Open&gt;</td>
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;High&gt;</td>
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;Low&gt;</td>
+                          <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">&lt;Close&gt;</td>
+                          <td className="py-1 px-2 border-b border-border/50 text-center text-[11px]">&lt;Volume&gt;</td>
+                        </tr>
+                        {fileType === "index" ? (
+                          <>
+                            <tr>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">VNINDEX</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">20250415</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">1233.2</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">1246.21</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">1221.75</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">1227.79</td>
+                              <td className="py-1 px-2 border-b border-border/50 text-center text-[11px]">1E+09</td>
+                            </tr>
+                            <tr className="bg-accent/10">
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">HNX-INDEX</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">20250415</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">215.0042</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">214.9671</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">210.0575</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">210.2439</td>
+                              <td className="py-1 px-2 border-border/50 text-center text-[11px]">70911943</td>
+                            </tr>
+                          </>
+                        ) : (
+                          <>
+                            <tr>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">AAV</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">20250415</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">5.5</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">6</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">5.4</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">6</td>
+                              <td className="py-1 px-2 border-b border-border/50 text-center text-[11px]">1596569</td>
+                            </tr>
+                            <tr className="bg-accent/10">
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">ADC</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">20250415</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">21.8</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">21.8</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">21.8</td>
+                              <td className="py-1 px-2 border-r border-b border-border/50 text-center text-[11px]">21.8</td>
+                              <td className="py-1 px-2 border-b border-border/50 text-center text-[11px]">104</td>
+                            </tr>
+                            <tr>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">ALT</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">20250415</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">12.4</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">13.1</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">12.4</td>
+                              <td className="py-1 px-2 border-r border-border/50 text-center text-[11px]">13.1</td>
+                              <td className="py-1 px-2 border-border/50 text-center text-[11px]">401</td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="space-y-1 pt-1">
+                    <p>- <code>&lt;Ticker&gt;</code>: {fileType === "index" ? "Mã chỉ số (VNINDEX, HNX-INDEX...)" : "Mã cổ phiếu (AAV, ADC, ALT...)"}</p>
+                    <p>- <code>&lt;DTYYYY&gt;</code>: Ngày định dạng YYYYMMDD (ví dụ: 20250415)</p>
+                    <p>- <code>&lt;Open&gt;, &lt;High&gt;, &lt;Low&gt;, &lt;Close&gt;</code>: Giá mở cửa, cao nhất, thấp nhất, đóng cửa</p>
+                    <p>- <code>&lt;Volume&gt;</code>: Khối lượng giao dịch</p>
+                    <p className="pt-1">- Tải xuống mẫu CSV để xem ví dụ về định dạng yêu cầu</p>
+                  </div>
                 </div>
-                
-                <div className="space-y-1 pt-1">
-                  <p>- <code>&lt;Ticker&gt;</code>: {fileType === "index" ? "Mã chỉ số (VNINDEX, HNX-INDEX...)" : "Mã cổ phiếu (AAV, ADC, ALT...)"}</p>
-                  <p>- <code>&lt;DTYYYY&gt;</code>: Ngày định dạng YYYYMMDD (ví dụ: 20250415)</p>
-                  <p>- <code>&lt;Open&gt;, &lt;High&gt;, &lt;Low&gt;, &lt;Close&gt;</code>: Giá mở cửa, cao nhất, thấp nhất, đóng cửa</p>
-                  <p>- <code>&lt;Volume&gt;</code>: Khối lượng giao dịch</p>
-                  <p className="pt-1">- Tải xuống mẫu CSV để xem ví dụ về định dạng yêu cầu</p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 mt-2">
             <Button variant="outline" onClick={() => {
               setUploadDialogOpen(false);
               setSelectedFile(null);
