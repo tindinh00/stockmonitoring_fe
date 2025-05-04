@@ -21,7 +21,11 @@ const changePasswordSchema = z
   .object({
     currentPassword: z
       .string()
-      .min(6, "Mật khẩu phải có ít nhất 6 ký tự")
+      .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        "Mật khẩu phải chứa ít nhất một chữ hoa, một chữ thường, một số và một ký tự đặc biệt"
+      )
       .nonempty("Mật khẩu hiện tại là bắt buộc"),
     newPassword: z
       .string()
@@ -77,13 +81,20 @@ const ChangePasswordForm = () => {
       // Trong thực tế, bạn cần xác thực mật khẩu hiện tại trước khi đổi mật khẩu
       // Đây là một ví dụ đơn giản, bạn có thể cần thêm API để xác thực mật khẩu hiện tại
       
-      const result = await changePassword(user.id, data.newPassword);
+      const result = await changePassword(user.id, data.currentPassword, data.newPassword);
       
       if (result.success) {
         setChangeSuccess(true);
         reset();
         
-        toast.success(result.message || "Đổi mật khẩu thành công!", {
+        // Đảm bảo message hiển thị bằng tiếng Việt
+        let successMessage = result.message || "Đổi mật khẩu thành công!";
+        if (successMessage === "Change password sucessfully" || 
+            successMessage === "Change password successfully") {
+          successMessage = "Đổi mật khẩu thành công!";
+        }
+        
+        toast.success(successMessage, {
           position: "top-right",
           duration: 3000,
         });
@@ -134,13 +145,14 @@ const ChangePasswordForm = () => {
                   placeholder="Nhập mật khẩu hiện tại"
                   {...register("currentPassword")}
                   disabled={loading}
-                  className="pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all"
+                  className={`pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all ${errors.currentPassword ? "border-red-500" : ""}`}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={toggleShowCurrentPassword}
                   disabled={loading}
+                  tabIndex="-1"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-teal-400 hover:text-teal-300 p-1"
                 >
                   {showCurrentPassword ? (
@@ -151,7 +163,7 @@ const ChangePasswordForm = () => {
                 </Button>
               </div>
               {errors.currentPassword && (
-                <p className="text-red-400 text-sm text-left">
+                <p className="text-red-400 text-sm mt-1 pl-2">
                   {errors.currentPassword.message}
                 </p>
               )}
@@ -167,13 +179,14 @@ const ChangePasswordForm = () => {
                   placeholder="Nhập mật khẩu mới"
                   {...register("newPassword")}
                   disabled={loading}
-                  className="pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all"
+                  className={`pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all ${errors.newPassword ? "border-red-500" : ""}`}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={toggleShowNewPassword}
                   disabled={loading}
+                  tabIndex="-1"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-teal-400 hover:text-teal-300 p-1"
                 >
                   {showNewPassword ? (
@@ -184,7 +197,7 @@ const ChangePasswordForm = () => {
                 </Button>
               </div>
               {errors.newPassword && (
-                <p className="text-red-400 text-sm text-left">
+                <p className="text-red-400 text-sm mt-1 pl-2">
                   {errors.newPassword.message}
                 </p>
               )}
@@ -200,13 +213,14 @@ const ChangePasswordForm = () => {
                   placeholder="Xác nhận mật khẩu mới"
                   {...register("confirmPassword")}
                   disabled={loading}
-                  className="pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all"
+                  className={`pl-10 pr-10 bg-gray-800 border-teal-500/40 text-teal-400 placeholder-teal-400/60 focus:ring-2 focus:ring-teal-500 transition-all ${errors.confirmPassword ? "border-red-500" : ""}`}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={toggleShowConfirmPassword}
                   disabled={loading}
+                  tabIndex="-1"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-teal-400 hover:text-teal-300 p-1"
                 >
                   {showConfirmPassword ? (
@@ -217,7 +231,7 @@ const ChangePasswordForm = () => {
                 </Button>
               </div>
               {errors.confirmPassword && (
-                <p className="text-red-400 text-sm text-left">
+                <p className="text-red-400 text-sm mt-1 pl-2">
                   {errors.confirmPassword.message}
                 </p>
               )}

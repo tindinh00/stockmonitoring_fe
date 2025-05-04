@@ -28,7 +28,7 @@ import UpgradePackage from './pages/UpgradePackagePage';
 import UserManagementPage from "@/pages/admin/UserManagementPage";
 import AdminSidebar from './layouts/AdminSidebar';
 import DashboardPage from './pages/dashboard';
-import StaffSidebar from './layouts/StaffSidebar';
+import StaffLayout from './layouts/StaffLayout';
 import StaffChatPage from './pages/staff/StaffChatPage';
 import StaffReportPage from './pages/staff/StaffReportPage';
 import ManagerReportPage from './pages/manager/ManagerReportPage';
@@ -91,30 +91,17 @@ function App() {
     <AuthProvider>
       <Toaster position="top-right" richColors />
       <Routes>
-        {/* Staff routes with Manager Header and Sidebar */}
+        {/* Staff routes with StaffLayout */}
         <Route
           path="/staff/*"
           element={
             <ProtectedRoute allowedRoles={['staff']}>
-              <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
-                <div className="flex min-h-screen w-full bg-gray-50 dark:bg-[#0a0a14] overflow-hidden">
-                  <div className="flex-shrink-0">
-                    <StaffSidebar />
-                  </div>
-                  <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#0a0a14] text-gray-900 dark:text-white min-w-0">
-                    <HeaderManager />
-                    <main className="p-4 md:p-8 w-full overflow-auto">
-                      <div className="max-w-full">
-                        <Routes>
-                          <Route path="chat" element={<StaffChatPage />} />
-                          <Route path="reports" element={<StaffReportPage />} />
-                        </Routes>
-                        <Toaster position="top-right" richColors />
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </SidebarProvider>
+              <StaffLayout>
+                <Routes>
+                  <Route path="chat" element={<StaffChatPage />} />
+                  <Route path="reports" element={<StaffReportPage />} />
+                </Routes>
+              </StaffLayout>
             </ProtectedRoute>
           }
         />
