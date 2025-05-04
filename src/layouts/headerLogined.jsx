@@ -476,30 +476,80 @@ export default function HeaderLogined() {
         <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
           <div className='flex items-center gap-2 border border-[#15919B]/30 bg-gray-300 dark:bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
             <style>{`
-              @keyframes scroll {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
+              @-webkit-keyframes scroll {
+                0% { -webkit-transform: translateX(0); transform: translateX(0); }
+                100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
               }
+              
+              @keyframes scroll {
+                0% { -webkit-transform: translateX(0); transform: translateX(0); }
+                100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+              }
+              
               .scroll-container {
+                -webkit-animation: scroll 20s linear infinite;
                 animation: scroll 20s linear infinite;
                 display: flex;
                 width: max-content;
+                -webkit-transition: none;
+                transition: none;
                 will-change: transform;
+                transform: translateZ(0);
+                -webkit-transform: translateZ(0);
+                -moz-transform: translateZ(0);
+                -ms-transform: translateZ(0);
+                -o-transform: translateZ(0);
+                backface-visibility: hidden;
+                -webkit-backface-visibility: hidden;
               }
+              
               .scroll-container:hover {
+                -webkit-animation-play-state: paused;
                 animation-play-state: paused;
               }
+              
               @media (prefers-reduced-motion: reduce) {
                 .scroll-container {
+                  -webkit-animation-play-state: paused;
                   animation-play-state: paused;
                 }
               }
+              
               /* Khoảng cách giữa repeating blocks */
               .indices-block:last-child {
                 margin-left: 40px; /* Thêm khoảng cách lớn giữa 2 khối */
               }
+              
+              /* Fix cho Safari */
+              @supports (-webkit-hyphens:none) {
+                .scroll-container {
+                  -webkit-animation: scroll 20s linear infinite;
+                  transform: translate3d(0, 0, 0);
+                  -webkit-transform: translate3d(0, 0, 0);
+                }
+              }
+              
+              /* Fix cho Firefox */
+              @-moz-document url-prefix() {
+                .scroll-container {
+                  animation: scroll 20s linear infinite;
+                  transform: translate3d(0, 0, 0);
+                }
+              }
+              
+              /* Fix cho IE và Edge cũ */
+              @media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+                .scroll-container {
+                  animation: scroll 20s linear infinite;
+                  -ms-transform: translateX(0);
+                }
+                @keyframes scroll {
+                  0% { -ms-transform: translateX(0); }
+                  100% { -ms-transform: translateX(-50%); }
+                }
+              }
             `}</style>
-            <div className="scroll-container" key={marketIndices.length > 0 ? marketIndices[0].close : 'loading'}>
+            <div className="scroll-container" key={`scroll-${marketIndices.length > 0 ? marketIndices[0].close : 'loading'}-${Date.now()}`}>
               <div className='flex items-center gap-8 indices-block'>
                 {isLoadingIndices ? (
                   <span className="text-[#666]">Đang tải...</span>

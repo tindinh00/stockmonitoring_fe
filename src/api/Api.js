@@ -1307,6 +1307,7 @@ export const apiService = {
     }
   },
 
+  // Hàm cập nhật thông tin người dùng
   updateProfile: async (userData) => {
     try {
       const token = Cookies.get("auth_token");
@@ -1315,8 +1316,6 @@ export const apiService = {
       }
       
       // Format birthDate to ISO string if it exists
-      // This fixes the 400 Bad Request error when sending date in incorrect format
-      // The backend API expects birthDate in DateTime format: "YYYY-MM-DDThh:mm:ss.sssZ"
       let formattedBirthDate = userData.birthDate;
       if (formattedBirthDate) {
         // Check if birthDate is already a Date object
@@ -1333,9 +1332,9 @@ export const apiService = {
         }
       }
       
-      const response = await axiosInstance.put("/api/users", {
+      // Gọi API update profile không cần userId trong URL
+      const response = await axiosInstance.put(`/api/users`, {
         name: userData.name,
-        email: userData.email,
         phone: userData.phone,
         birthDate: formattedBirthDate,
         address: userData.address
@@ -1363,10 +1362,30 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error("Update profile error:", error);
+      
+      // Xử lý lỗi validation trả về từ API và chuyển đổi sang tiếng Việt
+      if (error.response && error.response.status === 400) {
+        const apiErrors = error.response.data?.errors;
+        
+        // Nếu có lỗi validation, chuyển tiếp lỗi để xử lý ở component
+        if (apiErrors) {
+          // Chuyển đổi các thông báo lỗi tiếng Anh sang tiếng Việt
+          if (apiErrors.Phone && apiErrors.Phone.length > 0) {
+            if (apiErrors.Phone[0].includes("exactly 10 digits")) {
+              apiErrors.Phone[0] = "Số điện thoại phải có đúng 10 chữ số.";
+            }
+          }
+          
+          // Chuyển tiếp lỗi để xử lý ở component
+          throw error;
+        }
+      }
+      
       if (error.response?.status === 401 || error.response?.status === 403) {
         throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
       }
-      throw error.response?.data || error.message;
+      
+      throw new Error(error.response?.data?.message || "Không thể cập nhật thông tin.");
     }
   },
 
