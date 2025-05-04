@@ -21,7 +21,9 @@ import {
   LogOut,
   Star,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Cookies from "js-cookie";
 
@@ -49,6 +51,76 @@ import UserSubscription from "@/components/UserSubscription";
 import TransactionHistory from "@/components/TransactionHistory";
 import { apiService } from "@/api/Api";
 
+// FormInput component với validation trực tiếp
+const FormInput = ({ 
+  label, 
+  type = "text", 
+  id, 
+  value, 
+  onChange, 
+  required = false, 
+  minLength, 
+  error, 
+  placeholder,
+  className = "",
+  icon: Icon,
+  hint
+}) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const actualType = type === "password" && showPassword ? "text" : type;
+  
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <label htmlFor={id} className="text-gray-900 dark:text-white text-sm font-medium">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+        )}
+        <input
+          id={id}
+          name={id}
+          type={actualType}
+          value={value}
+          onChange={onChange}
+          required={required}
+          minLength={minLength}
+          placeholder={placeholder}
+          className={`w-full px-3 py-2 ${Icon ? 'pl-10' : ''} ${type === 'password' ? 'pr-10' : ''} rounded-md border ${error ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-[#333]'} bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#09D1C7] ${className}`}
+        />
+        {type === 'password' && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex="-1"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="text-red-500 text-xs mt-1">{error}</p>
+      )}
+      {hint && !error && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{hint}</p>
+      )}
+    </div>
+  );
+};
+
+// Component hiển thị lỗi
+const ErrorMessage = ({ message }) => {
+  if (!message) return null;
+  
+  return (
+    <p className="text-red-500 text-xs mt-1 pl-7">{message}</p>
+  );
+};
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,6 +137,22 @@ const ProfilePage = () => {
     confirmPassword: "",
   });
   
+  // Thêm state để kiểm soát validation errors cho đổi mật khẩu
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  
+  // Thêm state errors cho form thông tin cá nhân
+  const [profileErrors, setProfileErrors] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    address: ""
+  });
+  
   // Lấy tab từ query params (nếu có)
   const queryParams = new URLSearchParams(location.search);
   const tabFromQuery = queryParams.get('tab');
@@ -73,12 +161,6 @@ const ProfilePage = () => {
   // Thêm state cho thông tin gói dịch vụ
   const [subscription, setSubscription] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
-  
-  // Cập nhật URL khi tab thay đổi
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    navigate(`/profile?tab=${tab}`, { replace: true });
-  };
   
   // Thông tin người dùng
   const [userInfo, setUserInfo] = useState({
@@ -273,6 +355,12 @@ const ProfilePage = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Reset lỗi khi người dùng nhập lại
+    setProfileErrors(prev => ({
+      ...prev,
+      [name]: ""
+    }));
   };
   
   const handlePasswordChange = (e) => {
@@ -280,6 +368,12 @@ const ProfilePage = () => {
     setPasswordData(prev => ({
       ...prev,
       [name]: value
+    }));
+    
+    // Reset lỗi khi người dùng nhập lại
+    setPasswordErrors(prev => ({
+      ...prev,
+      [name]: ""
     }));
   };
   
@@ -309,6 +403,42 @@ const ProfilePage = () => {
   
   const handleSaveProfile = async () => {
     setIsLoading(true);
+    
+    // Validate form trước khi gọi API
+    let validationErrors = {};
+    let hasErrors = false;
+    
+    // Validate họ tên
+    if (!userInfo.name || userInfo.name.trim().length === 0) {
+      validationErrors.name = "Họ và tên không được để trống";
+      hasErrors = true;
+    }
+    
+    // Validate số điện thoại
+    if (userInfo.phone) {
+      if (!/^\d{10}$/.test(userInfo.phone)) {
+        validationErrors.phone = "Số điện thoại phải có đúng 10 chữ số";
+        hasErrors = true;
+      }
+    }
+    
+    // Validate ngày sinh
+    if (userInfo.dateOfBirth) {
+      const birthDate = new Date(userInfo.dateOfBirth);
+      const today = new Date();
+      if (birthDate > today) {
+        validationErrors.dateOfBirth = "Ngày sinh không thể là ngày trong tương lai";
+        hasErrors = true;
+      }
+    }
+    
+    // Nếu có lỗi validation, cập nhật state và dừng xử lý
+    if (hasErrors) {
+      setProfileErrors(validationErrors);
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       // Format date properly if it exists
       let formattedDate = userInfo.dateOfBirth;
@@ -318,7 +448,7 @@ const ProfilePage = () => {
       }
 
       // Gọi API cập nhật thông tin
-      await apiService.updateProfile({
+      const response = await apiService.updateProfile({
         name: userInfo.name,
         email: userInfo.email,
         phone: userInfo.phone,
@@ -365,7 +495,42 @@ const ProfilePage = () => {
       toast.success("Cập nhật thông tin thành công");
     } catch (error) {
       console.error("Error saving profile:", error);
-      toast.error(error.message || "Không thể cập nhật thông tin");
+      
+      // Xử lý lỗi API
+      if (error.response && error.response.data && error.response.data.errors) {
+        const apiErrors = error.response.data.errors;
+        const translatedErrors = {};
+        
+        // Chuyển đổi thông báo lỗi sang tiếng Việt
+        if (apiErrors.Phone) {
+          translatedErrors.phone = apiErrors.Phone[0].includes("exactly 10 digits") 
+            ? "Số điện thoại phải có đúng 10 chữ số"
+            : apiErrors.Phone[0];
+        }
+        
+        if (apiErrors.Name) {
+          translatedErrors.name = apiErrors.Name[0].includes("required") 
+            ? "Họ và tên không được để trống"
+            : apiErrors.Name[0];
+        }
+        
+        if (apiErrors.Email) {
+          translatedErrors.email = apiErrors.Email[0].includes("format") 
+            ? "Email không đúng định dạng"
+            : apiErrors.Email[0];
+        }
+        
+        if (apiErrors.BirthDate) {
+          translatedErrors.dateOfBirth = apiErrors.BirthDate[0].includes("future") 
+            ? "Ngày sinh không thể là ngày trong tương lai"
+            : apiErrors.BirthDate[0];
+        }
+        
+        // Cập nhật state errors
+        setProfileErrors(translatedErrors);
+      } else {
+        toast.error(error.message || "Không thể cập nhật thông tin");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -374,9 +539,54 @@ const ProfilePage = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     
-    // Kiểm tra mật khẩu mới và xác nhận mật khẩu
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Mật khẩu mới và xác nhận mật khẩu không khớp");
+    // Reset lỗi
+    setPasswordErrors({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    });
+    
+    // Validate form
+    let hasErrors = false;
+    let errors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    };
+    
+    // Kiểm tra mật khẩu hiện tại
+    if (!passwordData.currentPassword) {
+      errors.currentPassword = "Vui lòng nhập mật khẩu hiện tại";
+      hasErrors = true;
+    } else if (passwordData.currentPassword.length < 8) {
+      errors.currentPassword = "Mật khẩu phải có ít nhất 8 ký tự";
+      hasErrors = true;
+    }
+    
+    // Kiểm tra mật khẩu mới
+    if (!passwordData.newPassword) {
+      errors.newPassword = "Vui lòng nhập mật khẩu mới";
+      hasErrors = true;
+    } else if (passwordData.newPassword.length < 8) {
+      errors.newPassword = "Mật khẩu phải có ít nhất 8 ký tự";
+      hasErrors = true;
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(passwordData.newPassword)) {
+      errors.newPassword = "Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt";
+      hasErrors = true;
+    }
+    
+    // Kiểm tra xác nhận mật khẩu
+    if (!passwordData.confirmPassword) {
+      errors.confirmPassword = "Vui lòng xác nhận mật khẩu mới";
+      hasErrors = true;
+    } else if (passwordData.newPassword !== passwordData.confirmPassword) {
+      errors.confirmPassword = "Mật khẩu xác nhận không khớp";
+      hasErrors = true;
+    }
+    
+    // Nếu có lỗi, cập nhật state và dừng xử lý
+    if (hasErrors) {
+      setPasswordErrors(errors);
       return;
     }
     
@@ -384,7 +594,7 @@ const ProfilePage = () => {
     try {
       // Sử dụng API changePassword từ AuthContext
       console.log("Changing password for user:", user.id);
-      const result = await changePassword(user.id, passwordData.newPassword);
+      const result = await changePassword(user.id, passwordData.currentPassword, passwordData.newPassword);
       
       if (result.success) {
         // Reset form
@@ -395,9 +605,29 @@ const ProfilePage = () => {
         });
         
         setIsPasswordDialogOpen(false);
-        toast.success(result.message || "Đổi mật khẩu thành công");
+        // Đảm bảo message hiển thị bằng tiếng Việt
+        let successMessage = result.message || "Đổi mật khẩu thành công";
+        if (successMessage === "Change password sucessfully" || 
+            successMessage === "Change password successfully") {
+          successMessage = "Đổi mật khẩu thành công";
+        }
+        toast.success(successMessage);
       } else {
-        toast.error(result.message || "Không thể đổi mật khẩu");
+        // Xử lý lỗi từ API
+        if (result.message.toLowerCase().includes("hiện tại") || result.message.toLowerCase().includes("không chính xác")) {
+          setPasswordErrors(prev => ({
+            ...prev,
+            currentPassword: result.message
+          }));
+        } else if (result.message.toLowerCase().includes("mới")) {
+          setPasswordErrors(prev => ({
+            ...prev,
+            newPassword: result.message
+          }));
+        } else {
+          // Lỗi chung
+          toast.error(result.message || "Không thể đổi mật khẩu");
+        }
       }
     } catch (error) {
       console.error("Error changing password:", error);
@@ -426,6 +656,12 @@ const ProfilePage = () => {
     } catch (error) {
       toast.error("Đã xảy ra lỗi khi đăng xuất");
     }
+  };
+  
+  // Cập nhật URL khi tab thay đổi
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    navigate(`/profile?tab=${tab}`, { replace: true });
   };
   
   return (
@@ -662,9 +898,10 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Họ và tên"
-                              className="flex-1 text-gray-900 dark:text-white"
+                              className={`flex-1 text-gray-900 dark:text-white ${profileErrors.name ? 'border-red-500' : ''}`}
                             />
                           </div>
+                          <ErrorMessage message={profileErrors.name} />
                         </div>
                         
                         <div className="space-y-2">
@@ -681,6 +918,7 @@ const ProfilePage = () => {
                               className="flex-1 cursor-not-allowed opacity-60 text-gray-900 dark:text-white"
                             />
                           </div>
+                          <ErrorMessage message={profileErrors.email} />
                         </div>
                         
                         <div className="space-y-2">
@@ -694,9 +932,10 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Số điện thoại"
-                              className="flex-1 text-gray-900 dark:text-white"
+                              className={`flex-1 text-gray-900 dark:text-white ${profileErrors.phone ? 'border-red-500' : ''}`}
                             />
                           </div>
+                          <ErrorMessage message={profileErrors.phone} />
                         </div>
 
                         <div className="space-y-2">
@@ -714,9 +953,10 @@ const ProfilePage = () => {
                                 ''}
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
-                              className="flex-1 text-gray-900 dark:text-white"
+                              className={`flex-1 text-gray-900 dark:text-white ${profileErrors.dateOfBirth ? 'border-red-500' : ''}`}
                             />
                           </div>
+                          <ErrorMessage message={profileErrors.dateOfBirth} />
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
@@ -730,9 +970,10 @@ const ProfilePage = () => {
                               onChange={handleInputChange}
                               disabled={!isEditing || isLoading}
                               placeholder="Địa chỉ"
-                              className="flex-1 text-gray-900 dark:text-white"
+                              className={`flex-1 text-gray-900 dark:text-white ${profileErrors.address ? 'border-red-500' : ''}`}
                             />
                           </div>
+                          <ErrorMessage message={profileErrors.address} />
                         </div>
                       </div>
                     </form>
@@ -992,40 +1233,48 @@ const ProfilePage = () => {
             <form onSubmit={handleChangePassword}>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="currentPassword" className="text-gray-900 dark:text-white">Mật khẩu hiện tại</Label>
-                  <Input
-                    id="currentPassword"
-                    name="currentPassword"
+                  <FormInput
+                    label="Mật khẩu hiện tại"
                     type="password"
+                    id="currentPassword"
                     value={passwordData.currentPassword}
                     onChange={handlePasswordChange}
                     required
+                    minLength={8}
+                    error={passwordErrors.currentPassword}
                     className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
+                    icon={Lock}
+                    hint="Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt."
                   />
                 </div>
                 <Separator className="bg-gray-200 dark:bg-[#333]" />
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword" className="text-gray-900 dark:text-white">Mật khẩu mới</Label>
-                  <Input
-                    id="newPassword"
-                    name="newPassword"
+                  <FormInput
+                    label="Mật khẩu mới"
                     type="password"
+                    id="newPassword"
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
                     required
+                    minLength={8}
+                    error={passwordErrors.newPassword}
                     className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
+                    icon={Lock}
+                    hint="Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt."
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-gray-900 dark:text-white">Xác nhận mật khẩu mới</Label>
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
+                  <FormInput
+                    label="Xác nhận mật khẩu mới"
                     type="password"
+                    id="confirmPassword"
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordChange}
                     required
+                    minLength={8}
+                    error={passwordErrors.confirmPassword}
                     className="text-gray-900 dark:text-white border-gray-200 dark:border-[#333]"
+                    icon={Lock}
                   />
                 </div>
               </div>

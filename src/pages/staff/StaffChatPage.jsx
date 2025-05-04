@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc, Timestamp } from "firebase/firestore";
+import { collection, query, where, addDoc, onSnapshot, getDocs, orderBy, serverTimestamp, doc, updateDoc, Timestamp, limit } from "firebase/firestore";
 import { useAuth } from '@/Authentication/AuthContext';
 import { db } from '@/components/firebase';
 import { toast } from "sonner";
@@ -37,6 +37,13 @@ export default function StaffChatPage() {
   const staffId = getUserIdFromCookie() || user?.id;
   const staffName = "Staff"; // Always use "Staff" as the name
   const staffRole = getUserRoleFromCookie() || user?.role || "staff";
+
+  // Thêm state cho tin nhắn mới
+  const [newMessageNotifications, setNewMessageNotifications] = useState({});
+  const [showNotification, setShowNotification] = useState(false);
+  const [latestNotification, setLatestNotification] = useState(null);
+  const notificationTimeoutRef = useRef(null);
+  const soundRef = useRef(new Audio("/sounds/notification.mp3"));
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -323,6 +330,97 @@ export default function StaffChatPage() {
     document.body.style.overflow = 'auto'; // Restore scrolling when dialog is closed
   };
 
+  // Thêm hàm xử lý tin nhắn mới
+  const handleNewMessage = (roomId, message, roomInfo) => {
+    // Chỉ hiển thị thông báo khi tin nhắn từ người dùng và không phải phòng chat đang chọn
+    if (message.userId !== staffId && (!selectedRoom || selectedRoom.id !== roomId)) {
+      // Cập nhật state notifications
+      setNewMessageNotifications(prev => ({
+        ...prev,
+        [roomId]: (prev[roomId] || 0) + 1
+      }));
+      
+      // Hiển thị thông báo mới nhất
+      setLatestNotification({
+        roomId,
+        userName: roomInfo.userName || "Người dùng",
+        content: message.type === 'image' ? 'Đã gửi một hình ảnh' : message.content,
+        timestamp: new Date()
+      });
+      
+      setShowNotification(true);
+      
+      // Phát âm thanh thông báo
+      try {
+        soundRef.current.play().catch(err => console.log('Không thể phát âm thanh:', err));
+      } catch (error) {
+        console.log('Lỗi khi phát âm thanh:', error);
+      }
+      
+      // Tự động ẩn sau 5 giây
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+      
+      notificationTimeoutRef.current = setTimeout(() => {
+        setShowNotification(false);
+      }, 5000);
+    }
+  };
+
+  // Cập nhật effect cho tin nhắn
+  useEffect(() => {
+    if (!rooms) return;
+    
+    // Lắng nghe tin nhắn mới cho tất cả phòng chat
+    const messageListeners = rooms.map(room => {
+      const q = query(
+        collection(db, "message"),
+        where("roomId", "==", room.id),
+        orderBy("timestamp", "desc"),
+        // Chỉ lấy 1 tin nhắn mới nhất
+        limit(1)
+      );
+      
+      return onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const message = { id: change.doc.id, ...change.doc.data() };
+            // Kiểm tra timestamp để đảm bảo là tin nhắn mới
+            if (message.timestamp && Date.now() - message.timestamp.toDate().getTime() < 10000) {
+              handleNewMessage(room.id, message, room);
+            }
+          }
+        });
+      });
+    });
+    
+    // Cleanup listeners khi component bị unmount
+    return () => {
+      messageListeners.forEach(unsubscribe => unsubscribe());
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, [rooms, selectedRoom]);
+
+  // Reset thông báo khi chọn phòng chat
+  useEffect(() => {
+    if (selectedRoom) {
+      // Xóa thông báo của phòng chat đã chọn
+      setNewMessageNotifications(prev => {
+        const updated = { ...prev };
+        delete updated[selectedRoom.id];
+        return updated;
+      });
+      
+      // Ẩn thông báo nếu nó đang hiển thị cho phòng chat đã chọn
+      if (latestNotification && latestNotification.roomId === selectedRoom.id) {
+        setShowNotification(false);
+      }
+    }
+  }, [selectedRoom]);
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col h-[calc(90vh-4rem)]">
@@ -379,9 +477,9 @@ export default function StaffChatPage() {
                               {room.lastMessage || 'Chưa có tin nhắn'}
                             </p>
                           </div>
-                          {room.unread > 0 && (
+                          {newMessageNotifications[room.id] > 0 && (
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#26A65B] text-xs text-white">
-                              {room.unread}
+                              {newMessageNotifications[room.id]}
                             </span>
                           )}
                         </div>

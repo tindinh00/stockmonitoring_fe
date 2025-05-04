@@ -1289,29 +1289,23 @@ const WatchlistPage = () => {
   const checkSubscription = async () => {
     try {
       setIsLoadingSubscription(true);
-      const userId = getUserId();
-      if (!userId) {
-        setUserSubscription(null);
-        return;
+      // Đọc tính năng từ localStorage thay vì gọi API
+      const userFeatures = JSON.parse(localStorage.getItem('user_features')) || [];
+      
+      // Cập nhật features trong store nếu cần thiết
+      if (useFeatureStore.getState().features.length === 0 && userFeatures.length > 0) {
+        useFeatureStore.setState({ features: userFeatures });
       }
-
-      const response = await axios.get(
-        `https://stockmonitoring-api-gateway.onrender.com/api/subscription/${userId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
-            'accept': '*/*'
-          }
-        }
-      );
-
-      if (response?.data?.value?.data) {
-        setUserSubscription(response.data.value.data);
-      } else {
-        setUserSubscription(null);
-      }
+      
+      // Giả lập đối tượng subscription dựa trên danh sách tính năng
+      setUserSubscription({
+        isPremium: userFeatures.includes('Quản lý danh mục theo dõi theo ngành'),
+        hasIndustryFeature: userFeatures.includes('Quản lý danh mục theo dõi theo ngành'),
+        hasWatchlistFeature: userFeatures.includes('Quản lý danh mục theo dõi cổ phiếu'),
+        features: userFeatures
+      });
     } catch (error) {
-      console.error('Error checking subscription:', error);
+      console.error('Error checking subscription from localStorage:', error);
       setUserSubscription(null);
     } finally {
       setIsLoadingSubscription(false);
@@ -1327,10 +1321,13 @@ const WatchlistPage = () => {
   const handleTabChange = (tab) => {
     try {
       console.log('Attempting to switch to tab:', tab);
-      console.log('Current features:', features);
+      
+      // Đọc trực tiếp từ localStorage để đảm bảo dữ liệu mới nhất
+      const userFeatures = JSON.parse(localStorage.getItem('user_features')) || [];
+      console.log('User features from localStorage:', userFeatures);
       
       if (tab === 'industries') {
-        const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
+        const hasIndustryFeature = userFeatures.includes('Quản lý danh mục theo dõi theo ngành');
         console.log('Has industry feature:', hasIndustryFeature);
         
         if (!hasIndustryFeature) {
@@ -1338,7 +1335,7 @@ const WatchlistPage = () => {
           return;
         }
       } else if (tab === 'stocks') {
-        const hasWatchlistFeature = features.includes('Quản lý danh mục theo dõi cổ phiếu');
+        const hasWatchlistFeature = userFeatures.includes('Quản lý danh mục theo dõi cổ phiếu');
         console.log('Has watchlist feature:', hasWatchlistFeature);
         
         if (!hasWatchlistFeature) {
@@ -1350,6 +1347,8 @@ const WatchlistPage = () => {
       setWatchlistTab(tab);
     } catch (error) {
       console.error('Error in handleTabChange:', error);
+      // Mặc định cho phép chuyển tab nếu có lỗi
+      setWatchlistTab(tab);
     }
   };
 
@@ -1453,8 +1452,11 @@ const WatchlistPage = () => {
           {watchlistTab === 'industries' && (
             <Button
               onClick={() => {
-                const hasIndustryFeature = features.includes('Quản lý danh mục theo dõi theo ngành');
-                if (!hasIndustryFeature) {
+                // Đọc trực tiếp từ localStorage để đảm bảo dữ liệu mới nhất
+                const userFeaturesFromStorage = JSON.parse(localStorage.getItem('user_features')) || [];
+                const canManageIndustries = userFeaturesFromStorage.includes('Quản lý danh mục theo dõi theo ngành');
+                
+                if (!canManageIndustries) {
                   setIsUpgradeDialogOpen(true);
                   return;
                 }
