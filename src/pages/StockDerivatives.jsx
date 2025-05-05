@@ -511,6 +511,54 @@ export default function StockDerivatives() {
   const handleStockClick = (stock) => {
     setSelectedStock(stock);
     setIsDialogOpen(true);
+    // Add chart data fetching logic here
+    const fetchChartData = async () => {
+      updateChartState(true, null); // Start loading
+
+      try {
+        const token = Cookies.get('auth_token');
+      
+        if (!token) {
+          updateChartState(false, 'Vui lòng đăng nhập để xem dữ liệu');
+          toast.error('Vui lòng đăng nhập để xem dữ liệu');
+          return;
+        }
+
+        const response = await axios.get(
+          `${APP_BASE_URL}/api/stock-price-history?ticketSymbol=${stock.code}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': '*/*'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          updateChartData(formattedData);
+        } else {
+          updateChartData([]);
+          updateChartState(false, 'Không có dữ liệu cho mã này');
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        updateChartData([]);
+        updateChartState(false, 'Không thể tải dữ liệu biểu đồ');
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      } finally {
+        updateChartState(false);
+      }
+    };
+
+    fetchChartData();
   };
   
   // Function to manually toggle dark mode
