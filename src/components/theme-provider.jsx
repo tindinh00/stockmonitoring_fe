@@ -13,7 +13,7 @@ const ThemeProviderContext = createContext(initialState)
 export function ThemeProvider({
   children,
   defaultTheme = "light",
-  storageKey = "vite-ui-theme",
+  storageKey = "theme",
   ...props
 }) {
   const [theme, setTheme] = useState(

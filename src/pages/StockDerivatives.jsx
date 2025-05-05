@@ -22,7 +22,7 @@ import axios from 'axios';
 //   AreaChart,
 //   Area,
 // } from 'recharts';
-import Chart from 'react-apexcharts';
+// import Chart from 'react-apexcharts';
 import { toast } from "sonner";
 import {
   Select,
@@ -36,17 +36,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import signalRService from '@/api/signalRService';
+// import signalRService from '@/api/signalRService';
 import {
-  ChevronDown,
-  BarChart3,
-  DollarSign,
-  Star,
-  Bell,
+  // ChevronDown,
+  // BarChart3,
+  // DollarSign,
+  // Star,
+  // Bell,
   AlertTriangle,
   Info,
   Loader2,
-  CheckCircle
+  // CheckCircle
 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { getUserId, apiService, APP_BASE_URL } from '@/api/Api'; // Import APP_BASE_URL
@@ -446,7 +446,26 @@ export default function StockDerivatives() {
   const handlerRef = useRef(null);
   
   // Dark mode state
-  const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // First check localStorage for saved preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme !== null) {
+      return savedTheme === 'dark';
+    }
+    // Fall back to system preference if no saved preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+  
+  // Save theme preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    // Optionally update the document element with class for global styling
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
   
   // UI state variables
   const [selectedExchange, setSelectedExchange] = useState('HOSE');
@@ -492,6 +511,11 @@ export default function StockDerivatives() {
   const handleStockClick = (stock) => {
     setSelectedStock(stock);
     setIsDialogOpen(true);
+  };
+  
+  // Function to manually toggle dark mode
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => !prev);
   };
   
   // Sử dụng custom hook để quản lý state tổng hợp
@@ -612,7 +636,10 @@ export default function StockDerivatives() {
     // Setup dark mode detection
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleDarkModeChange = (e) => {
-      setIsDarkMode(e.matches);
+      // Only update based on system preference if user hasn't set an explicit preference
+      if (!localStorage.getItem('theme')) {
+        setIsDarkMode(e.matches);
+      }
     };
     
     if (darkModeMediaQuery.addEventListener) {
