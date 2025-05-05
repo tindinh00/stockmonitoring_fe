@@ -435,9 +435,64 @@ export default function StockDerivatives() {
   const navigate = useNavigate();
   const { hasFeature } = useFeatureStore();
   
+  // SignalR connection ref
+  const connectionRef = useRef(null);
+  
   // Worker refs
   const workerRef = useRef(null);
   const colorWorkerRef = useRef(null);
+  
+  // Refs for color worker message handler to avoid dependency cycles
+  const handlerRef = useRef(null);
+  
+  // Dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  
+  // UI state variables
+  const [selectedExchange, setSelectedExchange] = useState('HOSE');
+  const [activeTab, setActiveTab] = useState('price');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Dialog state
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPriceAlertOpen, setIsPriceAlertOpen] = useState(false);
+  const [selectedAlertStock, setSelectedAlertStock] = useState(null);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [alertType, setAlertType] = useState('above');
+  const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
+  
+  // Feature message state
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
+  
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState(null);
+  const [isDeletingStock, setIsDeletingStock] = useState(false);
+  
+  // Sorting and filtering
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [filters, setFilters] = useState({
+    priceChange: 'all',
+    volume: 'all',
+    percentChange: 'all',
+    marketCap: 'all'
+  });
+  
+  // Handler functions
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const handleStockClick = (stock) => {
+    setSelectedStock(stock);
+    setIsDialogOpen(true);
+  };
   
   // Sử dụng custom hook để quản lý state tổng hợp
   const {
@@ -497,56 +552,57 @@ export default function StockDerivatives() {
     updateAnimationCache
   } = useStockState();
   
-  // RESET ALL STATE DECLARATIONS
-  // Các state không nằm trong useStockState sẽ được khai báo riêng
-  // Data state - stock information
-  // Đã được khai báo trong useStockState
-  
-  // UI navigation & interface state
-  const [activeTab, setActiveTab] = useState('price');
-  const [selectedExchange, setSelectedExchange] = useState('HOSE');
-  
-  // Remove showWatchlist declaration as it's now in the hook
-  // const [showWatchlist, setShowWatchlist] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Feature messages state
-  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
-  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
-  
-  // Modal dialog states
-  const [selectedStock, setSelectedStock] = useState(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isPriceAlertOpen, setIsPriceAlertOpen] = useState(false);
-  const [alertPrice, setAlertPrice] = useState('');
-  const [alertType, setAlertType] = useState('above');
-  const [selectedAlertStock, setSelectedAlertStock] = useState(null);
-  const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
-  const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [stockToDelete, setStockToDelete] = useState(null);
-  const [isDeletingStock, setIsDeletingStock] = useState(false);
-  
-  // Filtering, sorting and displaying
-  // Using filteredData from useStockState hook instead of local state
-  const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: 'asc'
-  });
-  const [filters, setFilters] = useState({
-    priceChange: 'all',
-    volume: 'all',
-    percentChange: 'all',
-    marketCap: 'all'
+  // Store update functions in refs to access them in event handlers without dependencies
+  const updateColorCacheRef = useRef(updateColorCache);
+  const updateAnimationCacheRef = useRef(updateAnimationCache);
+  const updateColorWorkerMetricsRef = useRef(updateColorWorkerMetrics);
+  const intervalIdRef = useRef(null); // Add ref to track interval ID
+
+  // Fix for line 294 - Make sure to avoid infinite updates from state dependencies
+  // Keep refs updated - but with a dependency array so it only runs when functions change
+  // This prevents the infinite update cycle caused by lacking a dependency array
+  // Store the original functions in a ref to avoid dependency changes
+  const functionsRef = useRef({
+    updateColorCache,
+    updateAnimationCache,
+    updateColorWorkerMetrics
   });
   
-  // Web worker states
-  const [isDarkMode, setIsDarkMode] = useState(
-    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
-  
-  // Initialize the web workers
+  // Use a single useEffect with an empty dependency array to only run on mount
   useEffect(() => {
+    // On mount, create a function to update the refs
+    const updateRefs = () => {
+      updateColorCacheRef.current = functionsRef.current.updateColorCache;
+      updateAnimationCacheRef.current = functionsRef.current.updateAnimationCache;
+      updateColorWorkerMetricsRef.current = functionsRef.current.updateColorWorkerMetrics;
+    };
+    
+    // Initial update
+    updateRefs();
+    
+    // Create a way to update the refs when the functions change
+    const intervalId = setInterval(() => {
+      // Only update refs if the functions have changed
+      if (
+        functionsRef.current.updateColorCache !== updateColorCache ||
+        functionsRef.current.updateAnimationCache !== updateAnimationCache ||
+        functionsRef.current.updateColorWorkerMetrics !== updateColorWorkerMetrics
+      ) {
+        // Update the stored functions
+        functionsRef.current = {
+          updateColorCache,
+          updateAnimationCache,
+          updateColorWorkerMetrics
+        };
+        
+        // Update the refs
+        updateRefs();
+      }
+    }, 1000); // Check once a second, which is fine for this use case
+    
+    // Store the interval ID in the ref
+    intervalIdRef.current = intervalId;
+    
     // Create the filter worker
     workerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url), { type: 'module' });
     
@@ -581,82 +637,13 @@ export default function StockDerivatives() {
         // Fallback for older browsers
         darkModeMediaQuery.removeListener(handleDarkModeChange);
       }
+      
+      // Clean up the interval
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+      }
     };
   }, []);
-  
-  // Setup color worker message handler
-  useEffect(() => {
-    if (!colorWorkerRef.current) return;
-    
-    const handleColorWorkerMessage = (e) => {
-      const { action, result, results, stats } = e.data;
-      
-      if (action === 'priceColorResult') {
-        // Make sure we have all necessary data
-        if (result && result.colorClass) {
-          updateColorCache(prev => ({...prev, [result.cacheKey]: result.colorClass}));
-        }
-      }
-      else if (action === 'animationResult') {
-        // Make sure we have all necessary data
-        if (result && result.animClass) {
-          updateAnimationCache(prev => ({...prev, [result.cacheKey]: result.animClass}));
-        }
-      }
-      else if (action === 'batchResults') {
-        // Handle batch processing results
-        if (!results) return;
-        
-        // Update color cache and animation cache in bulk using a single state update
-        // for each to improve performance
-        updateColorCache(prev => {
-          const newCache = {...prev};
-          
-          // Process each stock's colors
-          Object.keys(results).forEach(stockCode => {
-            const stockColors = results[stockCode].priceColors || {};
-            Object.keys(stockColors).forEach(field => {
-              const cacheKey = `${stockCode}-${field}`;
-              newCache[cacheKey] = stockColors[field];
-            });
-          });
-          
-          return newCache;
-        });
-        
-        updateAnimationCache(prev => {
-          const newCache = {...prev};
-          
-          // Process each stock's animations
-          Object.keys(results).forEach(stockCode => {
-            const stockAnimations = results[stockCode].animations || {};
-            Object.keys(stockAnimations).forEach(field => {
-              const cacheKey = `${stockCode}-${field}`;
-              newCache[cacheKey] = stockAnimations[field];
-            });
-          });
-          
-          return newCache;
-        });
-        
-        // Update performance metrics
-        if (stats) {
-          updateColorWorkerMetrics({
-            processingTime: stats.processingTime,
-            stockCount: stats.stockCount
-          });
-          
-          console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms`);
-        }
-      }
-    };
-    
-    colorWorkerRef.current.addEventListener('message', handleColorWorkerMessage);
-    
-    return () => {
-      colorWorkerRef.current?.removeEventListener('message', handleColorWorkerMessage);
-    };
-  }, [updateColorCache, updateAnimationCache, updateColorWorkerMetrics]);
   
   // Add individual request methods for specific calculations
   const requestPriceColor = useCallback((price, refPrice, ceilPrice, floorPrice) => {
@@ -730,8 +717,7 @@ export default function StockDerivatives() {
     watchlist, 
     previousValues, 
     showWatchlist, 
-    batchProcessPriceColors,
-    colorWorkerRef
+    batchProcessPriceColors
   ]);
 
   // Hàm ánh xạ từ trường khối lượng sang trường giá
@@ -967,32 +953,11 @@ export default function StockDerivatives() {
     return '';
   };
 
-  // Theo dõi thay đổi khối lượng
-  useEffect(() => {
-    if (realTimeStockData.length > 0) {
-      const newVolumeHistory = { ...volumeHistory };
-      
-      realTimeStockData.forEach(stock => {
-        const oldStock = volumeHistory[stock.code];
-        if (oldStock) {
-          const currentVolume = parseFloat(stock.totalVolume.replace(/,/g, ''));
-          const previousVolume = parseFloat(oldStock.replace(/,/g, ''));
-          
-          if (currentVolume !== previousVolume) {
-            newVolumeHistory[stock.code] = stock.totalVolume;
-          }
-        } else {
-          newVolumeHistory[stock.code] = stock.totalVolume;
-        }
-      });
-      
-      updateVolumeHistory(newVolumeHistory);
-    }
-  }, [realTimeStockData, volumeHistory, updateVolumeHistory]);
-
   // Hàm kiểm tra thay đổi khối lượng
   const getVolumeChangeClass = (stock, volumeField) => {
-    const oldVolume = volumeHistory[stock.code];
+    // Use the ref-based volume history to avoid dependency issues
+    const currentVolumeHistory = volumeHistoryRef.current;
+    const oldVolume = currentVolumeHistory[stock.code];
     if (!oldVolume) return '';
 
     const currentVolume = stock[volumeField];
@@ -1478,72 +1443,6 @@ export default function StockDerivatives() {
     }
   };
 
- 
-
-  // Cập nhật dữ liệu trước đó khi có dữ liệu mới
-  useEffect(() => {
-    if (realTimeStockData.length > 0) {
-      const newPreviousValues = { ...previousValues };
-      
-      realTimeStockData.forEach(stock => {
-        if (!stock.code) return;
-        
-        // Nếu chưa có dữ liệu cho mã này, tạo mới
-        if (!newPreviousValues[stock.code]) {
-          newPreviousValues[stock.code] = {};
-        }
-        
-        // Lưu lại tất cả các trường liên quan đến giá và khối lượng
-        const fieldsToTrack = [
-          'matchPrice', 'matchVolume',
-          'buyPrice3', 'buyVolume3',
-          'buyPrice2', 'buyVolume2',
-          'buyPrice1', 'buyVolume1',
-          'sellPrice1', 'sellVolume1',
-          'sellPrice2', 'sellVolume2',
-          'sellPrice3', 'sellVolume3',
-          'totalVolume', 'foreignBuy', 'foreignSell'
-        ];
-        
-        fieldsToTrack.forEach(field => {
-          if (stock[field] !== undefined) {
-            // Chỉ cập nhật giá trị trước đó nếu có sự thay đổi
-            if (newPreviousValues[stock.code][field] !== stock[field]) {
-              // Sử dụng setTimeout với độ trễ = 0 để đưa vào event loop tiếp theo
-              // giúp React render nhanh hơn
-              setTimeout(() => {
-                // Chỉ gửi yêu cầu nếu colorWorkerRef đã sẵn sàng
-                if (colorWorkerRef.current) {
-                  // Sử dụng worker để tính toán animation
-                  const isPrice = field.includes('Price');
-                  const fieldType = isPrice ? 'price' : 'volume';
-                  const currentValue = stock[field];
-                  const previousValue = newPreviousValues[stock.code][field];
-                  
-                  // Gửi yêu cầu đến worker
-                  colorWorkerRef.current.postMessage({
-                    action: 'getChangeAnimation',
-                    data: {
-                      currentValue,
-                      previousValue,
-                      type: fieldType,
-                      cacheKey: `${stock.code}-${field}`
-                    }
-                  });
-                }
-                
-                // Lưu giá trị hiện tại vào previous để sử dụng trong lần cập nhật tiếp theo
-                newPreviousValues[stock.code][field] = stock[field];
-              }, 0);
-            }
-          }
-        });
-      });
-      
-      updatePreviousValues(newPreviousValues);
-    }
-  }, [realTimeStockData, updatePreviousValues, previousValues, colorWorkerRef]);
-
   // Xóa hiệu ứng sau khi hiển thị
   useEffect(() => {
     if (Object.keys(priceChangeColors).length > 0) {
@@ -1642,7 +1541,18 @@ export default function StockDerivatives() {
   //   itemsOut: 0
   // });
 
-  // Update the worker message handler to include performance metrics
+  // Update the worker message handler to use a ref-based approach and have proper dependencies
+  // Create a ref to store the function
+  const updateFilteredDataRef = useRef(updateFilteredData);
+  const updatePerformanceMetricsRef = useRef(updatePerformanceMetrics);
+  
+  // Keep the refs updated
+  useEffect(() => {
+    updateFilteredDataRef.current = updateFilteredData;
+    updatePerformanceMetricsRef.current = updatePerformanceMetrics;
+  }, [updateFilteredData, updatePerformanceMetrics]);
+  
+  // Replace the problematic effect with a better implementation
   useEffect(() => {
     if (!workerRef.current) return;
 
@@ -1650,53 +1560,31 @@ export default function StockDerivatives() {
     const handleWorkerMessage = (e) => {
       const { filteredData: workerFilteredData, stats } = e.data;
       
+      // Use the refs to access the latest update functions
       // Cập nhật dữ liệu lọc
-      updateFilteredData(workerFilteredData);
+      if (updateFilteredDataRef.current) {
+        updateFilteredDataRef.current(workerFilteredData);
+      }
       
       // Cập nhật metrics hiệu suất
-      if (stats) {
-        updatePerformanceMetrics(stats);
+      if (stats && updatePerformanceMetricsRef.current) {
+        updatePerformanceMetricsRef.current(stats);
       }
     };
 
-    workerRef.current.addEventListener('message', handleWorkerMessage);
+    // Store the handler in a ref so we can access it in cleanup
+    const currentHandler = handleWorkerMessage;
     
+    // Add the event listener
+    workerRef.current.addEventListener('message', currentHandler);
+    
+    // Return cleanup function
     return () => {
-      workerRef.current?.removeEventListener('message', handleWorkerMessage);
+      if (workerRef.current) {
+        workerRef.current.removeEventListener('message', currentHandler);
+      }
     };
-  }, []);
-
-  // Replace the original getFilteredData function call with a useEffect to send data to worker
-  useEffect(() => {
-    if (!workerRef.current) return;
-    
-    const dataToFilter = showWatchlist ? watchlist : realTimeStockData;
-    
-    // Only send data to worker if we have data to filter
-    if (dataToFilter.length > 0) {
-      workerRef.current.postMessage({
-        action: 'filter',
-        data: dataToFilter,
-        searchQuery,
-        filters,
-        sortConfig,
-        showWatchlist
-      });
-    } else {
-      // If no data to filter, just set empty array directly
-      updateFilteredData([]);
-    }
-  }, [
-    realTimeStockData, 
-    watchlist, 
-    searchQuery, 
-    filters, 
-    sortConfig, 
-    showWatchlist
-  ]);
-
-  // Use filteredDataFromWorker instead of calculating it via useMemo
-  
+  }, []); // Empty dependency array to only run once on mount
 
   // useCallback for handlers
   const handleAddToWatchlistCb = useCallback(handleAddToWatchlist, [watchlist, getUserId]);
@@ -1813,14 +1701,14 @@ export default function StockDerivatives() {
       
       console.log(`SUBSCRIBE - Current tab: ${selectedExchange}, mapped to: ${mappedExchange}`);
       
-      if (connection && connection.state === signalR.HubConnectionState.Connected) {
+      if (connectionRef.current && connectionRef.current.state === 'Connected') {
         // Unsubscribe from previous channel first to avoid duplicate subscriptions
-        connection.invoke("LeaveGroup", "stock").catch(err => {
+        connectionRef.current.invoke("LeaveGroup", "stock").catch(err => {
           console.error("Error leaving stock group:", err);
         });
         
         // Subscribe to the appropriate channel based on current exchange
-        connection.invoke("JoinGroup", "stock").then(() => {
+        connectionRef.current.invoke("JoinGroup", "stock").then(() => {
           console.log(`Successfully subscribed to stock updates for ${mappedExchange}`);
         }).catch(err => {
           console.error("Error joining stock group:", err);
@@ -1992,7 +1880,8 @@ export default function StockDerivatives() {
       if (watchlist.length === 0) {
         updateInitialWatchlistLoad(true);
       }
-      fetchWatchlistData();
+      // Don't call fetchWatchlistData directly here - this will be handled by the useEffect 
+      // that watches showWatchlist changes
     }
   };
 
@@ -2256,11 +2145,12 @@ export default function StockDerivatives() {
   
   // Thêm useEffect để log khi lastTimestamp thay đổi để debug
   useEffect(() => {
+    // Use the lastTimestamp value directly, not the ref
     if (lastTimestamp) {
       console.log("Last timestamp updated:", lastTimestamp);
       console.log("Formatted time:", moment(lastTimestamp, 'YYYYMMDDHHmmss').format('HH:mm:ss'));
     }
-  }, [lastTimestamp]);
+  }, [lastTimestamp]); // Only run when lastTimestamp changes
 
   // Add useEffect to setup SignalR connection
   useEffect(() => {
@@ -2272,7 +2162,8 @@ export default function StockDerivatives() {
         const signalRService = (await import('@/api/signalRService')).default;
         
         // Đảm bảo kết nối được thiết lập
-        await signalRService.getConnection();
+        const connection = await signalRService.getConnection();
+        connectionRef.current = connection;
         
         // Thiết lập các listener cho stock updates
         const result = await signalRService.setupStockListeners();
@@ -2300,76 +2191,137 @@ export default function StockDerivatives() {
 
   // Thêm state để lưu trữ dữ liệu trước đó khi tìm kiếm
   const [prevDisplayedStocks, setPrevDisplayedStocks] = useState({});
+  const prevDataRef = useRef({}); // Reference to avoid dependency cycle
+  const animCacheRef = useRef(animationCache);
+  const updatePriceColorsRef = useRef(updatePriceColors);
   
+  // Keep refs updated with latest values
+  useEffect(() => {
+    animCacheRef.current = animationCache;
+    updatePriceColorsRef.current = updatePriceColors;
+  }, [animationCache, updatePriceColors]);
+  
+  // Create refs for filtered data to avoid dependency cycles
+  const filteredDataRef = useRef(filteredData);
+  
+  // Keep the filtered data ref updated
+  useEffect(() => {
+    filteredDataRef.current = filteredData;
+  }, [filteredData]);
+  
+  // Replace the animation effect with a more stable implementation
   // This useEffect monitors changes in the filtered data to trigger animations
   useEffect(() => {
-    // Create a small delay to allow price history to update first
-    if (filteredData.length > 0) {
-      setTimeout(() => {
-        const newDisplayedStocks = {};
+    // Skip processing if no data
+    if (!filteredDataRef.current || filteredDataRef.current.length === 0) return;
+    
+    // Get current filtered data from the ref
+    const currentFilteredData = filteredDataRef.current;
+    
+    // Check if the data has actually changed to avoid unnecessary processing
+    const currentDataKey = currentFilteredData.map(s => s.code).join(',');
+    const prevDataKey = Object.keys(prevDataRef.current).join(',');
+    
+    // Only process if the data composition has changed
+    if (currentDataKey === prevDataKey) {
+      // Check if any values have changed before processing
+      let hasChanges = false;
+      for (const stock of currentFilteredData) {
+        if (!stock.code) continue;
+        const prevStock = prevDataRef.current[stock.code];
+        if (!prevStock) {
+          hasChanges = true;
+          break;
+        }
         
-        filteredData.forEach(stock => {
-          if (!stock.code) return;
+        // Check key fields for changes
+        if (stock.matchPrice !== prevStock.matchPrice || 
+            stock.totalVolume !== prevStock.totalVolume) {
+          hasChanges = true;
+          break;
+        }
+      }
+      
+      if (!hasChanges) return; // Skip if no actual changes
+    }
+    
+    // Use requestAnimationFrame instead of setTimeout for better performance
+    const animationFrameId = requestAnimationFrame(() => {
+      const newDisplayedStocks = {};
+      
+      currentFilteredData.forEach(stock => {
+        if (!stock.code) return;
+        
+        // Create a copy of the current stock to store
+        newDisplayedStocks[stock.code] = {...stock};
+        
+        // If there is previous data and it differs from the current data, trigger animation
+        const prevStockRef = prevDataRef.current[stock.code];
+        if (prevStockRef) {
+          // List of fields to check
+          const fieldsToCheck = [
+            'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3',
+            'sellPrice1', 'sellPrice2', 'sellPrice3',
+            'buyVolume1', 'buyVolume2', 'buyVolume3',
+            'sellVolume1', 'sellVolume2', 'sellVolume3'
+          ];
           
-          // Create a copy of the current stock to store
-          newDisplayedStocks[stock.code] = {...stock};
+          // Get latest values from refs
+          const animCache = animCacheRef.current;
+          const updateColors = updatePriceColorsRef.current;
+          const colorWorker = colorWorkerRef.current;
           
-          // If there is previous data and it differs from the current data, trigger animation
-          if (prevDisplayedStocks[stock.code]) {
-            const prevStock = prevDisplayedStocks[stock.code];
-            
-            // List of fields to check
-            const fieldsToCheck = [
-              'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3',
-              'sellPrice1', 'sellPrice2', 'sellPrice3',
-              'buyVolume1', 'buyVolume2', 'buyVolume3',
-              'sellVolume1', 'sellVolume2', 'sellVolume3'
-            ];
-            
-            // Check each field and create an effect if there is a change
-            fieldsToCheck.forEach(field => {
-              if (stock[field] !== prevStock[field]) {
-                const isPrice = field.includes('Price');
-                const currentValue = parseFloat(String(stock[field]).replace(/,/g, ''));
-                const previousValue = parseFloat(String(prevStock[field]).replace(/,/g, ''));
+          // Check each field and create an effect if there is a change
+          fieldsToCheck.forEach(field => {
+            if (stock[field] !== prevStockRef[field]) {
+              const isPrice = field.includes('Price');
+              const currentValue = parseFloat(String(stock[field]).replace(/,/g, ''));
+              const previousValue = parseFloat(String(prevStockRef[field]).replace(/,/g, ''));
+              
+              // Only trigger animation when there is a significant change
+              if (!isNaN(currentValue) && !isNaN(previousValue) && currentValue !== previousValue) {
+                const fieldType = isPrice ? 'price' : 'volume';
                 
-                // Only trigger animation when there is a significant change
-                if (!isNaN(currentValue) && !isNaN(previousValue) && currentValue !== previousValue) {
-                  const fieldType = isPrice ? 'price' : 'volume';
-                  
-                  // Instead of calling getChangeAnimation directly, use the worker
-                  const cacheKey = `${currentValue}-${previousValue}-${fieldType}`;
-                  
-                  // Check if animation is already in cache
-                  if (animationCache[cacheKey]) {
-                    // Use from cache
-                    updatePriceColors(prev => ({
+                // Instead of calling getChangeAnimation directly, use the worker
+                const cacheKey = `${currentValue}-${previousValue}-${fieldType}`;
+                
+                // Check if animation is already in cache
+                if (animCache && animCache[cacheKey]) {
+                  // Use from cache
+                  if (updateColors) {
+                    updateColors(prev => ({
                       ...prev,
-                      [`${stock.code}-${field}`]: animationCache[cacheKey]
+                      [`${stock.code}-${field}`]: animCache[cacheKey]
                     }));
-                  } else if (colorWorkerRef.current) {
-                    // Request from worker only if available
-                    colorWorkerRef.current.postMessage({
-                      action: 'getChangeAnimation',
-                      data: {
-                        currentValue,
-                        previousValue,
-                        type: fieldType,
-                        cacheKey: `${stock.code}-${field}`
-                      }
-                    });
                   }
+                } else if (colorWorker) {
+                  // Request from worker only if available
+                  colorWorker.postMessage({
+                    action: 'getChangeAnimation',
+                    data: {
+                      currentValue,
+                      previousValue,
+                      type: fieldType,
+                      cacheKey: `${stock.code}-${field}`
+                    }
+                  });
                 }
               }
-            });
-          }
-        });
-        
-        // Update state with new data
-        setPrevDisplayedStocks(newDisplayedStocks);
-      }, 100);
-    }
-  }, [filteredData, animationCache, updatePriceColors, prevDisplayedStocks, colorWorkerRef]);
+            }
+          });
+        }
+      });
+      
+      // Update ref first to avoid dependency cycle
+      prevDataRef.current = {...newDisplayedStocks};
+      
+      // Then update state for component rendering
+      setPrevDisplayedStocks(newDisplayedStocks);
+    });
+    
+    // Clean up
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [filteredData]); // Only depend on filteredData to trigger the effect, but use refs inside
 
   // Tạo một hàm debounced để xử lý cập nhật tìm kiếm
   const debouncedSetSearchQuery = useRef(
@@ -2420,6 +2372,333 @@ export default function StockDerivatives() {
     // Call appropriate data source based on active tab
     // const filteredData = filteredDataFromWorker;
   };
+
+  // Additional refs for all functions that are dependencies in useEffects
+  const updateCurrentTimeRef = useRef(updateCurrentTime);
+  const lastTimestampRef = useRef(lastTimestamp);
+  
+  // Update all function refs to their latest versions - this ensures they're always current
+  useEffect(() => {
+    updateCurrentTimeRef.current = updateCurrentTime;
+    lastTimestampRef.current = lastTimestamp;
+  }, [updateCurrentTime, lastTimestamp]);
+  
+  // Fix the timer update effect to use the ref instead of the function directly
+  useEffect(() => {
+    // Cập nhật thời gian hiển thị mỗi giây
+    const interval = setInterval(() => {
+      // Use the ref to the function to avoid dependency on the function itself
+      if (updateCurrentTimeRef.current) {
+        updateCurrentTimeRef.current(moment());
+      }
+    }, 1000);
+    
+    // Cleanup interval khi component unmount
+    return () => clearInterval(interval);
+  }, []); // Empty dependency array - only run once on mount
+  
+  // Fix the lastTimestamp logging effect to use the ref
+  useEffect(() => {
+    const currentTimestamp = lastTimestampRef.current;
+    if (currentTimestamp) {
+      console.log("Last timestamp updated:", currentTimestamp);
+      console.log("Formatted time:", moment(currentTimestamp, 'YYYYMMDDHHmmss').format('HH:mm:ss'));
+    }
+  }, [lastTimestampRef.current]); // Only run when the ref's current value changes
+
+  // Fix the setupSignalR effect - already OK with empty dependency array
+  
+  // Fix the volume history effect using a ref-based approach
+  const updateVolumeHistoryRef = useRef(updateVolumeHistory);
+  const volumeHistoryRef = useRef(volumeHistory);
+  const realTimeStockDataRef = useRef(realTimeStockData);
+  
+  // Keep all refs updated
+  useEffect(() => {
+    updateVolumeHistoryRef.current = updateVolumeHistory;
+    volumeHistoryRef.current = volumeHistory;
+    realTimeStockDataRef.current = realTimeStockData;
+  }, [updateVolumeHistory, volumeHistory, realTimeStockData]);
+  
+  // Replace the volume history effect with a ref-based approach
+  useEffect(() => {
+    // Skip if no data
+    if (!realTimeStockDataRef.current || realTimeStockDataRef.current.length === 0) {
+      return;
+    }
+    
+    const currentRealTimeData = realTimeStockDataRef.current;
+    const currentVolumeHistory = volumeHistoryRef.current;
+    const currentUpdateFn = updateVolumeHistoryRef.current;
+    
+    // Process volume changes
+    const newVolumeHistory = { ...currentVolumeHistory };
+    let hasChanges = false;
+    
+    currentRealTimeData.forEach(stock => {
+      const oldVolume = currentVolumeHistory[stock.code];
+      if (oldVolume) {
+        const currentVolume = parseFloat(stock.totalVolume.replace(/,/g, ''));
+        const previousVolume = parseFloat(oldVolume.replace(/,/g, ''));
+        
+        if (currentVolume !== previousVolume) {
+          newVolumeHistory[stock.code] = stock.totalVolume;
+          hasChanges = true;
+        }
+      } else {
+        newVolumeHistory[stock.code] = stock.totalVolume;
+        hasChanges = true;
+      }
+    });
+    
+    // Only update if necessary
+    if (hasChanges && currentUpdateFn) {
+      currentUpdateFn(newVolumeHistory);
+    }
+  }, [realTimeStockData]); // Only re-run when realTimeStockData changes, but use refs inside
+
+  // A separate solution for completely eliminating any chance of dependency cycles:
+  // Initialize the refs once on component mount with the current functions
+  useEffect(() => {
+    // Create a single message handler that will use only refs and never re-create
+    const handleColorWorkerMessage = (e) => {
+      const { action, result, results, stats } = e.data;
+      
+      if (action === 'priceColorResult') {
+        // Make sure we have all necessary data
+        if (result && result.colorClass) {
+          // Use function form to get latest state and avoid stale closures
+          const updateFn = updateColorCacheRef.current;
+          if (updateFn) {
+            updateFn(prev => ({...prev, [result.cacheKey]: result.colorClass}));
+          }
+        }
+      }
+      else if (action === 'animationResult') {
+        // Make sure we have all necessary data
+        if (result && result.animClass) {
+          const updateFn = updateAnimationCacheRef.current;
+          if (updateFn) {
+            updateFn(prev => ({...prev, [result.cacheKey]: result.animClass}));
+          }
+        }
+      }
+      else if (action === 'batchResults') {
+        // Handle batch processing results
+        if (!results) return;
+        
+        // Get current update functions from refs
+        const updateColorFn = updateColorCacheRef.current;
+        const updateAnimFn = updateAnimationCacheRef.current;
+        const updateMetricsFn = updateColorWorkerMetricsRef.current;
+        
+        if (updateColorFn) {
+          updateColorFn(prevCache => {
+            const newCache = {...prevCache};
+            let hasChanges = false;
+            
+            // Process each stock's colors
+            Object.keys(results).forEach(stockCode => {
+              const stockColors = results[stockCode].priceColors || {};
+              Object.keys(stockColors).forEach(field => {
+                const cacheKey = `${stockCode}-${field}`;
+                if (newCache[cacheKey] !== stockColors[field]) {
+                  newCache[cacheKey] = stockColors[field];
+                  hasChanges = true;
+                }
+              });
+            });
+            
+            return hasChanges ? newCache : prevCache;
+          });
+        }
+        
+        if (updateAnimFn) {
+          updateAnimFn(prevCache => {
+            const newCache = {...prevCache};
+            let hasChanges = false;
+            
+            // Process each stock's animations
+            Object.keys(results).forEach(stockCode => {
+              const stockAnimations = results[stockCode].animations || {};
+              Object.keys(stockAnimations).forEach(field => {
+                const cacheKey = `${stockCode}-${field}`;
+                if (newCache[cacheKey] !== stockAnimations[field]) {
+                  newCache[cacheKey] = stockAnimations[field];
+                  hasChanges = true;
+                }
+              });
+            });
+            
+            return hasChanges ? newCache : prevCache;
+          });
+        }
+        
+        // Update performance metrics through ref
+        if (stats && updateMetricsFn) {
+          updateMetricsFn({
+            processingTime: stats.processingTime,
+            stockCount: stats.stockCount
+          });
+          
+          console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms`);
+        }
+      }
+    };
+    
+    // Set up the handler and attach event listener only once
+    handlerRef.current = handleColorWorkerMessage;
+    
+    if (colorWorkerRef.current && handlerRef.current) {
+      colorWorkerRef.current.addEventListener('message', handlerRef.current);
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (colorWorkerRef.current && handlerRef.current) {
+        colorWorkerRef.current.removeEventListener('message', handlerRef.current);
+      }
+    };
+  }, []); // Empty dependency - only run on mount
+
+  // Fix the effect that updates previous values when real-time data changes
+  // Create stable refs for the dependencies
+  const updatePreviousValuesRef = useRef(updatePreviousValues);
+  
+  // Keep the ref updated without causing re-renders
+  useEffect(() => {
+    updatePreviousValuesRef.current = updatePreviousValues;
+  }, [updatePreviousValues]);
+  
+  // Replace the problematic effect with one that uses refs and has stable dependencies
+  useEffect(() => {
+    // Skip if no data
+    if (!realTimeStockData || realTimeStockData.length === 0) return;
+    
+    // Create a function that will run after a small delay to batch updates
+    // This helps prevent rapid successive updates
+    const processUpdates = () => {
+      // Make a new object to collect all changes
+      const newPreviousValues = { ...previousValues };
+      let hasChanges = false;
+      
+      realTimeStockData.forEach(stock => {
+        if (!stock.code) return;
+        
+        // Ensure we have an object for this stock
+        if (!newPreviousValues[stock.code]) {
+          newPreviousValues[stock.code] = {};
+          hasChanges = true;
+        }
+        
+        // Track all fields we care about
+        const fieldsToTrack = [
+          'matchPrice', 'matchVolume',
+          'buyPrice3', 'buyVolume3',
+          'buyPrice2', 'buyVolume2',
+          'buyPrice1', 'buyVolume1',
+          'sellPrice1', 'sellVolume1',
+          'sellPrice2', 'sellVolume2',
+          'sellPrice3', 'sellVolume3',
+          'totalVolume', 'foreignBuy', 'foreignSell'
+        ];
+        
+        // Process each field
+        fieldsToTrack.forEach(field => {
+          if (stock[field] !== undefined) {
+            // Check if value has changed before updating
+            if (newPreviousValues[stock.code][field] !== stock[field]) {
+              // Update the previous value
+              newPreviousValues[stock.code][field] = stock[field];
+              hasChanges = true;
+              
+              // Request animation from worker if available
+              if (colorWorkerRef.current) {
+                const isPrice = field.includes('Price');
+                const fieldType = isPrice ? 'price' : 'volume';
+                const currentValue = stock[field];
+                const previousValue = newPreviousValues[stock.code][field];
+                
+                // Only send request if we have both values
+                if (currentValue && previousValue) {
+                  colorWorkerRef.current.postMessage({
+                    action: 'getChangeAnimation',
+                    data: {
+                      currentValue,
+                      previousValue,
+                      type: fieldType,
+                      cacheKey: `${stock.code}-${field}`
+                    }
+                  });
+                }
+              }
+            }
+          }
+        });
+      });
+      
+      // Only update state if we actually have changes
+      if (hasChanges && updatePreviousValuesRef.current) {
+        updatePreviousValuesRef.current(newPreviousValues);
+      }
+    };
+    
+    // Use requestAnimationFrame to batch updates in sync with browser rendering
+    // This helps prevent too many successive state updates
+    const frameId = requestAnimationFrame(processUpdates);
+    
+    // Clean up
+    return () => cancelAnimationFrame(frameId);
+  }, [realTimeStockData]); // Only depend on realTimeStockData, using refs for other dependencies
+
+  // Replace the original getFilteredData function call with a useEffect to send data to worker
+  // Use refs to avoid dependency issues - use the existing realTimeStockDataRef to avoid duplication
+  const watchlistRef = useRef(watchlist);
+  const searchQueryRef = useRef(searchQuery);
+  const filtersRef = useRef(filters);
+  const sortConfigRef = useRef(sortConfig);
+  const showWatchlistRef = useRef(showWatchlist);
+  
+  // Keep refs updated
+  useEffect(() => {
+    watchlistRef.current = watchlist;
+    realTimeStockDataRef.current = realTimeStockData; // Use existing ref
+    searchQueryRef.current = searchQuery;
+    filtersRef.current = filters;
+    sortConfigRef.current = sortConfig;
+    showWatchlistRef.current = showWatchlist;
+  }, [watchlist, realTimeStockData, searchQuery, filters, sortConfig, showWatchlist]);
+  
+  // Send data to worker at a throttled rate to avoid too many updates
+  useEffect(() => {
+    if (!workerRef.current) return;
+    
+    // Use a throttled approach to send data to the worker
+    const sendDataToWorker = () => {
+      const currentShowWatchlist = showWatchlistRef.current;
+      const dataToFilter = currentShowWatchlist ? watchlistRef.current : realTimeStockDataRef.current;
+      
+      // Only send data to worker if we have data to filter
+      if (dataToFilter && dataToFilter.length > 0) {
+        workerRef.current.postMessage({
+          action: 'filter',
+          data: dataToFilter,
+          searchQuery: searchQueryRef.current,
+          filters: filtersRef.current,
+          sortConfig: sortConfigRef.current,
+          showWatchlist: currentShowWatchlist
+        });
+      } else if (updateFilteredDataRef.current) {
+        // If no data to filter, just set empty array directly
+        updateFilteredDataRef.current([]);
+      }
+    };
+    
+    // Use requestAnimationFrame for a throttled approach
+    const frameId = requestAnimationFrame(sendDataToWorker);
+    
+    return () => cancelAnimationFrame(frameId);
+  }, [realTimeStockData, watchlist, searchQuery, filters, sortConfig, showWatchlist]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
@@ -2535,26 +2814,28 @@ export default function StockDerivatives() {
             <label 
               className="relative inline-flex items-center cursor-pointer" 
               title={hasFeature("Quản lý thông báo theo nhu cầu") ? "Chuyển chế độ danh sách theo dõi" : "Tính năng của gói nâng cao"}
-              onClick={(e) => {
-                // Ngăn chặn hành vi mặc định nếu không có quyền
-                if (!hasFeature("Quản lý thông báo theo nhu cầu")) {
-                  e.preventDefault();
-                  // Hiển thị dialog thông báo nâng cấp gói
-                  setFeatureMessageInfo({
-                    name: 'Danh sách theo dõi và Thông báo',
-                    returnPath: '/stock'
-                  });
-                  setShowFeatureMessage(true);
-                }
-              }}
             >
               <input
                 type="checkbox"
                 className="sr-only peer"
                 checked={showWatchlist}
                 onChange={handleToggleWatchlist}
+                disabled={!hasFeature("Quản lý thông báo theo nhu cầu")}
               />
-              <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${hasFeature("Quản lý thông báo theo nhu cầu") ? "dark:bg-gray-700 bg-gray-300 border-2 border-gray-400 dark:border-gray-600" : "dark:bg-gray-600 bg-gray-300 border border-gray-400 dark:border-gray-600"} peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border-2 after:rounded-full after:h-5 after:w-5 after:shadow-md after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:border-blue-700 dark:peer-checked:border-blue-800 transition-all duration-200`}></div>
+              <div 
+                className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${hasFeature("Quản lý thông báo theo nhu cầu") ? "dark:bg-gray-700 bg-gray-300 border-2 border-gray-400 dark:border-gray-600" : "dark:bg-gray-600 bg-gray-300 border border-gray-400 dark:border-gray-600"} peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border-2 after:rounded-full after:h-5 after:w-5 after:shadow-md after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:border-blue-700 dark:peer-checked:border-blue-800 transition-all duration-200`}
+                onClick={(e) => {
+                  // If no feature access, show message
+                  if (!hasFeature("Quản lý thông báo theo nhu cầu")) {
+                    e.preventDefault();
+                    setFeatureMessageInfo({
+                      name: 'Danh sách theo dõi và Thông báo',
+                      returnPath: '/stock'
+                    });
+                    setShowFeatureMessage(true);
+                  }
+                }}
+              ></div>
               <span className="ml-3 text-sm font-semibold text-gray-900 dark:text-gray-300">Danh sách theo dõi</span>
               {!hasFeature("Quản lý thông báo theo nhu cầu") && (
                 <img 
@@ -3065,26 +3346,26 @@ export default function StockDerivatives() {
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-[#00C087] font-medium">HOSE:</span>
                       <span>Đơn vị giá: 1.000 VND, Khối lượng: 100 CP</span>
-                      <button 
+                      {/* <button 
                         onClick={() => setShowPerformanceMetrics(!showPerformanceMetrics)}
                         className="ml-4 text-blue-500 hover:text-blue-700 transition-colors"
                         title="Toggle performance metrics"
                       >
                         {showPerformanceMetrics ? "Hide metrics" : "Show metrics"}
-                      </button>
+                      </button> */}
                     </div>
                   )}
                   {selectedExchange === 'HNX' && (
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-[#00B4D8] font-medium">HNX:</span>
                       <span>Đơn vị giá: 1.000 VNĐ, Đơn vị khối lượng: 1.000 CP</span>
-                      <button 
+                      {/* <button 
                         onClick={() => setShowPerformanceMetrics(!showPerformanceMetrics)}
                         className="ml-4 text-blue-500 hover:text-blue-700 transition-colors"
                         title="Toggle performance metrics"
                       >
                         {showPerformanceMetrics ? "Hide metrics" : "Show metrics"}
-                      </button>
+                      </button> */}
                     </div>
                   )}
                 </div>
