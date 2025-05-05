@@ -80,53 +80,286 @@ export default function StockDerivatives() {
   const navigate = useNavigate();
   const { hasFeature } = useFeatureStore();
   
-  // Feature message state
-  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
-  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
-
-  // Không cần kiểm tra quyền truy cập tính năng nữa vì đã đưa vào tính năng miễn phí
-
-  const [activeTab, setActiveTab] = useState('price');
-  const [selectedStock, setSelectedStock] = useState(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // Worker refs
+  const workerRef = useRef(null);
+  const colorWorkerRef = useRef(null);
+  
+  // RESET ALL STATE DECLARATIONS
+  
+  // Data state - stock information
+  const [realTimeStockData, setRealTimeStockData] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
+  const [userWatchlist, setUserWatchlist] = useState([]);
+  const [volumeHistory, setVolumeHistory] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
   const [priceChangeColors, setPriceChangeColors] = useState({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedExchange, setSelectedExchange] = useState('HOSE');
   const [chartData, setChartData] = useState([]);
-  const [realTimeStockData, setRealTimeStockData] = useState([]);
+  const [lastTimestamp, setLastTimestamp] = useState(null);
+  const [previousValues, setPreviousValues] = useState({});
+
+  // UI navigation & interface state
+  const [activeTab, setActiveTab] = useState('price');
+  const [selectedExchange, setSelectedExchange] = useState('HOSE');
+  const [showWatchlist, setShowWatchlist] = useState(false);
+  const [currentTime, setCurrentTime] = useState(moment());
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
   const [isInitialWatchlistLoad, setIsInitialWatchlistLoad] = useState(true);
-  const [isSignalRUpdating, setIsSignalRUpdating] = useState(false); // Thêm state mới
-  const [watchlist, setWatchlist] = useState([]);
+  const [isSignalRUpdating, setIsSignalRUpdating] = useState(false);
+  const [isChartLoading, setIsChartLoading] = useState(false);
+  
+  // Feature messages state
+  const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
+  
+  // Modal dialog states
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPriceAlertOpen, setIsPriceAlertOpen] = useState(false);
   const [alertPrice, setAlertPrice] = useState('');
   const [alertType, setAlertType] = useState('above');
   const [selectedAlertStock, setSelectedAlertStock] = useState(null);
-  const [currentTime, setCurrentTime] = useState(moment());
-  const [lastTimestamp, setLastTimestamp] = useState(null);
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
-  const [userWatchlist, setUserWatchlist] = useState([]);
   const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
-  const [showWatchlist, setShowWatchlist] = useState(false);
-  const [isChartLoading, setIsChartLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState(null);
+  const [isDeletingStock, setIsDeletingStock] = useState(false);
   const [chartError, setChartError] = useState(null);
-  // const tableContainerRef = useRef(null);
-
-  // Add sorting state
+  
+  // Filtering, sorting and displaying
+  const [filteredDataFromWorker, setFilteredDataFromWorker] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: 'asc'
   });
-
-  // Add filter states
   const [filters, setFilters] = useState({
-    priceChange: 'all', // all, up, down
-    volume: 'all', // all, high, low
-    percentChange: 'all', // all, positive, negative
-    marketCap: 'all' // all, large, medium, small
+    priceChange: 'all',
+    volume: 'all',
+    percentChange: 'all',
+    marketCap: 'all'
   });
+  
+  // Web worker states
+  const [colorCache, setColorCache] = useState({});
+  const [animationCache, setAnimationCache] = useState({});
+  const [isDarkMode, setIsDarkMode] = useState(
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    processingTime: 0,
+    itemsIn: 0,
+    itemsOut: 0
+  });
+  const [colorWorkerMetrics, setColorWorkerMetrics] = useState({
+    processingTime: 0,
+    stockCount: 0
+  });
+  const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
+  
+  // Initialize the web workers
+  useEffect(() => {
+    // Create the filter worker
+    workerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url), { type: 'module' });
+    
+    // Create the color worker
+    colorWorkerRef.current = new Worker(new URL('../workers/priceColorWorker.js', import.meta.url), { type: 'module' });
+    
+    // Setup dark mode detection
+    const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleDarkModeChange = (e) => {
+      setIsDarkMode(e.matches);
+    };
+    
+    if (darkModeMediaQuery.addEventListener) {
+      darkModeMediaQuery.addEventListener('change', handleDarkModeChange);
+    } else {
+      // Fallback for older browsers
+      darkModeMediaQuery.addListener(handleDarkModeChange);
+    }
+    
+    // Cleanup on component unmount
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+      if (colorWorkerRef.current) {
+        colorWorkerRef.current.terminate();
+      }
+      
+      if (darkModeMediaQuery.removeEventListener) {
+        darkModeMediaQuery.removeEventListener('change', handleDarkModeChange);
+      } else {
+        // Fallback for older browsers
+        darkModeMediaQuery.removeListener(handleDarkModeChange);
+      }
+    };
+  }, []);
+  
+  // Setup color worker message handler
+  useEffect(() => {
+    if (!colorWorkerRef.current) return;
+    
+    const handleColorWorkerMessage = (e) => {
+      const { action, result, results, stats } = e.data;
+      
+      if (action === 'priceColorResult') {
+        // Make sure we have all necessary data
+        if (result && result.colorClass) {
+          setColorCache(prev => ({...prev, [result.cacheKey]: result.colorClass}));
+        }
+      }
+      else if (action === 'animationResult') {
+        // Make sure we have all necessary data
+        if (result && result.animClass) {
+          setAnimationCache(prev => ({...prev, [result.cacheKey]: result.animClass}));
+        }
+      }
+      else if (action === 'batchResults') {
+        // Handle batch processing results
+        if (!results) return;
+        
+        // Update color cache and animation cache in bulk using a single state update
+        // for each to improve performance
+        setColorCache(prev => {
+          const newCache = {...prev};
+          
+          // Process each stock's colors
+          Object.keys(results).forEach(stockCode => {
+            const stockColors = results[stockCode].priceColors || {};
+            Object.keys(stockColors).forEach(field => {
+              const cacheKey = `${stockCode}-${field}`;
+              newCache[cacheKey] = stockColors[field];
+            });
+          });
+          
+          return newCache;
+        });
+        
+        setAnimationCache(prev => {
+          const newCache = {...prev};
+          
+          // Process each stock's animations
+          Object.keys(results).forEach(stockCode => {
+            const stockAnimations = results[stockCode].animations || {};
+            Object.keys(stockAnimations).forEach(field => {
+              const cacheKey = `${stockCode}-${field}`;
+              newCache[cacheKey] = stockAnimations[field];
+            });
+          });
+          
+          return newCache;
+        });
+        
+        // Update performance metrics
+        if (stats) {
+          setColorWorkerMetrics({
+            processingTime: stats.processingTime,
+            stockCount: stats.stockCount
+          });
+          
+          console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms`);
+        }
+      }
+    };
+    
+    colorWorkerRef.current.addEventListener('message', handleColorWorkerMessage);
+    
+    return () => {
+      colorWorkerRef.current?.removeEventListener('message', handleColorWorkerMessage);
+    };
+  }, []);
+  
+  // Add individual request methods for specific calculations
+  const requestPriceColor = useCallback((price, refPrice, ceilPrice, floorPrice) => {
+    if (!colorWorkerRef.current) return;
+    
+    const cacheKey = `${price}-${refPrice}-${ceilPrice}-${floorPrice}-${isDarkMode}`;
+    
+    // Only request if not already in cache
+    if (!colorCache[cacheKey]) {
+      colorWorkerRef.current.postMessage({
+        action: 'getPriceColor',
+        data: {
+          price,
+          refPrice,
+          ceilPrice,
+          floorPrice,
+          isDarkMode,
+          cacheKey
+        }
+      });
+    }
+  }, [colorCache, isDarkMode]);
+  
+  const requestChangeAnimation = useCallback((currentValue, previousValue, type = 'price') => {
+    if (!colorWorkerRef.current) return;
+    
+    const cacheKey = `${currentValue}-${previousValue}-${type}`;
+    
+    // Only request if not already in cache
+    if (!animationCache[cacheKey]) {
+      colorWorkerRef.current.postMessage({
+        action: 'getChangeAnimation',
+        data: {
+          currentValue,
+          previousValue,
+          type,
+          cacheKey
+        }
+      });
+    }
+  }, [animationCache]);
+  
+  // // Feature message state
+  // const [showFeatureMessage, setShowFeatureMessage] = useState(false);
+  // const [featureMessageInfo, setFeatureMessageInfo] = useState({ name: '', returnPath: '' });
+
+  // // Không cần kiểm tra quyền truy cập tính năng nữa vì đã đưa vào tính năng miễn phí
+
+  // const [activeTab, setActiveTab] = useState('price');
+  // const [selectedStock, setSelectedStock] = useState(null);
+  // const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // const [priceHistory, setPriceHistory] = useState({});
+  // const [priceChangeColors, setPriceChangeColors] = useState({});
+  // const [searchQuery, setSearchQuery] = useState('');
+  // const [selectedExchange, setSelectedExchange] = useState('HOSE');
+  // const [chartData, setChartData] = useState([]);
+  // const [realTimeStockData, setRealTimeStockData] = useState([]);
+  // const [isLoading, setIsLoading] = useState(true);
+  // const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
+  // const [isInitialWatchlistLoad, setIsInitialWatchlistLoad] = useState(true);
+  // const [isSignalRUpdating, setIsSignalRUpdating] = useState(false); // Thêm state mới
+  // const [watchlist, setWatchlist] = useState([]);
+  // const [isPriceAlertOpen, setIsPriceAlertOpen] = useState(false);
+  // const [alertPrice, setAlertPrice] = useState('');
+  // const [alertType, setAlertType] = useState('above');
+  // const [selectedAlertStock, setSelectedAlertStock] = useState(null);
+  // const [currentTime, setCurrentTime] = useState(moment());
+  // const [lastTimestamp, setLastTimestamp] = useState(null);
+  // const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
+  // const [userWatchlist, setUserWatchlist] = useState([]);
+  // const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
+  // const [showWatchlist, setShowWatchlist] = useState(false);
+  // const [isChartLoading, setIsChartLoading] = useState(false);
+  // const [chartError, setChartError] = useState(null);
+  // const tableContainerRef = useRef(null);
+
+  // Add sorting state
+  // const [sortConfig, setSortConfig] = useState({
+  //   key: null,
+  //   direction: 'asc'
+  // });
+
+  // // Add filter states
+  // const [filters, setFilters] = useState({
+  //   priceChange: 'all', // all, up, down
+  //   volume: 'all', // all, high, low
+  //   percentChange: 'all', // all, positive, negative
+  //   marketCap: 'all' // all, large, medium, small
+  // });
 
   // Add filter options
   const filterOptions = {
@@ -153,7 +386,8 @@ export default function StockDerivatives() {
     ]
   };
 
-
+  // Add state for filtered data from worker
+  // const [filteredDataFromWorker, setFilteredDataFromWorker] = useState([]);
 
   // Add sorting handler
   const handleSort = (key) => {
@@ -449,80 +683,90 @@ export default function StockDerivatives() {
     }
   `;
 
-  // Cập nhật hàm getPriceColor để hỗ trợ cả light và dark mode
-  const getPriceColor = (price, refPrice, ceilPrice, floorPrice) => {
-    // Bỏ qua các trường hợp giá trị không hợp lệ
-    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
-        price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-      return 'text-gray-900 dark:text-white'; // Màu mặc định cho giá trị rỗng
+  // Replace the original getPriceColor function with a worker-based version
+  const getPriceColor = useCallback((price, refPrice, ceilPrice, floorPrice) => {
+    // Use cache first if available
+    const cacheKey = `${price}-${refPrice}-${ceilPrice}-${floorPrice}-${isDarkMode}`;
+    if (colorCache[cacheKey]) {
+      return colorCache[cacheKey];
     }
     
-    // Xử lý số dấu phẩy trong chuỗi và chuyển đổi sang số
+    // Fallback to the original implementation while waiting for worker result
+    // Handle invalid values
+    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
+        price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
+      return isDarkMode ? 'text-white' : 'text-gray-900';
+    }
+    
+    // Convert to numbers
     const numPrice = parseFloat(String(price).replace(/,/g, ''));
     const numRefPrice = parseFloat(String(refPrice).replace(/,/g, ''));
     const numCeilPrice = parseFloat(String(ceilPrice).replace(/,/g, ''));
     const numFloorPrice = parseFloat(String(floorPrice).replace(/,/g, ''));
 
-    // Kiểm tra tính hợp lệ của các giá trị số
+    // Check for invalid number values
     if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-      return 'text-gray-900 dark:text-white'; // Màu mặc định cho giá trị không hợp lệ
+      return isDarkMode ? 'text-white' : 'text-gray-900';
     }
 
-    // Xác định màu sắc theo thứ tự ưu tiên rõ ràng
-    // Sử dụng sai số nhỏ hơn để so sánh số thực chính xác hơn
+    // Small epsilon for floating point comparisons
     const epsilon = 0.0001;
     
-    // Kiểm tra từng trường hợp theo thứ tự ưu tiên
-    // 1. Kiểm tra giá trần (tím)
+    // Check ceiling price (purple)
     if (Math.abs(numPrice - numCeilPrice) < epsilon) {
-      return 'text-[#B388FF]'; // Màu tím - Bằng giá trần
+      return 'text-[#B388FF]';
     }
     
-    // 2. Kiểm tra giá sàn (xanh lam)
+    // Check floor price (cyan)
     if (Math.abs(numPrice - numFloorPrice) < epsilon) {
-      return 'text-[#00BCD4]'; // Màu xanh lam - Bằng giá sàn
+      return 'text-[#00BCD4]';
     }
     
-    // 3. Kiểm tra giá tham chiếu (vàng)
+    // Check reference price (yellow)
     if (Math.abs(numPrice - numRefPrice) < epsilon) {
-      return 'text-[#F4BE37]'; // Màu vàng - Bằng giá tham chiếu
+      return 'text-[#F4BE37]';
     }
     
-    // 4. Kiểm tra giá tăng (xanh lá)
+    // Higher than reference (green)
     if (numPrice > numRefPrice) {
-      return 'text-[#22c55e] dark:text-[#00FF00]'; // Màu xanh lá - Cao hơn giá tham chiếu
+      return isDarkMode ? 'text-[#00FF00]' : 'text-[#22c55e]';
     }
     
-    // 5. Kiểm tra giá giảm (đỏ)
+    // Lower than reference (red)
     if (numPrice < numRefPrice) {
-      return 'text-[#FF4A4A]'; // Màu đỏ - Thấp hơn giá tham chiếu
+      return 'text-[#FF4A4A]';
     }
     
-    // Trường hợp mặc định (hiếm khi xảy ra)
-    return 'text-gray-900 dark:text-white';
-  };
-
-  // Hàm xác định animation class
-  const getChangeAnimation = (currentValue, previousValue, type = 'price') => {
+    // Default case
+    return isDarkMode ? 'text-white' : 'text-gray-900';
+  }, [colorCache, isDarkMode]);
+  
+  // Replace the getChangeAnimation function with a worker-based version
+  const getChangeAnimation = useCallback((currentValue, previousValue, type = 'price') => {
+    // Use cache if available
+    const cacheKey = `${currentValue}-${previousValue}-${type}`;
+    if (animationCache[cacheKey]) {
+      return animationCache[cacheKey];
+    }
+    
+    // Fallback to the original implementation while waiting for worker result
     if (!currentValue || !previousValue) return '';
     
-    // Chuyển đổi cả hai giá trị sang số
+    // Convert to numbers
     const current = parseFloat(String(currentValue).replace(/,/g, ''));
     const previous = parseFloat(String(previousValue).replace(/,/g, ''));
     
     if (isNaN(current) || isNaN(previous)) return '';
     
-    // Thêm threshold để tránh animation với thay đổi rất nhỏ
-    const priceChangeThreshold = 0.001; // 0.1% cho giá
-    const volumeChangeThreshold = 0.01; // 1% cho khối lượng
+    // Thresholds
+    const priceChangeThreshold = 0.001;
+    const volumeChangeThreshold = 0.01;
     
     if (type === 'price') {
-      // Chỉ hiệu ứng khi thay đổi đáng kể
       if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > priceChangeThreshold) {
         if (current > previous) return 'price-up';
         if (current < previous) return 'price-down';
       } else if (previous === 0 && current !== 0) {
-        // Trường hợp đặc biệt khi giá trước đó là 0
         if (current > 0) return 'price-up';
         if (current < 0) return 'price-down';
       }
@@ -530,70 +774,48 @@ export default function StockDerivatives() {
     }
     
     if (type === 'volume') {
-      // Với khối lượng, chỉ hiệu ứng khi thay đổi đáng kể
       if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > volumeChangeThreshold) {
         if (current > previous) return 'volume-up';
         if (current < previous) return 'volume-down';
       } else if (previous === 0 && current > 0) {
-        // Trường hợp đặc biệt khi khối lượng trước đó là 0
         return 'volume-up';
       }
       return '';
     }
     
     return '';
-  };
+  }, [animationCache]);
 
-  // Cập nhật hàm getCellClass để hỗ trợ hiển thị thay đổi khối lượng
-  const getCellClass = (stock, field, type = 'price') => {
-    // Kiểm tra stock và field tồn tại
-    if (!stock) return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
+  // Add a function to batch process price colors and animations
+  const batchProcessPriceColors = useCallback((stocks, prevValues) => {
+    if (!colorWorkerRef.current || !stocks || stocks.length === 0) return;
     
-    // Kiểm tra giá trị field
-    const fieldValue = stock[field];
-    
-    // Xử lý trường hợp giá trị rỗng
-    if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
-      return 'text-gray-900 dark:text-white border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
-    }
-
-    // Xác định màu sắc cơ bản dựa trên giá
-    let colorClass = 'text-gray-900 dark:text-white';
-    
-    if (type === 'price') {
-      colorClass = getPriceColor(
-        stock[field],
-        stock.ref,
-        stock.ceiling,
-        stock.floor
-      );
-    } else if (type === 'volume') {
-      // Xác định trường giá tương ứng với trường khối lượng
-      const priceField = getPriceFieldForVolume(field);
-      
-      // Sử dụng màu sắc của giá tương ứng cho khối lượng
-      if (stock[priceField]) {
-        colorClass = getPriceColor(
-          stock[priceField],
-          stock.ref,
-          stock.ceiling,
-          stock.floor
-        );
+    // Send batch request to worker
+    colorWorkerRef.current.postMessage({
+      action: 'batchProcess',
+      data: {
+        stocks: stocks,
+        previousValues: prevValues,
+        isDarkMode: isDarkMode
       }
-    }
-
-    // Xác định animation class dựa trên thay đổi
-    let animationClass = '';
-    const stockCode = stock.code;
-    const changeKey = `${stockCode}-${field}`;
+    });
+  }, [isDarkMode]);
+  
+  // Trigger batch processing when data changes
+  useEffect(() => {
+    const dataToProcess = showWatchlist ? watchlist : realTimeStockData;
     
-    // Kiểm tra có animation được lưu trữ cho field này không
-    if (priceChangeColors[changeKey]) {
-      animationClass = priceChangeColors[changeKey];
+    // Only process if we have data
+    if (dataToProcess.length > 0) {
+      batchProcessPriceColors(dataToProcess, previousValues);
     }
-
-    return `${colorClass} ${animationClass} border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2`;
-  };
+  }, [
+    realTimeStockData, 
+    watchlist, 
+    previousValues, 
+    showWatchlist, 
+    batchProcessPriceColors
+  ]);
 
   // Hàm ánh xạ từ trường khối lượng sang trường giá
   const getPriceFieldForVolume = (volumeField) => {
@@ -612,6 +834,73 @@ export default function StockDerivatives() {
     
     return fieldMapping[volumeField] || volumeField.replace('Volume', 'Price');
   };
+
+  // Modify the getCellClass function to use our cache
+  const getCellClass = useCallback((stock, field, type = 'price') => {
+    // Base styles
+    const baseClass = 'border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
+    
+    // Check if stock exists
+    if (!stock) return `text-gray-900 dark:text-white ${baseClass}`;
+    
+    // Get field value
+    const fieldValue = stock[field];
+    
+    // Handle empty values
+    if (fieldValue === null || fieldValue === undefined || fieldValue === '' || fieldValue === '--') {
+      return `text-gray-900 dark:text-white ${baseClass}`;
+    }
+
+    // Get color class from cache or compute it
+    let colorClass = 'text-gray-900 dark:text-white';
+    const stockCode = stock.code;
+    
+    if (type === 'price') {
+      // Try to get from cache first
+      const cacheKey = `${stockCode}-${field}`;
+      if (colorCache[cacheKey]) {
+        colorClass = colorCache[cacheKey];
+      } else {
+        // Calculate if not in cache
+        colorClass = getPriceColor(
+          stock[field],
+          stock.ref,
+          stock.ceiling,
+          stock.floor
+        );
+      }
+    } else if (type === 'volume') {
+      // For volume fields, use the price color of associated price field
+      const priceField = getPriceFieldForVolume(field);
+      
+      if (stock[priceField]) {
+        const cacheKey = `${stockCode}-${priceField}`;
+        if (colorCache[cacheKey]) {
+          colorClass = colorCache[cacheKey];
+        } else {
+          colorClass = getPriceColor(
+            stock[priceField],
+            stock.ref,
+            stock.ceiling,
+            stock.floor
+          );
+        }
+      }
+    }
+
+    // Get animation class from cache
+    let animationClass = '';
+    const changeKey = `${stockCode}-${field}`;
+    
+    if (animationCache[changeKey]) {
+      animationClass = animationCache[changeKey];
+    } else if (priceChangeColors[changeKey]) {
+      // Fallback to the old system
+      animationClass = priceChangeColors[changeKey];
+    }
+
+    return `${colorClass} ${animationClass} ${baseClass}`;
+  }, [colorCache, animationCache, priceChangeColors, getPriceColor, getPriceFieldForVolume]);
 
   // Theo dõi thay đổi giá và cập nhật màu sắc
   const updatePriceColors = (stockCode, currentPrice, previousPrice) => {
@@ -655,8 +944,6 @@ export default function StockDerivatives() {
   };
 
   // Theo dõi thay đổi khối lượng
-  const [volumeHistory, setVolumeHistory] = useState({});
-
   useEffect(() => {
     if (realTimeStockData.length > 0) {
       const newVolumeHistory = { ...volumeHistory };
@@ -1143,8 +1430,7 @@ export default function StockDerivatives() {
     }
   };
 
-  // Lưu trữ dữ liệu cũ từ lần cập nhật trước
-  const [previousValues, setPreviousValues] = useState({});
+ 
 
   // Cập nhật dữ liệu trước đó khi có dữ liệu mới
   useEffect(() => {
@@ -1210,9 +1496,9 @@ export default function StockDerivatives() {
   }, [priceChangeColors]);
 
   // Add state for delete confirmation dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [stockToDelete, setStockToDelete] = useState(null);
-  const [isDeletingStock, setIsDeletingStock] = useState(false);
+  // const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // const [stockToDelete, setStockToDelete] = useState(null);
+  // const [isDeletingStock, setIsDeletingStock] = useState(false);
 
   // Xử lý cài đặt thông báo giá
   const handleSetPriceAlert = (stock) => {
@@ -1288,7 +1574,78 @@ export default function StockDerivatives() {
 
   // useMemo for filtered data
   const dataToDisplay = showWatchlist ? watchlist : realTimeStockData;
-  const filteredData = useMemo(() => getFilteredData(dataToDisplay), [dataToDisplay, searchQuery, filters, sortConfig]);
+
+  // Add performance metrics state
+  // const [performanceMetrics, setPerformanceMetrics] = useState({
+  //   processingTime: 0,
+  //   itemsIn: 0,
+  //   itemsOut: 0
+  // });
+
+  // Update the worker message handler to include performance metrics
+  useEffect(() => {
+    if (!workerRef.current) return;
+
+    // Set up the message handler
+    const handleWorkerMessage = (e) => {
+      const { filteredData, showWatchlist: isWatchlistData, stats } = e.data;
+      
+      // Only update if the received data matches the current view mode
+      if (isWatchlistData === showWatchlist) {
+        setFilteredDataFromWorker(filteredData);
+        
+        // Store performance metrics
+        if (stats) {
+          setPerformanceMetrics({
+            processingTime: stats.processingTime,
+            itemsIn: stats.itemsIn,
+            itemsOut: stats.itemsOut
+          });
+          
+          // Log performance info
+          console.log(`Worker processed ${stats.itemsIn} items to ${stats.itemsOut} in ${stats.processingTime}ms`);
+        }
+      }
+    };
+
+    workerRef.current.addEventListener('message', handleWorkerMessage);
+    
+    return () => {
+      workerRef.current?.removeEventListener('message', handleWorkerMessage);
+    };
+  }, [showWatchlist]);
+
+  // Replace the original getFilteredData function call with a useEffect to send data to worker
+  useEffect(() => {
+    if (!workerRef.current) return;
+    
+    const dataToFilter = showWatchlist ? watchlist : realTimeStockData;
+    
+    // Only send data to worker if we have data to filter
+    if (dataToFilter.length > 0) {
+      workerRef.current.postMessage({
+        action: 'filter',
+        data: dataToFilter,
+        searchQuery,
+        filters,
+        sortConfig,
+        showWatchlist
+      });
+    } else {
+      // If no data to filter, just set empty array directly
+      setFilteredDataFromWorker([]);
+    }
+  }, [
+    realTimeStockData, 
+    watchlist, 
+    searchQuery, 
+    filters, 
+    sortConfig, 
+    showWatchlist
+  ]);
+
+  // Use filteredDataFromWorker instead of calculating it via useMemo
+  const filteredData = filteredDataFromWorker;
 
   // useCallback for handlers
   const handleAddToWatchlistCb = useCallback(handleAddToWatchlist, [watchlist]);
@@ -1908,11 +2265,11 @@ export default function StockDerivatives() {
   // This useEffect monitors changes in the filtered data to trigger animations
   useEffect(() => {
     // Create a small delay to allow price history to update first
-    if (filteredData.length > 0) {
+    if (filteredDataFromWorker.length > 0) {
       setTimeout(() => {
         const newDisplayedStocks = {};
         
-        filteredData.forEach(stock => {
+        filteredDataFromWorker.forEach(stock => {
           if (!stock.code) return;
           
           // Create a copy of the current stock to store
@@ -1958,7 +2315,7 @@ export default function StockDerivatives() {
         setPrevDisplayedStocks(newDisplayedStocks);
       }, 100);
     }
-  }, [filteredData]); // Depend only on filteredData
+  }, [filteredDataFromWorker]); // Depend on filteredDataFromWorker instead of filteredData
 
   // Tạo một hàm debounced để xử lý cập nhật tìm kiếm
   const debouncedSetSearchQuery = useRef(
@@ -1966,6 +2323,18 @@ export default function StockDerivatives() {
       setSearchQuery(value);
     }, 300)
   ).current;
+
+  // Add state for showing performance metrics
+  // const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
+
+  // // Add performance metrics for color worker
+  // const [colorWorkerMetrics, setColorWorkerMetrics] = useState({
+  //   processingTime: 0,
+  //   stockCount: 0
+  // });
+
+  // Add this next to the potential problem line, line 618
+  console.log("Checking previousValues:", previousValues);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
@@ -2583,20 +2952,54 @@ export default function StockDerivatives() {
                   </tbody>
                 </table>
               </div>
-              
-              {/* Footer with exchange information */}
-              <div className="sticky -bottom-4 bg-white dark:bg-[#0a0a14] border-t border-gray-200 dark:border-[#333] py-4 mt-4">
+            </div>
+            
+            {/* Footer with exchange information */}
+            <div className="sticky -bottom-4 bg-white dark:bg-[#0a0a14] border-t border-gray-200 dark:border-[#333] py-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-xs">
+                  {showPerformanceMetrics && (
+                    <div className="text-gray-500 dark:text-[#999] px-4 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Filter Worker:</span>
+                        <span>{performanceMetrics.processingTime}ms</span>
+                        <span>|</span>
+                        <span>Items: {performanceMetrics.itemsIn} → {performanceMetrics.itemsOut}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Color Worker:</span>
+                        <span>{colorWorkerMetrics.processingTime}ms</span>
+                        <span>|</span>
+                        <span>Stocks: {colorWorkerMetrics.stockCount}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="text-xs text-gray-500 dark:text-[#999] text-right px-4">
                   {selectedExchange === 'HOSE' && (
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-[#00C087] font-medium">HOSE:</span>
                       <span>Đơn vị giá: 1.000 VND, Khối lượng: 100 CP</span>
+                      <button 
+                        onClick={() => setShowPerformanceMetrics(!showPerformanceMetrics)}
+                        className="ml-4 text-blue-500 hover:text-blue-700 transition-colors"
+                        title="Toggle performance metrics"
+                      >
+                        {showPerformanceMetrics ? "Hide metrics" : "Show metrics"}
+                      </button>
                     </div>
                   )}
                   {selectedExchange === 'HNX' && (
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-[#00B4D8] font-medium">HNX:</span>
                       <span>Đơn vị giá: 1.000 VNĐ, Đơn vị khối lượng: 1.000 CP</span>
+                      <button 
+                        onClick={() => setShowPerformanceMetrics(!showPerformanceMetrics)}
+                        className="ml-4 text-blue-500 hover:text-blue-700 transition-colors"
+                        title="Toggle performance metrics"
+                      >
+                        {showPerformanceMetrics ? "Hide metrics" : "Show metrics"}
+                      </button>
                     </div>
                   )}
                 </div>
