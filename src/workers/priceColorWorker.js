@@ -15,6 +15,9 @@ function chunkArray(array, size) {
   return chunks;
 }
 
+// Variable to track the latest batch timestamp to avoid processing outdated batches
+let latestBatchTimestamp = 0;
+
 // Message handler for the worker
 self.onmessage = function(e) {
   const { action, data } = e.data;
@@ -43,90 +46,138 @@ self.onmessage = function(e) {
   }
   else if (action === 'batchProcess') {
     const startTime = performance.now();
-    const { stocks, isDarkMode, previousValues, chunkSize = 100 } = data;
+    const { stocks, isDarkMode, previousValues, chunkSize = 100, priority = 'high' } = data;
+    
+    // Tạo timestamp cho batch này
+    const batchTimestamp = Date.now();
+    
+    // Bỏ qua nếu đã có batch mới hơn đang chạy
+    if (batchTimestamp < latestBatchTimestamp) {
+      console.log(`[Worker] Ignoring outdated batch: ${batchTimestamp} < ${latestBatchTimestamp}`);
+      return;
+    }
+    
+    // Cập nhật timestamp batch mới nhất
+    latestBatchTimestamp = batchTimestamp;
+    
     // Use provided chunk size or default to 100 if not specified
     const actualChunkSize = chunkSize || 100;
-  
+    
+    // Điều chỉnh kích thước chunk và độ trễ giữa các chunk dựa trên mức độ ưu tiên
+    const isHighPriority = priority === 'high';
+    const chunkDelay = isHighPriority ? 0 : 20; // Thêm độ trễ giữa các chunk cho low priority
+    
     const chunks = chunkArray(stocks, actualChunkSize);
     let totalProcessed = 0;
-  
-    chunks.forEach((chunk, index) => {
-      const results = {};
-  
-      chunk.forEach(stock => {
-        if (!stock || !stock.code) return;
-  
-        results[stock.code] = {
-          priceColors: {},
-          animations: {}
-        };
-  
-        const priceFields = [
-          'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
-          'sellPrice1', 'sellPrice2', 'sellPrice3'
-        ];
-  
-        priceFields.forEach(field => {
-          if (stock[field]) {
-            results[stock.code].priceColors[field] = getPriceColor(
-              stock[field], 
-              stock.ref, 
-              stock.ceiling, 
-              stock.floor,
-              isDarkMode
-            );
+    
+    // Xử lý từng chunk
+    const processChunks = async (startIndex = 0) => {
+      for (let i = startIndex; i < chunks.length; i++) {
+        // Kiểm tra nếu có batch mới hơn đã được gửi
+        if (batchTimestamp < latestBatchTimestamp) {
+          console.log(`[Worker] Stopping at chunk ${i} due to newer batch`);
+          return;
+        }
+        
+        const chunk = chunks[i];
+        const results = {};
+        
+        // Xử lý từng stock trong chunk
+        chunk.forEach(stock => {
+          if (!stock || !stock.code) return;
+          
+          results[stock.code] = {
+            priceColors: {},
+            animations: {}
+          };
+          
+          const priceFields = [
+            'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
+            'sellPrice1', 'sellPrice2', 'sellPrice3'
+          ];
+          
+          priceFields.forEach(field => {
+            if (stock[field]) {
+              results[stock.code].priceColors[field] = getPriceColor(
+                stock[field], 
+                stock.ref, 
+                stock.ceiling, 
+                stock.floor,
+                isDarkMode
+              );
+            }
+          });
+          
+          if (previousValues && previousValues[stock.code]) {
+            const prevStock = previousValues[stock.code];
+            
+            priceFields.forEach(field => {
+              if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
+                results[stock.code].animations[field] = getChangeAnimation(
+                  stock[field],
+                  prevStock[field],
+                  'price'
+                );
+              }
+            });
+            
+            const volumeFields = [
+              'buyVolume1', 'buyVolume2', 'buyVolume3',
+              'sellVolume1', 'sellVolume2', 'sellVolume3',
+              'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'
+            ];
+            
+            volumeFields.forEach(field => {
+              if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
+                results[stock.code].animations[field] = getChangeAnimation(
+                  stock[field],
+                  prevStock[field],
+                  'volume'
+                );
+              }
+            });
           }
         });
-  
-        if (previousValues && previousValues[stock.code]) {
-          const prevStock = previousValues[stock.code];
-  
-          priceFields.forEach(field => {
-            if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-              results[stock.code].animations[field] = getChangeAnimation(
-                stock[field],
-                prevStock[field],
-                'price'
-              );
-            }
-          });
-  
-          const volumeFields = [
-            'buyVolume1', 'buyVolume2', 'buyVolume3',
-            'sellVolume1', 'sellVolume2', 'sellVolume3',
-            'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'
-          ];
-  
-          volumeFields.forEach(field => {
-            if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-              results[stock.code].animations[field] = getChangeAnimation(
-                stock[field],
-                prevStock[field],
-                'volume'
-              );
-            }
-          });
+        
+        totalProcessed += Object.keys(results).length;
+        
+        // Gửi kết quả chunk
+        self.postMessage({ 
+          action: 'chunkResults',
+          chunkIndex: i,
+          totalChunks: chunks.length,
+          batchTimestamp: batchTimestamp,
+          results: results
+        });
+        
+        // Thêm độ trễ giữa các chunk cho low priority
+        if (chunkDelay > 0 && i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, chunkDelay));
+        }
+      }
+      
+      // Kiểm tra một lần nữa trước khi gửi kết quả cuối cùng
+      if (batchTimestamp < latestBatchTimestamp) {
+        console.log(`[Worker] Skipping final batch result due to newer batch`);
+        return;
+      }
+      
+      const endTime = performance.now();
+      self.postMessage({
+        action: 'batchResults',
+        batchTimestamp: batchTimestamp,
+        priority: priority,
+        stats: {
+          stockCount: totalProcessed,
+          processingTime: (endTime - startTime).toFixed(2),
+          chunkCount: chunks.length,
+          chunkDelay: chunkDelay
         }
       });
-  
-      totalProcessed += Object.keys(results).length;
-  
-      self.postMessage({ 
-        action: 'chunkResults',
-        chunkIndex: index,
-        results: results
-      });
-    });
-  
-    const endTime = performance.now();
-    self.postMessage({
-      action: 'batchResults',
-      stats: {
-        stockCount: totalProcessed,
-        processingTime: (endTime - startTime).toFixed(2),
-        chunkCount: chunks.length
-      }
-    });
+    };
+    
+    // Bắt đầu xử lý chunks
+    processChunks();
   }  
 };
 

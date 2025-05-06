@@ -445,6 +445,9 @@ export default function StockDerivatives() {
   // Refs for color worker message handler to avoid dependency cycles
   const handlerRef = useRef(null);
   
+  // Ref to track the latest batch timestamp
+  const latestBatchTimestampRef = useRef(0);
+  
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // First check localStorage for saved preference
@@ -675,11 +678,75 @@ export default function StockDerivatives() {
     // Store the interval ID in the ref
     intervalIdRef.current = intervalId;
     
-    // Create the filter worker
-    workerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url), { type: 'module' });
+    // Function to initialize or re-initialize workers
+    const initializeWorkers = () => {
+      // Terminate existing workers if any
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+      if (colorWorkerRef.current) {
+        colorWorkerRef.current.terminate();
+      }
+      
+      console.log("Initializing workers");
+      
+      // Create the filter worker
+      workerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url), { type: 'module' });
+      
+      // Create the color worker
+      colorWorkerRef.current = new Worker(new URL('../workers/priceColorWorker.js', import.meta.url), { type: 'module' });
+      
+      // Re-establish message handlers
+      if (colorWorkerRef.current && handlerRef.current) {
+        colorWorkerRef.current.addEventListener('message', handlerRef.current);
+      }
+      
+      // Re-process data if we have it
+      if (showWatchlist) {
+        if (watchlist && watchlist.length > 0) {
+          batchProcessPriceColors(watchlist, previousValues);
+        }
+      } else {
+        if (realTimeStockData && realTimeStockData.length > 0) {
+          batchProcessPriceColors(realTimeStockData, previousValues);
+        }
+      }
+    };
     
-    // Create the color worker
-    colorWorkerRef.current = new Worker(new URL('../workers/priceColorWorker.js', import.meta.url), { type: 'module' });
+    // Initialize workers on component mount
+    initializeWorkers();
+    
+    // Handle visibility change to recover from tab focus issues
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("Tab became visible, checking workers");
+        
+        // Check if workers are still alive
+        const workerAlive = workerRef.current && !workerRef.current.terminated;
+        const colorWorkerAlive = colorWorkerRef.current && !colorWorkerRef.current.terminated;
+        
+        if (!workerAlive || !colorWorkerAlive) {
+          console.log("Workers need to be reinitialized");
+          initializeWorkers();
+          
+          // Also, refresh data if needed
+          const exchangeMap = {
+            'HOSE': 'hsx',
+            'HNX': 'hnx'
+          };
+          const apiExchange = exchangeMap[selectedExchange] || 'hsx';
+          
+          if (showWatchlist) {
+            fetchWatchlistData(false, apiExchange);
+          } else {
+            fetchStockData(false, apiExchange);
+          }
+        }
+      }
+    };
+    
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Setup dark mode detection
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -717,6 +784,9 @@ export default function StockDerivatives() {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current);
       }
+      
+      // Remove visibility change listener
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
   
@@ -765,6 +835,9 @@ export default function StockDerivatives() {
   const batchProcessPriceColors = useCallback((stocks, prevValues) => {
     if (!colorWorkerRef.current || !stocks || stocks.length === 0) return;
     
+    // Determine if page is visible to adjust processing priority
+    const pageVisible = document.visibilityState === 'visible';
+    
     // Send batch request to worker
     colorWorkerRef.current.postMessage({
       action: 'batchProcess',
@@ -772,7 +845,12 @@ export default function StockDerivatives() {
         stocks: stocks,
         previousValues: prevValues,
         isDarkMode: isDarkMode,
+<<<<<<< HEAD
         chunkSize: 50 // Smaller chunks lead to more responsive UI updates
+=======
+        chunkSize: pageVisible ? 50 : 100, // Smaller chunks when visible for more responsive UI
+        priority: pageVisible ? 'high' : 'low' // Lower priority when tab is not visible
+>>>>>>> 1ee285e (fix: change api from stock/session to stock/latest)
       }
     });
   }, [isDarkMode, colorWorkerRef]);
@@ -1054,7 +1132,7 @@ export default function StockDerivatives() {
   };
 
   // Fetch stock data first, then set up SignalR
-  const fetchStockData = async (timestamp = null, retry = false, apiExchangeOverride = null, isSignalRUpdate = false) => {
+  const fetchStockData = async (retry = false, apiExchangeOverride = null, isSignalRUpdate = false) => {
     // Define exchangeMap at the top of the function to ensure it's available in catch block
     const exchangeMap = {
       'HOSE': 'hsx',
@@ -1070,7 +1148,7 @@ export default function StockDerivatives() {
       console.log(`FETCH STOCK DATA - Current tab: ${selectedExchange}, Using API exchange value: ${exchange}`);
       
       // Hiển thị loading chỉ khi không phải update từ SignalR và không có cache
-      if (!timestamp && !isSignalRUpdate && !isSignalRUpdating) {
+      if (!isSignalRUpdate && !isSignalRUpdating) {
         // Kiểm tra cache trước khi hiển thị loading
         const cachedData = getStockCache(exchange);
         
@@ -1089,39 +1167,27 @@ export default function StockDerivatives() {
         }
       }
       
-      let response;
-      if (timestamp) {
-        console.log(`Updating ${exchange} stock data with timestamp:`, timestamp);
-        // Use axiosInstance directly with our exchange value
-        response = await axiosInstance.get(`/api/stock/session`, {
-          params: {
-            exchange: exchange, // Do not modify this value - we've already mapped it correctly
-            timestamp: timestamp
-          }
-        });
-        
-        console.log(`Direct API call params - exchange: ${exchange}, timestamp: ${timestamp}`);
-        
-        // Cập nhật timestamp từ SignalR một cách trực tiếp
-        if (timestamp) {
-          console.log("Setting lastTimestamp to:", timestamp);
-          updateLastTimestamp(timestamp);
+      console.log(`Fetching ${exchange} stock data`);
+      // Luôn sử dụng endpoint latest, không sử dụng session và timestamp nữa
+      const response = await axiosInstance.get(`/api/stock/latest`, {
+        params: {
+          exchange: exchange // Do not modify this value - we've already mapped it correctly
         }
-      } else {
-        console.log(`Fetching initial ${exchange} stock data`);
-        // Use axiosInstance directly with our exchange value
-        response = await axiosInstance.get(`/api/stock/latest`, {
-          params: {
-            exchange: exchange // Do not modify this value - we've already mapped it correctly
-          }
-        });
-        
-        console.log(`Direct API call params - exchange: ${exchange}`);
-      }
+      });
+      
+      console.log(`Direct API call params - exchange: ${exchange}`);
       
       if (response?.data?.value?.data) {
-        // Update last timestamp from API response if we don't have a timestamp from SignalR
-        if (response.data.value.timestamp && !timestamp) {
+        // Nếu là cập nhật từ SignalR, sử dụng thời gian hiện tại
+        if (isSignalRUpdate) {
+          // Format thời gian hiện tại thành YYYYMMDDHHmmss
+          const now = moment();
+          const formattedTime = now.format('YYYYMMDDHHmmss');
+          console.log("Setting lastTimestamp to current time:", formattedTime);
+          updateLastTimestamp(formattedTime);
+        } 
+        // Nếu không phải update từ SignalR, sử dụng timestamp từ API (nếu có)
+        else if (response.data.value.timestamp) {
           updateLastTimestamp(response.data.value.timestamp);
         }
         
@@ -1132,7 +1198,7 @@ export default function StockDerivatives() {
         let newData;
         
         // Check if this is initial data or an update
-        if (!timestamp && (!realTimeStockData || realTimeStockData.length === 0)) {
+        if ((!realTimeStockData || realTimeStockData.length === 0)) {
           // Initial data - format all of it
           const formattedData = stockData.map(stock => {
               const formatValue = (value) => {
@@ -1171,7 +1237,7 @@ export default function StockDerivatives() {
           });
           
           // Save to cache and return as the new data
-            setStockCache(exchange, formattedData);
+          setStockCache(exchange, formattedData);
           newData = formattedData;
         } else {
           // This is an update - modify existing data
@@ -1267,7 +1333,7 @@ export default function StockDerivatives() {
             // Cập nhật cache với dữ liệu mới
             setStockCache(exchange, newData);
           }
-          }
+        }
 
         // Update the stock data with the new value
         updateStockData(newData);
@@ -1279,7 +1345,7 @@ export default function StockDerivatives() {
       // Now exchange is available here since we defined it outside the try block
       if (error.response && error.response.status === 404 && exchange === 'hnx' && !retry) {
         // Nếu là HNX và bị 404, thử lại 1 lần sau 2 giây
-        setTimeout(() => fetchStockData(timestamp, true), 2000);
+        setTimeout(() => fetchStockData(true), 2000);
         updateLoading(false);
         return false;
       } else if (error.response && error.response.status === 404) {
@@ -1380,8 +1446,64 @@ export default function StockDerivatives() {
       updateCurrentTime(moment());
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [updateCurrentTime]);
+    // Tự động làm mới dữ liệu mỗi 60 giây để đảm bảo dữ liệu luôn cập nhật
+    // ngay cả khi SignalR không hoạt động hoặc bị mất kết nối
+    const autoRefreshTimer = setInterval(() => {
+      // Kiểm tra xem đã có dữ liệu chưa và thời gian lần cuối cập nhật
+      // Chỉ làm mới nếu đã quá 60 giây kể từ lần cập nhật cuối
+      const lastUpdateTime = lastTimestamp 
+        ? moment(lastTimestamp, 'YYYYMMDDHHmmss') 
+        : null;
+      
+      const needsRefresh = !lastUpdateTime || moment().diff(lastUpdateTime, 'seconds') > 60;
+      
+      if (needsRefresh) {
+        console.log("Auto refreshing data due to inactivity at", moment().format('HH:mm:ss'));
+        
+        // Sử dụng exchange hiện tại
+        const exchangeMap = {
+          'HOSE': 'hsx',
+          'HNX': 'hnx'
+        };
+        const apiExchange = exchangeMap[selectedExchange] || 'hsx';
+        
+        // Gọi API tương ứng mà không thông qua SignalR nhưng vẫn cập nhật thời gian hiện tại
+        // bằng cách đánh dấu là isSignalRUpdate để sử dụng thời gian hiện tại
+        if (showWatchlist) {
+          fetchWatchlistData(false, apiExchange, true); // true = isSignalRUpdate
+        } else {
+          fetchStockData(false, apiExchange, true); // true = isSignalRUpdate
+        }
+        
+        // Kiểm tra và khởi động lại SignalR nếu cần
+        if (connectionRef.current && connectionRef.current.state !== 'Connected') {
+          console.log("Reconnecting SignalR due to disconnected state");
+          
+          // Gọi hàm thiết lập SignalR lại
+          const reconnectSignalR = async () => {
+            try {
+              const signalRService = (await import('@/api/signalRService')).default;
+              const connection = await signalRService.getConnection(true); // force reconnect
+              connectionRef.current = connection;
+              
+              // Thiết lập lại các listener
+              const result = await signalRService.setupStockListeners();
+              console.log("[SignalR] Reconnected, setup result:", result);
+            } catch (error) {
+              console.error("Error reconnecting to SignalR:", error);
+            }
+          };
+          
+          reconnectSignalR();
+        }
+      }
+    }, 60000); // Kiểm tra mỗi 60 giây
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(autoRefreshTimer); // Dọn dẹp auto refresh timer
+    };
+  }, [updateCurrentTime, lastTimestamp, selectedExchange, showWatchlist]);
 
   // Add to watchlist
   const addToWatchlist = async (userId, tickerSymbol) => {
@@ -1686,14 +1808,14 @@ export default function StockDerivatives() {
 
   // Update the debounced function to use API format directly
   const debouncedFetchStockData = useRef(
-    debounce((timestamp, apiExchange) => {
+    debounce((apiExchange) => {
       // apiExchange is already in API format ('hsx' or 'hnx'), so we use it directly
       console.log(`Creating debounced function with api exchange: ${apiExchange}`);
       // Thiết lập state để biết đang cập nhật từ SignalR
       updateSignalRUpdating(true);
       // Pass exchange to fetchStockData to override selectedExchange
       // Đánh dấu là update từ SignalR để không hiển thị loading
-      fetchStockData(timestamp, false, apiExchange, true).finally(() => {
+      fetchStockData(false, apiExchange, true).finally(() => {
         // Khi đã cập nhật xong, reset lại state
         updateSignalRUpdating(false);
       });
@@ -1703,7 +1825,7 @@ export default function StockDerivatives() {
   // Add SignalR event listeners (debounced, only fetch when correct exchange)
   useEffect(() => {
     const handleStockUpdate = (event) => {
-      const { exchange, timestamp } = event.detail;
+      const { exchange } = event.detail;
       
       // Define exchange mapping (from API format to display format)
       const exchangeMap = {
@@ -1711,7 +1833,7 @@ export default function StockDerivatives() {
         'hnx': 'HNX'
       };
       
-      console.log(`[WebSocket] Received update for exchange: ${exchange}, timestamp: ${timestamp}`);
+      console.log(`[WebSocket] Received update for exchange: ${exchange} at ${moment().format('HH:mm:ss')}`);
       console.log(`[WebSocket] Current selected exchange: ${selectedExchange}, Mapped from received: ${exchangeMap[exchange]}`);
       
       // Check if the event exchange matches the currently selected exchange
@@ -1726,9 +1848,9 @@ export default function StockDerivatives() {
         !showWatchlist &&
         exchangeMap[exchange] === selectedExchange
       ) {
-        console.log(`[WebSocket] Updating stock data for ${selectedExchange} with timestamp ${timestamp}`);
+        console.log(`[WebSocket] Updating stock data for ${selectedExchange} with current time`);
         // IMPORTANT: Pass the original API exchange code (e.g., 'hsx', 'hnx'), not the display name
-        debouncedFetchStockData(timestamp, exchange);
+        debouncedFetchStockData(exchange);
       } else {
         console.log(`[WebSocket] Ignoring update for ${exchange} as it doesn't match current tab ${selectedExchange}`);
       }
@@ -2074,6 +2196,19 @@ export default function StockDerivatives() {
       });
       
       console.log(`Watchlist Direct API call params - exchange: ${exchange}`);
+
+      // Nếu là cập nhật từ SignalR, cập nhật timestamp là thời gian hiện tại
+      if (isSignalRUpdate) {
+        // Format thời gian hiện tại thành YYYYMMDDHHmmss
+        const now = moment();
+        const formattedTime = now.format('YYYYMMDDHHmmss');
+        console.log("Setting lastTimestamp for watchlist to current time:", formattedTime);
+        updateLastTimestamp(formattedTime);
+      }
+      // Nếu response trả về timestamp, sử dụng nó khi không phải update từ SignalR
+      else if (response?.data?.value?.timestamp) {
+        updateLastTimestamp(response.data.value.timestamp);
+      }
 
       if (response?.data?.value?.data) {
         const newWatchlistStocks = response.data.value.data.map(stock => ({
@@ -2540,7 +2675,22 @@ export default function StockDerivatives() {
   useEffect(() => {
     // Create a single message handler that will use only refs and never re-create
     const handleColorWorkerMessage = (e) => {
+<<<<<<< HEAD
       const { action, result, results, stats, chunkIndex, chunkResults } = e.data;
+=======
+      const { action, result, results, stats, chunkIndex, chunkResults, batchTimestamp } = e.data;
+      
+      // Kiểm tra batch timestamp (nếu có) để bỏ qua các batch cũ
+      if (batchTimestamp && batchTimestamp < latestBatchTimestampRef.current) {
+        console.log(`[Main] Ignoring outdated batch: ${batchTimestamp} < ${latestBatchTimestampRef.current}`);
+        return;
+      }
+      
+      // Cập nhật latest batch timestamp khi nhận được batch mới
+      if (batchTimestamp && batchTimestamp > latestBatchTimestampRef.current) {
+        latestBatchTimestampRef.current = batchTimestamp;
+      }
+>>>>>>> 1ee285e (fix: change api from stock/session to stock/latest)
       
       if (action === 'priceColorResult') {
         // Make sure we have all necessary data
@@ -2628,6 +2778,19 @@ export default function StockDerivatives() {
             
             console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms (${stats.chunkCount} chunks)`);
           }
+        }
+      }
+      else if (action === 'batchResults') {
+        // Handle batch processing final results
+        // Update performance metrics through ref
+        const updateMetricsFn = updateColorWorkerMetricsRef.current;
+        if (stats && updateMetricsFn) {
+          updateMetricsFn({
+            processingTime: stats.processingTime,
+            stockCount: stats.stockCount
+          });
+          
+          console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms (${stats.chunkCount} chunks)`);
         }
       }
     };
