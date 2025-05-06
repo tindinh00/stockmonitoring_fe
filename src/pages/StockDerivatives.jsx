@@ -1129,232 +1129,141 @@ export default function StockDerivatives() {
 
   // Fetch stock data first, then set up SignalR
   const fetchStockData = async (retry = false, apiExchangeOverride = null, isSignalRUpdate = false) => {
-    // Define exchangeMap at the top of the function to ensure it's available in catch block
     const exchangeMap = {
       'HOSE': 'hsx',
       'HNX': 'hnx'
     };
     
-    // If apiExchangeOverride is provided, use it directly (it's already in API format)
-    // Otherwise, map from the selected exchange display name to API format
     let exchange = apiExchangeOverride || exchangeMap[selectedExchange] || 'hsx';
     
+    console.log('=== Fetch Stock Data ===');
+    console.log(`Time: ${moment().format('HH:mm:ss.SSS')}`);
+    console.log(`Selected Exchange: ${selectedExchange}`);
+    console.log(`API Exchange Override: ${apiExchangeOverride}`);
+    console.log(`Final Exchange Used: ${exchange}`);
+    console.log(`Is SignalR Update: ${isSignalRUpdate}`);
+    console.log('======================');
+
     try {
-      // Log the selected exchange and exchange value used for API
-      console.log(`FETCH STOCK DATA - Current tab: ${selectedExchange}, Using API exchange value: ${exchange}`);
-      
       // Hiển thị loading chỉ khi không phải update từ SignalR và không có cache
       if (!isSignalRUpdate && !isSignalRUpdating) {
-        // Kiểm tra cache trước khi hiển thị loading
-        const cachedData = getStockCache(exchange);
+        // Reset data trước khi fetch mới
+        updateStockData([]);
+        updatePriceHistory({});
+        updatePriceColors({});
         
+        // Kiểm tra cache
+        const cachedData = getStockCache(exchange);
         if (cachedData) {
           console.log(`Using cached stock data for ${exchange}`);
-          
-          // Sử dụng dữ liệu cache ngay lập tức
           updateStockData(cachedData);
           updateLoading(false);
-          
-          // Vẫn tiếp tục gọi API để cập nhật dữ liệu mới nhất
         } else {
-          // Không có cache, reset data và hiển thị loading
-          updateStockData([]);
           updateLoading(true);
         }
       }
-      
+
+      console.log(`FETCH STOCK DATA - Current tab: ${selectedExchange}, Using API exchange value: ${exchange}`);
       console.log(`Fetching ${exchange} stock data`);
-      // Luôn sử dụng endpoint latest, không sử dụng session và timestamp nữa
+
       const response = await axiosInstance.get(`/api/stock/latest`, {
-        params: {
-          exchange: exchange // Do not modify this value - we've already mapped it correctly
-        }
+        params: { exchange }
       });
-      
+
       console.log(`Direct API call params - exchange: ${exchange}`);
-      
+      console.log('API response for exchange:', exchange, response.data);
+
       if (response?.data?.value?.data) {
-        // Nếu là cập nhật từ SignalR, sử dụng thời gian hiện tại
+        // Update timestamp
         if (isSignalRUpdate) {
-          // Format thời gian hiện tại thành YYYYMMDDHHmmss
           const now = moment();
           const formattedTime = now.format('YYYYMMDDHHmmss');
           console.log("Setting lastTimestamp to current time:", formattedTime);
           updateLastTimestamp(formattedTime);
-        } 
-        // Nếu không phải update từ SignalR, sử dụng timestamp từ API (nếu có)
-        else if (response.data.value.timestamp) {
+        } else if (response.data.value.timestamp) {
           updateLastTimestamp(response.data.value.timestamp);
         }
-        
+
         const stockData = response.data.value.data;
-        
-        // Process the data first, then update the state
-        // Instead of using a function updater which can't be passed to a web worker
         let newData;
-        
-        // Check if this is initial data or an update
-        if ((!realTimeStockData || realTimeStockData.length === 0)) {
-          // Initial data - format all of it
-          const formattedData = stockData.map(stock => {
-              const formatValue = (value) => {
-                if (value === null || value === undefined || value === '' || value === 0) {
-                  return '--';
-                }
-                return String(value);
-              };
 
-              return {
-                code: stock.stockCode,
-                ceiling: formatValue(stock.ceilPrice),
-                floor: formatValue(stock.floorPrice),
-                ref: formatValue(stock.priorClosePrice),
-                buyPrice3: formatValue(stock.price3Buy),
-                buyVolume3: formatValue(stock.volume3Buy),
-                buyPrice2: formatValue(stock.price2Buy),
-                buyVolume2: formatValue(stock.volume2Buy),
-                buyPrice1: formatValue(stock.price1Buy),
-                buyVolume1: formatValue(stock.volume1Buy),
-                matchPrice: formatValue(stock.matchPrice),
-                matchVolume: formatValue(stock.matchedOrderVolume),
-                matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
-                sellPrice1: formatValue(stock.price1Sell),
-                sellVolume1: formatValue(stock.volume1Sell),
-                sellPrice2: formatValue(stock.price2Sell),
-                sellVolume2: formatValue(stock.volume2Sell),
-                sellPrice3: formatValue(stock.price3Sell),
-                sellVolume3: formatValue(stock.volume3Sell),
-                totalVolume: formatValue(stock.volumeAccumulation),
-                high: formatValue(stock.highPrice),
-                low: formatValue(stock.lowPrice),
-                foreignBuy: formatValue(stock.foreignBuyVolume),
-                foreignSell: formatValue(stock.foreignSellVolume)
-              };
-          });
-          
-          // Save to cache and return as the new data
-          setStockCache(exchange, formattedData);
-          newData = formattedData;
-        } else {
-          // This is an update - modify existing data
-          newData = [...realTimeStockData];
-          let newPriceHistory = { ...priceHistory };
-          let newPriceChangeColors = { ...priceChangeColors };
-          let newPreviousValues = { ...previousValues };
-          let hasChanges = false;
-
-          stockData.forEach(stock => {
-            const existingIndex = newData.findIndex(item => item.code === stock.stockCode);
-            if (existingIndex === -1) return;
-
-            const formatValue = (value) => {
-              if (value === null || value === undefined || value === '' || value === 0) {
-                return '--';
-              }
-              return String(value);
-            };
-
-            const newValues = {
-              matchPrice: formatValue(stock.matchPrice),
-              matchVolume: formatValue(stock.matchedOrderVolume),
-              matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
-              buyPrice1: formatValue(stock.price1Buy),
-              buyVolume1: formatValue(stock.volume1Buy),
-              buyPrice2: formatValue(stock.price2Buy),
-              buyVolume2: formatValue(stock.volume2Buy),
-              buyPrice3: formatValue(stock.price3Buy),
-              buyVolume3: formatValue(stock.volume3Buy),
-              sellPrice1: formatValue(stock.price1Sell),
-              sellVolume1: formatValue(stock.volume1Sell),
-              sellPrice2: formatValue(stock.price2Sell),
-              sellVolume2: formatValue(stock.volume2Sell),
-              sellPrice3: formatValue(stock.price3Sell),
-              sellVolume3: formatValue(stock.volume3Sell),
-              totalVolume: formatValue(stock.volumeAccumulation),
-              high: formatValue(stock.highPrice),
-              low: formatValue(stock.lowPrice),
-              foreignBuy: formatValue(stock.foreignBuyVolume),
-              foreignSell: formatValue(stock.foreignSellVolume)
-            };
-
-            // Save the current values to previousValues before updating
-            if (!newPreviousValues[stock.stockCode]) {
-              newPreviousValues[stock.stockCode] = {};
+        // Format data
+        const formattedData = stockData.map(stock => {
+          const formatValue = (value) => {
+            if (value === null || value === undefined || value === '' || value === 0) {
+              return '--';
             }
-            
-            // We need to store the previous value for each field that changes
-            const currentData = newData[existingIndex];
-            const stockCode = stock.stockCode;
-            
-            // Check for price changes and apply color animations
-            const priceFields = [
-              'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
-              'sellPrice1', 'sellPrice2', 'sellPrice3'
-            ];
-            
-            priceFields.forEach(field => {
-              const currentValue = parseFloat(newValues[field]?.replace(/,/g, '') || '0');
-              const oldValue = parseFloat(currentData[field]?.replace(/,/g, '') || '0');
-              
-              // Only register changes for valid numbers
-              if (!isNaN(currentValue) && !isNaN(oldValue) && currentValue !== oldValue) {
-                hasChanges = true;
-                
-                // Store the previous value
-                newPreviousValues[stockCode][field] = currentData[field];
-                
-                // Apply animation class
-                if (currentValue > oldValue) {
-                  newPriceChangeColors[`${stockCode}-${field}`] = 'price-up';
-                } else if (currentValue < oldValue) {
-                  newPriceChangeColors[`${stockCode}-${field}`] = 'price-down';
-                }
-              }
-            });
+            return String(value);
+          };
 
-            // Cập nhật giá trị mới
-            newData[existingIndex] = {
-              ...newData[existingIndex],
-              ...newValues
-            };
+          return {
+            code: stock.stockCode,
+            ceiling: formatValue(stock.ceilPrice),
+            floor: formatValue(stock.floorPrice),
+            ref: formatValue(stock.priorClosePrice),
+            buyPrice3: formatValue(stock.price3Buy),
+            buyVolume3: formatValue(stock.volume3Buy),
+            buyPrice2: formatValue(stock.price2Buy),
+            buyVolume2: formatValue(stock.volume2Buy),
+            buyPrice1: formatValue(stock.price1Buy),
+            buyVolume1: formatValue(stock.volume1Buy),
+            matchPrice: formatValue(stock.matchPrice),
+            matchVolume: formatValue(stock.matchedOrderVolume),
+            matchChange: stock.plusMinus !== null ? `${parseFloat(stock.plusMinus) > 0 ? '+' : ''}${stock.plusMinus}%` : '--',
+            sellPrice1: formatValue(stock.price1Sell),
+            sellVolume1: formatValue(stock.volume1Sell),
+            sellPrice2: formatValue(stock.price2Sell),
+            sellVolume2: formatValue(stock.volume2Sell),
+            sellPrice3: formatValue(stock.price3Sell),
+            sellVolume3: formatValue(stock.volume3Sell),
+            totalVolume: formatValue(stock.volumeAccumulation),
+            high: formatValue(stock.highPrice),
+            low: formatValue(stock.lowPrice),
+            foreignBuy: formatValue(stock.foreignBuyVolume),
+            foreignSell: formatValue(stock.foreignSellVolume)
+          };
+        });
+
+        // Update cache and state
+        setStockCache(exchange, formattedData);
+        updateStockData(formattedData);
+
+        // Send data to worker for filtering
+        if (workerRef.current) {
+          console.log(`Sending ${formattedData.length} items to filter worker`);
+          workerRef.current.postMessage({
+            action: 'filter',
+            data: formattedData,
+            searchQuery: searchQuery,
+            filters: filters,
+            sortConfig: sortConfig,
+            showWatchlist: showWatchlist
           });
-
-          // Chỉ cập nhật state nếu có thay đổi để tránh re-render không cần thiết
-          if (hasChanges) {
-            // Update other states
-            updatePreviousValues(newPreviousValues);
-            updatePriceHistory(newPriceHistory);
-            updatePriceColors(newPriceChangeColors);
-            
-            // Cập nhật cache với dữ liệu mới
-            setStockCache(exchange, newData);
-          }
         }
 
-        // Update the stock data with the new value
-        updateStockData(newData);
-      }
-      
-      updateLoading(false);
-      return true;
-    } catch (error) {
-      // Now exchange is available here since we defined it outside the try block
-      if (error.response && error.response.status === 404 && exchange === 'hnx' && !retry) {
-        // Nếu là HNX và bị 404, thử lại 1 lần sau 2 giây
-        setTimeout(() => fetchStockData(true), 2000);
+        // Process price colors in batches
+        if (colorWorkerRef.current) {
+          console.log(`Processing colors for ${formattedData.length} stocks`);
+          batchProcessPriceColors(formattedData, previousValues);
+        }
+
         updateLoading(false);
-        return false;
-      } else if (error.response && error.response.status === 404) {
-        // Nếu là 404 (không phải HNX), chỉ clear data, không hiện lỗi nặng
+      } else {
+        console.log(`No data in response for ${exchange}`);
+        if (!isSignalRUpdate) {
+          updateStockData([]);
+          updateLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching stock data:", error);
+      if (!isSignalRUpdate) {
         updateStockData([]);
         updateLoading(false);
-        return false;
       }
-      // Các lỗi khác
-      updateStockData([]);
-      updateLoading(false);
-      toast.error('Không thể tải dữ liệu sàn ' + selectedExchange + '. Vui lòng thử lại sau.');
-      return false;
+      if (retry) {
+        toast.error("Không thể tải dữ liệu. Vui lòng thử lại sau.");
+      }
     }
   };
 
@@ -1821,7 +1730,7 @@ export default function StockDerivatives() {
   // Add SignalR event listeners (debounced, only fetch when correct exchange)
   useEffect(() => {
     const handleStockUpdate = (event) => {
-      const { exchange } = event.detail;
+      const { exchange, data, timestamp } = event.detail;
       
       // Define exchange mapping (from API format to display format)
       const exchangeMap = {
@@ -1829,28 +1738,35 @@ export default function StockDerivatives() {
         'hnx': 'HNX'
       };
       
-      console.log(`[WebSocket] Received update for exchange: ${exchange} at ${moment().format('HH:mm:ss')}`);
-      console.log(`[WebSocket] Current selected exchange: ${selectedExchange}, Mapped from received: ${exchangeMap[exchange]}`);
+      console.log('=== Stock Update Event ===');
+      console.log(`Time: ${moment().format('HH:mm:ss.SSS')}`);
+      console.log(`Received exchange: ${exchange}`);
+      console.log(`Selected exchange: ${selectedExchange}`);
+      console.log(`Mapped received exchange: ${exchangeMap[exchange]}`);
+      console.log(`Show watchlist: ${showWatchlist}`);
+      console.log(`Data timestamp: ${timestamp}`);
+      console.log('========================');
       
-      // Check if the event exchange matches the currently selected exchange
-      if (
-        showWatchlist &&
-        exchangeMap[exchange] === selectedExchange
-      ) {
+      // IMPORTANT: Only process updates for the currently selected exchange
+      // First, convert the received exchange to display format (HOSE/HNX)
+      const receivedExchangeDisplay = exchangeMap[exchange];
+      
+      // If the received update is not for the current exchange, ignore it
+      if (receivedExchangeDisplay !== selectedExchange) {
+        console.log(`[WebSocket] Ignoring update for ${exchange} as current tab is ${selectedExchange}`);
+        return;
+      }
+      
+      // Now we know this update is for the current exchange, process it
+      if (showWatchlist) {
         console.log(`[WebSocket] Updating watchlist data for ${selectedExchange}`);
-        // Pass the original API exchange code directly
         debouncedFetchWatchlist(exchange);
-      } else if (
-        !showWatchlist &&
-        exchangeMap[exchange] === selectedExchange
-      ) {
-        console.log(`[WebSocket] Updating stock data for ${selectedExchange} with current time`);
-        // IMPORTANT: Pass the original API exchange code (e.g., 'hsx', 'hnx'), not the display name
-        debouncedFetchStockData(exchange);
       } else {
-        console.log(`[WebSocket] Ignoring update for ${exchange} as it doesn't match current tab ${selectedExchange}`);
+        console.log(`[WebSocket] Updating stock data for ${selectedExchange}`);
+        debouncedFetchStockData(exchange);
       }
     };
+    
     window.addEventListener('stockUpdate', handleStockUpdate);
     return () => {
       window.removeEventListener('stockUpdate', handleStockUpdate);
@@ -2083,11 +1999,11 @@ export default function StockDerivatives() {
 
   // Xử lý thay đổi sàn giao dịch
   const handleExchangeChange = (exchangeId) => {
+    console.log('Exchange change triggered:', exchangeId);
     setSelectedExchange(exchangeId);
     
     // Reset các trạng thái 
     if (showWatchlist) {
-      // Reset isInitialWatchlistLoad khi đổi sàn trong chế độ watchlist
       updateInitialWatchlistLoad(true);
     } else {
       updateLoading(true);
@@ -2100,12 +2016,17 @@ export default function StockDerivatives() {
       'HNX': 'hnx'
     };
     
+    const apiExchange = exchangeMap[exchangeId];
+    console.log('Mapped API exchange:', apiExchange);
+    
     // Delay để UI có thể cập nhật trước
     setTimeout(() => {
       if (showWatchlist) {
-        fetchWatchlistData(false, exchangeMap[exchangeId]);
+        console.log('Fetching watchlist data for exchange:', apiExchange);
+        fetchWatchlistData(false, apiExchange);
       } else {
-        fetchStockData(null, false, exchangeMap[exchangeId]);
+        console.log('Fetching stock data for exchange:', apiExchange);
+        fetchStockData(null, false, apiExchange);
       }
     }, 100);
   };
@@ -2924,6 +2845,75 @@ export default function StockDerivatives() {
     
     return () => cancelAnimationFrame(frameId);
   }, [realTimeStockData, watchlist, searchQuery, filters, sortConfig, showWatchlist]);
+
+  // Update worker effect to handle data properly
+  useEffect(() => {
+    if (!workerRef.current) return;
+
+    const handleWorkerMessage = (e) => {
+      const { filteredData: workerFilteredData, stats } = e.data;
+      
+      console.log(`[Worker] Received filtered data: ${workerFilteredData.length} items`);
+      
+      // Only update if we have data and it's for the current exchange
+      if (workerFilteredData && workerFilteredData.length > 0) {
+        // Update filtered data
+        if (updateFilteredDataRef.current) {
+          updateFilteredDataRef.current(workerFilteredData);
+        }
+        
+        // Update performance metrics
+        if (stats && updatePerformanceMetricsRef.current) {
+          updatePerformanceMetricsRef.current(stats);
+        }
+      }
+    };
+
+    workerRef.current.addEventListener('message', handleWorkerMessage);
+    
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.removeEventListener('message', handleWorkerMessage);
+      }
+    };
+  }, []);
+
+  // Add effect to handle exchange changes
+  useEffect(() => {
+    console.log(`Exchange changed to: ${selectedExchange}`);
+    
+    // Reset data when exchange changes
+    updateStockData([]);
+    updateFilteredData([]);
+    updatePriceHistory({});
+    updatePriceColors({});
+    
+    // Clear workers
+    if (workerRef.current) {
+      workerRef.current.postMessage({
+        action: 'filter',
+        data: [],
+        searchQuery: '',
+        filters: {},
+        sortConfig: { key: null, direction: 'asc' },
+        showWatchlist: false
+      });
+    }
+    
+    if (colorWorkerRef.current) {
+      colorWorkerRef.current.postMessage({
+        action: 'clear'
+      });
+    }
+    
+    // Fetch new data for the selected exchange
+    const exchangeMap = {
+      'HOSE': 'hsx',
+      'HNX': 'hnx'
+    };
+    
+    fetchStockData(false, exchangeMap[selectedExchange], false);
+  }, [selectedExchange]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
