@@ -54,6 +54,7 @@ import { stockService } from '@/api/StockApi'; // Update import to use named imp
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
 import CandlestickChart from '@/components/CandlestickChart';
 import useStockWorkerStore from '../stores/useStockWorkerStore';
+import useWorkerMetricsStore from '../stores/useWorkerMetricsStore';
 
 // Define the BASE_URL constant for API calls
 const BASE_URL = APP_BASE_URL;
@@ -2891,6 +2892,64 @@ export default function StockDerivatives() {
     
     fetchStockData(false, exchangeMap[selectedExchange], false);
   }, [selectedExchange]);
+
+  const workerMetricsStore = useWorkerMetricsStore();
+
+  // Update the worker message handler
+  const handleWorkerMessage = (e) => {
+    if (e.data.type === 'BATCH_COMPLETE') {
+      workerMetricsStore.setLatestBatchTimestamp(Date.now());
+      
+      // Update metrics
+      workerMetricsStore.updateColorWorkerMetrics({
+        processedItems: e.data.processedItems,
+        totalProcessingTime: e.data.processingTime,
+        averageProcessingTime: e.data.processingTime / e.data.processedItems,
+      });
+    }
+    // ... rest of the handler
+  };
+
+  // Update the processUpdates function
+  const processUpdates = () => {
+    const currentTime = Date.now();
+    const lastBatchTime = workerMetricsStore.latestBatchTimestamp;
+    
+    // Only process if enough time has passed since last batch
+    if (currentTime - lastBatchTime < 100) { // 100ms throttle
+      return;
+    }
+
+    if (!workerMetricsStore.isProcessingBatch && workerMetricsStore.batchProcessingQueue.length > 0) {
+      workerMetricsStore.setIsProcessingBatch(true);
+      
+      // Process the batch
+      const batch = [...workerMetricsStore.batchProcessingQueue];
+      workerMetricsStore.clearBatchQueue();
+      
+      // Send to worker
+      if (colorWorker.current) {
+        colorWorker.current.postMessage({
+          type: 'PROCESS_BATCH',
+          data: batch,
+          isDarkMode: theme === 'dark',
+        });
+      }
+    }
+  };
+
+  // Update the debug logging if you have any
+  const logWorkerMetrics = () => {
+    const stats = workerMetricsStore.getWorkerPerformanceStats();
+    console.log('Worker Performance Stats:', stats);
+  };
+
+  // Update cleanup
+  useEffect(() => {
+    return () => {
+      workerMetricsStore.resetMetrics();
+    };
+  }, []);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
