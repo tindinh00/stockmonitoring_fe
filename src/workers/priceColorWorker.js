@@ -1,12 +1,176 @@
 // Web worker for price color and animation calculations
-// This offloads color-related calculations from the main thread
 
-/**
- * Utility function to split an array into chunks of the specified size
- * @param {Array} array - The array to split
- * @param {Number} size - The maximum size of each chunk
- * @returns {Array} Array of chunks
- */
+// Local caches for performance
+const colorCache = new Map();
+const animCache = new Map();
+let latestBatchTimestamp = 0;
+
+// Handle messages from main thread
+self.onmessage = function(e) {
+  const { action, data } = e.data;
+
+  switch (action) {
+    case 'getPriceColor': {
+      const { price, refPrice, ceilPrice, floorPrice, isDarkMode, cacheKey } = data;
+      const color = getPriceColor(price, refPrice, ceilPrice, floorPrice, isDarkMode);
+      
+      // Cache result locally
+      colorCache.set(cacheKey, color);
+      
+      // Send back to main thread to update store
+      self.postMessage({
+        action: 'updateCache',
+        cacheType: 'color',
+        key: cacheKey,
+        value: color
+      });
+      break;
+    }
+
+    case 'getChangeAnimation': {
+      const { currentValue, previousValue, type, cacheKey } = data;
+      const animation = getChangeAnimation(currentValue, previousValue, type);
+      
+      // Cache result locally
+      animCache.set(cacheKey, animation);
+      
+      // Send back to main thread to update store
+      self.postMessage({
+        action: 'updateCache',
+        cacheType: 'animation',
+        key: cacheKey,
+        value: animation
+      });
+      break;
+    }
+
+    case 'batchProcess': {
+      const { stocks, previousValues, isDarkMode, chunkSize = 50, priority = 'normal', batchTimestamp } = data;
+      
+      // Skip if this is an outdated batch
+      if (batchTimestamp < latestBatchTimestamp) {
+        console.log(`[Worker] Skipping outdated batch: ${batchTimestamp} < ${latestBatchTimestamp}`);
+        return;
+      }
+      
+      latestBatchTimestamp = batchTimestamp;
+      const startTime = performance.now();
+      
+      // Break stocks into chunks
+      const chunks = chunkArray(stocks, chunkSize);
+      const results = {};
+      
+      // Process chunks
+      const processChunks = async (start = 0) => {
+        for (let i = start; i < chunks.length; i++) {
+          if (batchTimestamp < latestBatchTimestamp) return;
+
+          const chunk = chunks[i];
+          
+          chunk.forEach((stock) => {
+            if (!stock || !stock.code) return;
+
+            const prevStock = previousValues?.[stock.code];
+            const priceFields = ['matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 'sellPrice1', 'sellPrice2', 'sellPrice3'];
+            const volumeFields = ['buyVolume1', 'buyVolume2', 'buyVolume3', 'sellVolume1', 'sellVolume2', 'sellVolume3', 'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'];
+
+            const priceColors = {};
+            const animations = {};
+
+            priceFields.forEach((field) => {
+              const val = stock[field];
+              if (val) {
+                const colorKey = `${stock.code}-${field}`;
+                const color = getPriceColor(val, stock.ref, stock.ceiling, stock.floor, isDarkMode);
+                priceColors[field] = color;
+                
+                // Send individual updates to main thread
+                self.postMessage({
+                  action: 'updateCache',
+                  cacheType: 'color',
+                  key: colorKey,
+                  value: color
+                });
+              }
+
+              if (prevStock?.[field] && val !== prevStock[field]) {
+                const animKey = `${stock.code}-${field}`;
+                const animation = getChangeAnimation(val, prevStock[field], 'price');
+                animations[field] = animation;
+                
+                // Send individual updates to main thread
+                self.postMessage({
+                  action: 'updateCache',
+                  cacheType: 'animation',
+                  key: animKey,
+                  value: animation
+                });
+              }
+            });
+
+            volumeFields.forEach((field) => {
+              const val = stock[field];
+              if (prevStock?.[field] && val !== prevStock[field]) {
+                const animKey = `${stock.code}-${field}`;
+                const animation = getChangeAnimation(val, prevStock[field], 'volume');
+                animations[field] = animation;
+                
+                // Send individual updates to main thread
+                self.postMessage({
+                  action: 'updateCache',
+                  cacheType: 'animation',
+                  key: animKey,
+                  value: animation
+                });
+              }
+            });
+
+            results[stock.code] = { priceColors, animations };
+          });
+
+          // Send chunk results
+          self.postMessage({
+            action: 'chunkResults',
+            chunkIndex: i,
+            totalChunks: chunks.length,
+            batchTimestamp,
+            results
+          });
+
+          if (priority === 'low' && i < chunks.length - 1) {
+            await new Promise(res => setTimeout(res, 50)); // Add delay for low priority
+          }
+        }
+
+        if (batchTimestamp >= latestBatchTimestamp) {
+          const endTime = performance.now();
+          self.postMessage({
+            action: 'batchResults',
+            batchTimestamp,
+            priority,
+            stats: {
+              stockCount: stocks.length,
+              processingTime: (endTime - startTime).toFixed(2),
+              chunkCount: chunks.length,
+              chunkDelay: priority === 'low' ? 50 : 0
+            }
+          });
+        }
+      };
+
+      processChunks();
+      break;
+    }
+
+    case 'clearCache': {
+      colorCache.clear();
+      animCache.clear();
+      latestBatchTimestamp = 0;
+      break;
+    }
+  }
+};
+
 function chunkArray(array, size) {
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
@@ -15,274 +179,43 @@ function chunkArray(array, size) {
   return chunks;
 }
 
-// Variable to track the latest batch timestamp to avoid processing outdated batches
-let latestBatchTimestamp = 0;
-
-// Message handler for the worker
-self.onmessage = function(e) {
-  const { action, data } = e.data;
-
-  if (action === 'getPriceColor') {
-    const { price, refPrice, ceilPrice, floorPrice, isDarkMode, cacheKey } = data;
-    const colorClass = getPriceColor(price, refPrice, ceilPrice, floorPrice, isDarkMode);
-    self.postMessage({ 
-      action: 'priceColorResult', 
-      result: {
-        colorClass: colorClass,
-        cacheKey: cacheKey || `${price}-${refPrice}-${ceilPrice}-${floorPrice}-${isDarkMode}`
-      }
-    });
-  } 
-  else if (action === 'getChangeAnimation') {
-    const { currentValue, previousValue, type, cacheKey } = data;
-    const animClass = getChangeAnimation(currentValue, previousValue, type);
-    self.postMessage({ 
-      action: 'animationResult', 
-      result: {
-        animClass: animClass,
-        cacheKey: cacheKey || `${currentValue}-${previousValue}-${type}`
-      }
-    });
-  }
-  else if (action === 'batchProcess') {
-    const startTime = performance.now();
-    const { stocks, isDarkMode, previousValues, chunkSize = 100, priority = 'high' } = data;
-    
-    // Tạo timestamp cho batch này
-    const batchTimestamp = Date.now();
-    
-    // Bỏ qua nếu đã có batch mới hơn đang chạy
-    if (batchTimestamp < latestBatchTimestamp) {
-      console.log(`[Worker] Ignoring outdated batch: ${batchTimestamp} < ${latestBatchTimestamp}`);
-      return;
-    }
-    
-    // Cập nhật timestamp batch mới nhất
-    latestBatchTimestamp = batchTimestamp;
-    
-    // Use provided chunk size or default to 100 if not specified
-    const actualChunkSize = chunkSize || 100;
-    
-    // Điều chỉnh kích thước chunk và độ trễ giữa các chunk dựa trên mức độ ưu tiên
-    const isHighPriority = priority === 'high';
-    const chunkDelay = isHighPriority ? 0 : 20; // Thêm độ trễ giữa các chunk cho low priority
-    
-    const chunks = chunkArray(stocks, actualChunkSize);
-    let totalProcessed = 0;
-    
-    // Xử lý từng chunk
-    const processChunks = async (startIndex = 0) => {
-      for (let i = startIndex; i < chunks.length; i++) {
-        // Kiểm tra nếu có batch mới hơn đã được gửi
-        if (batchTimestamp < latestBatchTimestamp) {
-          console.log(`[Worker] Stopping at chunk ${i} due to newer batch`);
-          return;
-        }
-        
-        const chunk = chunks[i];
-        const results = {};
-        
-        // Xử lý từng stock trong chunk
-        chunk.forEach(stock => {
-          if (!stock || !stock.code) return;
-          
-          results[stock.code] = {
-            priceColors: {},
-            animations: {}
-          };
-          
-          const priceFields = [
-            'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
-            'sellPrice1', 'sellPrice2', 'sellPrice3'
-          ];
-          
-          priceFields.forEach(field => {
-            if (stock[field]) {
-              results[stock.code].priceColors[field] = getPriceColor(
-                stock[field], 
-                stock.ref, 
-                stock.ceiling, 
-                stock.floor,
-                isDarkMode
-              );
-            }
-          });
-          
-          if (previousValues && previousValues[stock.code]) {
-            const prevStock = previousValues[stock.code];
-            
-            priceFields.forEach(field => {
-              if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-                results[stock.code].animations[field] = getChangeAnimation(
-                  stock[field],
-                  prevStock[field],
-                  'price'
-                );
-              }
-            });
-            
-            const volumeFields = [
-              'buyVolume1', 'buyVolume2', 'buyVolume3',
-              'sellVolume1', 'sellVolume2', 'sellVolume3',
-              'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'
-            ];
-            
-            volumeFields.forEach(field => {
-              if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-                results[stock.code].animations[field] = getChangeAnimation(
-                  stock[field],
-                  prevStock[field],
-                  'volume'
-                );
-              }
-            });
-          }
-        });
-        
-        totalProcessed += Object.keys(results).length;
-        
-        // Gửi kết quả chunk
-        self.postMessage({ 
-          action: 'chunkResults',
-          chunkIndex: i,
-          totalChunks: chunks.length,
-          batchTimestamp: batchTimestamp,
-          results: results
-        });
-        
-        // Thêm độ trễ giữa các chunk cho low priority
-        if (chunkDelay > 0 && i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, chunkDelay));
-        }
-      }
-      
-      // Kiểm tra một lần nữa trước khi gửi kết quả cuối cùng
-      if (batchTimestamp < latestBatchTimestamp) {
-        console.log(`[Worker] Skipping final batch result due to newer batch`);
-        return;
-      }
-      
-      const endTime = performance.now();
-      self.postMessage({
-        action: 'batchResults',
-        batchTimestamp: batchTimestamp,
-        priority: priority,
-        stats: {
-          stockCount: totalProcessed,
-          processingTime: (endTime - startTime).toFixed(2),
-          chunkCount: chunks.length,
-          chunkDelay: chunkDelay
-        }
-      });
-    };
-    
-    // Bắt đầu xử lý chunks
-    processChunks();
-  }  
-};
-
-/**
- * Determines the appropriate color class for a price value based on its relationship to reference prices
- * Rules:
- * 1. Price = ceiling → purple (#B388FF)
- * 2. Price = floor → cyan (#00BCD4)
- * 3. Price = reference → yellow (#F4BE37)
- * 4. Price > reference → green (#22c55e light mode, #00FF00 dark mode)
- * 5. Price < reference → red (#FF4A4A)
- */
 function getPriceColor(price, refPrice, ceilPrice, floorPrice, isDarkMode = false) {
-  // Ignore invalid values
-  if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
-      price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-    return isDarkMode ? 'text-white' : 'text-gray-900'; // Default color for empty values
-  }
-  
-  // Convert string values with commas to numbers
-  const numPrice = parseFloat(String(price).replace(/,/g, ''));
-  const numRefPrice = parseFloat(String(refPrice).replace(/,/g, ''));
-  const numCeilPrice = parseFloat(String(ceilPrice).replace(/,/g, ''));
-  const numFloorPrice = parseFloat(String(floorPrice).replace(/,/g, ''));
+  if (
+    price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
+    price == null || refPrice == null || ceilPrice == null || floorPrice == null
+  ) return isDarkMode ? 'text-white' : 'text-gray-900';
 
-  // Check for invalid number values
-  if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-    return isDarkMode ? 'text-white' : 'text-gray-900'; // Default color for invalid values
-  }
+  const num = (v) => parseFloat(String(v).replace(/,/g, ''));
+  const [p, r, c, f] = [num(price), num(refPrice), num(ceilPrice), num(floorPrice)];
+  if ([p, r, c, f].some(isNaN)) return isDarkMode ? 'text-white' : 'text-gray-900';
 
-  // Small epsilon for floating point comparisons
   const epsilon = 0.0001;
-  
-  // Priority-based checks
-  // 1. Check ceiling price (purple)
-  if (Math.abs(numPrice - numCeilPrice) < epsilon) {
-    return 'text-[#B388FF]'; // Purple for ceiling price
-  }
-  
-  // 2. Check floor price (cyan)
-  if (Math.abs(numPrice - numFloorPrice) < epsilon) {
-    return 'text-[#00BCD4]'; // Cyan for floor price
-  }
-  
-  // 3. Check reference price (yellow)
-  if (Math.abs(numPrice - numRefPrice) < epsilon) {
-    return 'text-[#F4BE37]'; // Yellow for reference price
-  }
-  
-  // 4. Check price increase (green)
-  if (numPrice > numRefPrice) {
-    return isDarkMode ? 'text-[#00FF00]' : 'text-[#22c55e]'; // Green for price increase
-  }
-  
-  // 5. Check price decrease (red)
-  if (numPrice < numRefPrice) {
-    return 'text-[#FF4A4A]'; // Red for price decrease
-  }
-  
-  // Default case (rare)
+  if (Math.abs(p - c) < epsilon) return 'text-[#B388FF]';
+  if (Math.abs(p - f) < epsilon) return 'text-[#00BCD4]';
+  if (Math.abs(p - r) < epsilon) return 'text-[#F4BE37]';
+  if (p > r) return isDarkMode ? 'text-[#00FF00]' : 'text-[#22c55e]';
+  if (p < r) return 'text-[#FF4A4A]';
   return isDarkMode ? 'text-white' : 'text-gray-900';
 }
 
-/**
- * Determines the appropriate animation class for value changes
- * Uses thresholds to prevent animations for tiny changes
- * Returns different classes for price vs. volume changes
- */
 function getChangeAnimation(currentValue, previousValue, type = 'price') {
   if (!currentValue || !previousValue) return '';
-  
-  // Convert values to numbers, handling comma-formatted strings
   const current = parseFloat(String(currentValue).replace(/,/g, ''));
   const previous = parseFloat(String(previousValue).replace(/,/g, ''));
-  
   if (isNaN(current) || isNaN(previous)) return '';
-  
-  // Thresholds to prevent animations for tiny changes
-  const priceChangeThreshold = 0.001; // 0.1% threshold for prices
-  const volumeChangeThreshold = 0.01; // 1% threshold for volumes
-  
+
+  const priceThres = 0.001, volumeThres = 0.01;
+  const delta = Math.abs(current - previous) / (Math.abs(previous) || 1);
+
   if (type === 'price') {
-    // Only animate significant price changes
-    if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > priceChangeThreshold) {
-      if (current > previous) return 'price-up';
-      if (current < previous) return 'price-down';
-    } else if (previous === 0 && current !== 0) {
-      // Special case when previous price was 0
-      if (current > 0) return 'price-up';
-      if (current < 0) return 'price-down';
-    }
-    return '';
+    if (delta > priceThres) return current > previous ? 'price-up' : 'price-down';
+    if (previous === 0 && current !== 0) return current > 0 ? 'price-up' : 'price-down';
   }
-  
+
   if (type === 'volume') {
-    // Only animate significant volume changes
-    if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > volumeChangeThreshold) {
-      if (current > previous) return 'volume-up';
-      if (current < previous) return 'volume-down';
-    } else if (previous === 0 && current > 0) {
-      // Special case when previous volume was 0
-      return 'volume-up';
-    }
-    return '';
+    if (delta > volumeThres) return current > previous ? 'volume-up' : 'volume-down';
+    if (previous === 0 && current > 0) return 'volume-up';
   }
-  
+
   return '';
-} 
+}

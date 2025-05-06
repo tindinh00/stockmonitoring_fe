@@ -53,6 +53,7 @@ import { getUserId, apiService, APP_BASE_URL } from '@/api/Api'; // Import APP_B
 import { stockService } from '@/api/StockApi'; // Update import to use named import
 import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
 import CandlestickChart from '@/components/CandlestickChart';
+import useStockWorkerStore from '../stores/useStockWorkerStore';
 
 // Define the BASE_URL constant for API calls
 const BASE_URL = APP_BASE_URL;
@@ -751,6 +752,8 @@ export default function StockDerivatives() {
     // Setup dark mode detection
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleDarkModeChange = (e) => {
+      const isDarkMode = e.matches;
+      useStockWorkerStore.getState().setIsDarkMode(isDarkMode);
       // Only update based on system preference if user hasn't set an explicit preference
       if (!localStorage.getItem('theme')) {
         setIsDarkMode(e.matches);
@@ -894,54 +897,21 @@ export default function StockDerivatives() {
    * This should be identical to the worker implementation for consistency.
    */
   const getPriceColor = (price, refPrice, ceilPrice, floorPrice, isDarkMode = false) => {
-    // Ignore invalid values
-    if (price === '--' || refPrice === '--' || ceilPrice === '--' || floorPrice === '--' ||
-        price === null || refPrice === null || ceilPrice === null || floorPrice === null) {
-      return isDarkMode ? 'text-white' : 'text-gray-900'; // Default color for empty values
-    }
+    const stockWorkerStore = useStockWorkerStore();
+    const cacheKey = stockWorkerStore.generateCacheKey(price, refPrice, ceilPrice, floorPrice);
     
-    // Convert string values with commas to numbers
-    const numPrice = parseFloat(String(price).replace(/,/g, ''));
-    const numRefPrice = parseFloat(String(refPrice).replace(/,/g, ''));
-    const numCeilPrice = parseFloat(String(ceilPrice).replace(/,/g, ''));
-    const numFloorPrice = parseFloat(String(floorPrice).replace(/,/g, ''));
-
-    // Check for invalid number values
-    if (isNaN(numPrice) || isNaN(numRefPrice) || isNaN(numCeilPrice) || isNaN(numFloorPrice)) {
-      return isDarkMode ? 'text-white' : 'text-gray-900'; // Default color for invalid values
+    // Try to get from cache first
+    const cachedColor = stockWorkerStore.getColorCache(cacheKey);
+    if (cachedColor) {
+      return cachedColor;
     }
 
-    // Small epsilon for floating point comparisons
-    const epsilon = 0.0001;
+    // If not in cache, calculate color
+    const color = calculatePriceColor(price, refPrice, ceilPrice, floorPrice, isDarkMode);
     
-    // Priority-based checks
-    // 1. Check ceiling price (purple)
-    if (Math.abs(numPrice - numCeilPrice) < epsilon) {
-      return 'text-[#B388FF]'; // Purple for ceiling price
-    }
-    
-    // 2. Check floor price (cyan)
-    if (Math.abs(numPrice - numFloorPrice) < epsilon) {
-      return 'text-[#00BCD4]'; // Cyan for floor price
-    }
-    
-    // 3. Check reference price (yellow)
-    if (Math.abs(numPrice - numRefPrice) < epsilon) {
-      return 'text-[#F4BE37]'; // Yellow for reference price
-    }
-    
-    // 4. Check price increase (green)
-    if (numPrice > numRefPrice) {
-      return isDarkMode ? 'text-[#00FF00]' : 'text-[#22c55e]'; // Green for price increase
-    }
-    
-    // 5. Check price decrease (red)
-    if (numPrice < numRefPrice) {
-      return 'text-[#FF4A4A]'; // Red for price decrease
-    }
-    
-    // Default case (rare)
-    return isDarkMode ? 'text-white' : 'text-gray-900';
+    // Store in cache
+    stockWorkerStore.setColorCache(cacheKey, color);
+    return color;
   };
 
   /**
@@ -950,43 +920,50 @@ export default function StockDerivatives() {
    * This should be identical to the worker implementation for consistency.
    */
   const getChangeAnimation = (currentValue, previousValue, type = 'price') => {
-    if (!currentValue || !previousValue) return '';
+    const stockWorkerStore = useStockWorkerStore();
+    const cacheKey = stockWorkerStore.generateAnimationCacheKey(currentValue, previousValue, type);
     
-    // Convert values to numbers, handling comma-formatted strings
+    // Try to get from cache first
+    const cachedAnimation = stockWorkerStore.getAnimationCache(cacheKey);
+    if (cachedAnimation) {
+      return cachedAnimation;
+    }
+
+    // If not in cache, calculate animation
+    const animation = calculateChangeAnimation(currentValue, previousValue, type);
+    
+    // Store in cache
+    stockWorkerStore.setAnimationCache(cacheKey, animation);
+    return animation;
+  };
+
+  // Helper function for price color calculation
+  const calculatePriceColor = (price, refPrice, ceilPrice, floorPrice, isDarkMode) => {
+    const num = (v) => parseFloat(String(v).replace(/,/g, ''));
+    price = num(price);
+    refPrice = num(refPrice);
+    ceilPrice = num(ceilPrice);
+    floorPrice = num(floorPrice);
+
+    if (price === ceilPrice) return isDarkMode ? '#FF3B3B' : '#FF0000';
+    if (price === floorPrice) return isDarkMode ? '#00C7FF' : '#0066FF';
+    if (price > refPrice) return isDarkMode ? '#FF6B6B' : '#FF2626';
+    if (price < refPrice) return isDarkMode ? '#39DFD6' : '#007AFF';
+    return isDarkMode ? '#FFFFFF' : '#000000';
+  };
+
+  // Helper function for change animation calculation
+  const calculateChangeAnimation = (currentValue, previousValue, type) => {
+    if (!previousValue || currentValue === previousValue) return '';
     const current = parseFloat(String(currentValue).replace(/,/g, ''));
     const previous = parseFloat(String(previousValue).replace(/,/g, ''));
     
-    if (isNaN(current) || isNaN(previous)) return '';
-    
-    // Thresholds to prevent animations for tiny changes
-    const priceChangeThreshold = 0.001; // 0.1% threshold for prices
-    const volumeChangeThreshold = 0.01; // 1% threshold for volumes
-    
-    if (type === 'price') {
-      // Only animate significant price changes
-      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > priceChangeThreshold) {
-        if (current > previous) return 'price-up';
-        if (current < previous) return 'price-down';
-      } else if (previous === 0 && current !== 0) {
-        // Special case when previous price was 0
-        if (current > 0) return 'price-up';
-        if (current < 0) return 'price-down';
-      }
-      return '';
+    if (current > previous) {
+      return type === 'price' ? 'price-up' : 'volume-up';
     }
-    
-    if (type === 'volume') {
-      // Only animate significant volume changes
-      if (previous !== 0 && Math.abs(current - previous) / Math.abs(previous) > volumeChangeThreshold) {
-        if (current > previous) return 'volume-up';
-        if (current < previous) return 'volume-down';
-      } else if (previous === 0 && current > 0) {
-        // Special case when previous volume was 0
-        return 'volume-up';
-      }
-      return '';
+    if (current < previous) {
+      return type === 'price' ? 'price-down' : 'volume-down';
     }
-    
     return '';
   };
 
