@@ -845,12 +845,8 @@ export default function StockDerivatives() {
         stocks: stocks,
         previousValues: prevValues,
         isDarkMode: isDarkMode,
-<<<<<<< HEAD
-        chunkSize: 50 // Smaller chunks lead to more responsive UI updates
-=======
         chunkSize: pageVisible ? 50 : 100, // Smaller chunks when visible for more responsive UI
         priority: pageVisible ? 'high' : 'low' // Lower priority when tab is not visible
->>>>>>> 1ee285e (fix: change api from stock/session to stock/latest)
       }
     });
   }, [isDarkMode, colorWorkerRef]);
@@ -2675,9 +2671,6 @@ export default function StockDerivatives() {
   useEffect(() => {
     // Create a single message handler that will use only refs and never re-create
     const handleColorWorkerMessage = (e) => {
-<<<<<<< HEAD
-      const { action, result, results, stats, chunkIndex, chunkResults } = e.data;
-=======
       const { action, result, results, stats, chunkIndex, chunkResults, batchTimestamp } = e.data;
       
       // Kiểm tra batch timestamp (nếu có) để bỏ qua các batch cũ
@@ -2690,7 +2683,6 @@ export default function StockDerivatives() {
       if (batchTimestamp && batchTimestamp > latestBatchTimestampRef.current) {
         latestBatchTimestampRef.current = batchTimestamp;
       }
->>>>>>> 1ee285e (fix: change api from stock/session to stock/latest)
       
       if (action === 'priceColorResult') {
         // Make sure we have all necessary data
@@ -2763,22 +2755,6 @@ export default function StockDerivatives() {
         }
         
         // No need to update metrics for individual chunks
-      }
-      else if (action === 'batchResults') {
-        // Handle batch processing final results
-        if (!results) {
-          // This is just the final stats message after all chunks processed
-          // Update performance metrics through ref
-          const updateMetricsFn = updateColorWorkerMetricsRef.current;
-          if (stats && updateMetricsFn) {
-            updateMetricsFn({
-              processingTime: stats.processingTime,
-              stockCount: stats.stockCount
-            });
-            
-            console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms (${stats.chunkCount} chunks)`);
-          }
-        }
       }
       else if (action === 'batchResults') {
         // Handle batch processing final results
