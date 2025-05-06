@@ -45,20 +45,6 @@ const PersonalAnalyticsPage = () => {
   // State for showing date picker dialog
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
 
-  // Format dates to MM/DD/YY for API calls
-  const formatDateForApi = (date) => {
-    const d = new Date(date);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const year = String(d.getFullYear()).slice(-2);
-    return `${month}/${day}/${year}`;
-  };
-  
-  // Format dates to yyyy-MM-dd for date inputs
-  const formatDateForInput = (date) => {
-    return format(date, 'yyyy-MM-dd');
-  };
-
   useEffect(() => {
     fetchStocksData();
   }, []);
@@ -81,13 +67,22 @@ const PersonalAnalyticsPage = () => {
         return;
       }
 
+      // Format dates to MM/DD/YY
+      const formatDate = (date) => {
+        const d = new Date(date);
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${month}/${day}/${year}`;
+      };
+
       // Gọi API phân tích cá nhân với các tham số mới
       const response = await axios.get(
         `https://stockmonitoring-api-gateway.onrender.com/api/personal-analysis/${userId}`,
         {
           params: {
-            startDate: formatDateForApi(dateRange.startDate),
-            endDate: formatDateForApi(dateRange.endDate),
+            startDate: formatDate(dateRange.startDate),
+            endDate: formatDate(dateRange.endDate),
             isAsc: sortDirection === 'asc'
           },
           headers: {
@@ -364,10 +359,10 @@ const PersonalAnalyticsPage = () => {
         color = formattedValue > 0 ? 'text-[#00FF00]' : formattedValue < 0 ? 'text-[#FF4A4A]' : 'text-gray-900 dark:text-white';
         break;
       case 'beta':
-        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
         break;
       case 'betaWeight':
-        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
         break;
       case 'returnLevel':
         switch (formattedValue) {
@@ -604,27 +599,6 @@ const PersonalAnalyticsPage = () => {
     }
   };
 
-  // Add function to calculate total weighted beta
-  const calculateTotalWeightedBeta = () => {
-    if (!stocks || stocks.length === 0) return 0;
-    
-    // Sum all weighted betas
-    const totalWeightedBeta = stocks.reduce((sum, stock) => {
-      // If betaWeight is available, use it directly
-      if (stock.betaWeight !== undefined && stock.betaWeight !== null) {
-        return sum + stock.betaWeight;
-      } 
-      // If we need to calculate betaWeight from beta and weight
-      else if (stock.beta !== undefined && stock.beta !== null && stock.weight !== undefined && stock.weight !== null) {
-        return sum + (stock.beta * stock.weight / 100);
-      }
-      return sum;
-    }, 0);
-    
-    // Return with 2 decimal places
-    return totalWeightedBeta.toFixed(2);
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -646,10 +620,10 @@ const PersonalAnalyticsPage = () => {
           <div className="flex items-center gap-4">
             <Button
               onClick={() => setIsDateDialogOpen(true)}
-              className="bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#252525] text-gray-700 dark:text-white px-4 py-2 rounded-lg flex items-center"
+              className="bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#252525] text-gray-700 dark:text-white px-4 py-2 rounded-lg"
             >
-              <Calendar className="mr-2 h-4 w-4 text-[#09D1C7]" />
-              <span className="text-sm">{format(dateRange.startDate, 'dd/MM/yy')} - {format(dateRange.endDate, 'dd/MM/yy')}</span>
+              <Calendar className="mr-2 h-4 w-4" />
+              {`${format(dateRange.startDate, 'dd/MM/yyyy')} - ${format(dateRange.endDate, 'dd/MM/yyyy')}`}
             </Button>
             <Button
               onClick={handleOpenAddStockDialog}
@@ -688,15 +662,9 @@ const PersonalAnalyticsPage = () => {
         <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Phân tích danh mục đầu tư</h2>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-[#252525] rounded-lg">
-                <span className="text-gray-500 dark:text-[#999] mr-2">Tổng TS Beta:</span>
-                <span className="text-gray-900 dark:text-white font-medium">{calculateTotalWeightedBeta()}</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-500 dark:text-[#999]">
-                <span>Tổng số cổ phiếu:</span>
-                <span className="text-gray-900 dark:text-white font-medium">{stocks.length}</span>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
+              <span>Tổng số cổ phiếu:</span>
+              <span className="text-gray-900 dark:text-white font-medium">{stocks.length}</span>
             </div>
           </div>
           
@@ -1033,12 +1001,18 @@ const PersonalAnalyticsPage = () => {
                 <div className="relative">
                   <Input
                     id="start-date"
-                    type="date"
-                    value={formatDateForInput(dateRange.startDate)}
-                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-10"
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={format(dateRange.startDate, 'dd/MM/yy')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
+                    onFocus={(e) => e.target.type = 'date'}
+                    onBlur={(e) => {
+                      e.target.type = 'text';
+                      e.target.value = format(dateRange.startDate, 'dd/MM/yy');
+                    }}
                     onChange={(e) => handleDateChange('startDate', e.target.value)}
                   />
-                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
               <div className="space-y-2">
@@ -1048,12 +1022,18 @@ const PersonalAnalyticsPage = () => {
                 <div className="relative">
                   <Input
                     id="end-date"
-                    type="date"
-                    value={formatDateForInput(dateRange.endDate)}
-                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-10"
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={format(dateRange.endDate, 'dd/MM/yy')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
+                    onFocus={(e) => e.target.type = 'date'}
+                    onBlur={(e) => {
+                      e.target.type = 'text';
+                      e.target.value = format(dateRange.endDate, 'dd/MM/yy');
+                    }}
                     onChange={(e) => handleDateChange('endDate', e.target.value)}
                   />
-                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
