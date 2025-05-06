@@ -771,11 +771,12 @@ export default function StockDerivatives() {
       data: {
         stocks: stocks,
         previousValues: prevValues,
-        isDarkMode: isDarkMode
+        isDarkMode: isDarkMode,
+        chunkSize: 50 // Smaller chunks lead to more responsive UI updates
       }
     });
   }, [isDarkMode, colorWorkerRef]);
-  
+
   // Trigger batch processing when data changes
   useEffect(() => {
     // Đảm bảo worker đã được khởi tạo
@@ -1521,9 +1522,11 @@ export default function StockDerivatives() {
   // Xóa hiệu ứng sau khi hiển thị
   useEffect(() => {
     if (Object.keys(priceChangeColors).length > 0) {
+      // Use a shorter timeout with the chunking approach to clear animations
+      // This makes the UI feel more responsive
       const timer = setTimeout(() => {
         updatePriceColors({});
-      }, 1000); // Hiển thị trong 1 giây thay vì 2 giây
+      }, 800); // Reduced from 1000ms to 800ms for better responsiveness
       
       return () => clearTimeout(timer);
     }
@@ -1824,7 +1827,7 @@ export default function StockDerivatives() {
       to { transform: rotate(360deg); }
     }
 
-    /* Price change animations - Cải thiện */
+    /* Price change animations - Optimized for chunking */
     @keyframes priceUp {
       0% { 
         background-color: rgba(0, 255, 0, 0.4);
@@ -1874,7 +1877,7 @@ export default function StockDerivatives() {
       }
     }
     
-    /* Volume change animations - Cải thiện */
+    /* Volume change animations - Optimized for chunking */
     @keyframes volume-up {
       0% { 
         background-color: rgba(0, 255, 0, 0.25);
@@ -1902,23 +1905,23 @@ export default function StockDerivatives() {
     }
 
     .volume-up {
-      animation: volume-up 2s ease-out;
+      animation: volume-up 1.5s ease-out;
     }
 
     .volume-down {
-      animation: volume-down 2s ease-out;
+      animation: volume-down 1.5s ease-out;
     }
 
     .price-up {
-      animation: priceUp 2s ease-out;
+      animation: priceUp 1.5s ease-out;
     }
 
     .price-down {
-      animation: priceDown 2s ease-out;
+      animation: priceDown 1.5s ease-out;
     }
 
     .price-equal {
-      animation: priceEqual 2s ease-out;
+      animation: priceEqual 1.5s ease-out;
     }
 
     /* Table styles */
@@ -2537,7 +2540,7 @@ export default function StockDerivatives() {
   useEffect(() => {
     // Create a single message handler that will use only refs and never re-create
     const handleColorWorkerMessage = (e) => {
-      const { action, result, results, stats } = e.data;
+      const { action, result, results, stats, chunkIndex, chunkResults } = e.data;
       
       if (action === 'priceColorResult') {
         // Make sure we have all necessary data
@@ -2558,21 +2561,21 @@ export default function StockDerivatives() {
           }
         }
       }
-      else if (action === 'batchResults') {
-        // Handle batch processing results
+      else if (action === 'chunkResults') {
+        // Handle chunk processing results as they arrive
         if (!results) return;
         
         // Get current update functions from refs
         const updateColorFn = updateColorCacheRef.current;
         const updateAnimFn = updateAnimationCacheRef.current;
-        const updateMetricsFn = updateColorWorkerMetricsRef.current;
         
+        // Process this chunk's results immediately without waiting for all chunks
         if (updateColorFn) {
           updateColorFn(prevCache => {
             const newCache = {...prevCache};
             let hasChanges = false;
             
-            // Process each stock's colors
+            // Process each stock's colors in this chunk
             Object.keys(results).forEach(stockCode => {
               const stockColors = results[stockCode].priceColors || {};
               Object.keys(stockColors).forEach(field => {
@@ -2593,7 +2596,7 @@ export default function StockDerivatives() {
             const newCache = {...prevCache};
             let hasChanges = false;
             
-            // Process each stock's animations
+            // Process each stock's animations in this chunk
             Object.keys(results).forEach(stockCode => {
               const stockAnimations = results[stockCode].animations || {};
               Object.keys(stockAnimations).forEach(field => {
@@ -2609,14 +2612,22 @@ export default function StockDerivatives() {
           });
         }
         
-        // Update performance metrics through ref
-        if (stats && updateMetricsFn) {
-          updateMetricsFn({
-            processingTime: stats.processingTime,
-            stockCount: stats.stockCount
-          });
-          
-          console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms`);
+        // No need to update metrics for individual chunks
+      }
+      else if (action === 'batchResults') {
+        // Handle batch processing final results
+        if (!results) {
+          // This is just the final stats message after all chunks processed
+          // Update performance metrics through ref
+          const updateMetricsFn = updateColorWorkerMetricsRef.current;
+          if (stats && updateMetricsFn) {
+            updateMetricsFn({
+              processingTime: stats.processingTime,
+              stockCount: stats.stockCount
+            });
+            
+            console.log(`[Color Worker] Processed ${stats.stockCount} stocks in ${stats.processingTime}ms (${stats.chunkCount} chunks)`);
+          }
         }
       }
     };

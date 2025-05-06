@@ -1,6 +1,20 @@
 // Web worker for price color and animation calculations
 // This offloads color-related calculations from the main thread
 
+/**
+ * Utility function to split an array into chunks of the specified size
+ * @param {Array} array - The array to split
+ * @param {Number} size - The maximum size of each chunk
+ * @returns {Array} Array of chunks
+ */
+function chunkArray(array, size) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
 // Message handler for the worker
 self.onmessage = function(e) {
   const { action, data } = e.data;
@@ -28,88 +42,92 @@ self.onmessage = function(e) {
     });
   }
   else if (action === 'batchProcess') {
-    // Process multiple stocks at once to reduce message passing overhead
     const startTime = performance.now();
-    const { stocks, isDarkMode, previousValues } = data;
-    
-    const results = {};
-    
-    stocks.forEach(stock => {
-      // Skip invalid stocks
-      if (!stock || !stock.code) return;
-      
-      // Store results for this stock
-      results[stock.code] = {
-        priceColors: {},
-        animations: {}
-      };
-      
-      // Calculate colors for all price fields
-      const priceFields = [
-        'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
-        'sellPrice1', 'sellPrice2', 'sellPrice3'
-      ];
-      
-      priceFields.forEach(field => {
-        if (stock[field]) {
-          results[stock.code].priceColors[field] = getPriceColor(
-            stock[field], 
-            stock.ref, 
-            stock.ceiling, 
-            stock.floor,
-            isDarkMode
-          );
+    const { stocks, isDarkMode, previousValues, chunkSize = 100 } = data;
+    // Use provided chunk size or default to 100 if not specified
+    const actualChunkSize = chunkSize || 100;
+  
+    const chunks = chunkArray(stocks, actualChunkSize);
+    let totalProcessed = 0;
+  
+    chunks.forEach((chunk, index) => {
+      const results = {};
+  
+      chunk.forEach(stock => {
+        if (!stock || !stock.code) return;
+  
+        results[stock.code] = {
+          priceColors: {},
+          animations: {}
+        };
+  
+        const priceFields = [
+          'matchPrice', 'buyPrice1', 'buyPrice2', 'buyPrice3', 
+          'sellPrice1', 'sellPrice2', 'sellPrice3'
+        ];
+  
+        priceFields.forEach(field => {
+          if (stock[field]) {
+            results[stock.code].priceColors[field] = getPriceColor(
+              stock[field], 
+              stock.ref, 
+              stock.ceiling, 
+              stock.floor,
+              isDarkMode
+            );
+          }
+        });
+  
+        if (previousValues && previousValues[stock.code]) {
+          const prevStock = previousValues[stock.code];
+  
+          priceFields.forEach(field => {
+            if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
+              results[stock.code].animations[field] = getChangeAnimation(
+                stock[field],
+                prevStock[field],
+                'price'
+              );
+            }
+          });
+  
+          const volumeFields = [
+            'buyVolume1', 'buyVolume2', 'buyVolume3',
+            'sellVolume1', 'sellVolume2', 'sellVolume3',
+            'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'
+          ];
+  
+          volumeFields.forEach(field => {
+            if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
+              results[stock.code].animations[field] = getChangeAnimation(
+                stock[field],
+                prevStock[field],
+                'volume'
+              );
+            }
+          });
         }
       });
-      
-      // Calculate animations if previousValues are provided
-      if (previousValues && previousValues[stock.code]) {
-        const prevStock = previousValues[stock.code];
-        
-        // Check price fields for animations
-        priceFields.forEach(field => {
-          if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-            results[stock.code].animations[field] = getChangeAnimation(
-              stock[field],
-              prevStock[field],
-              'price'
-            );
-          }
-        });
-        
-        // Check volume fields for animations
-        const volumeFields = [
-          'buyVolume1', 'buyVolume2', 'buyVolume3',
-          'sellVolume1', 'sellVolume2', 'sellVolume3',
-          'matchVolume', 'totalVolume', 'foreignBuy', 'foreignSell'
-        ];
-        
-        volumeFields.forEach(field => {
-          if (stock[field] && prevStock[field] && stock[field] !== prevStock[field]) {
-            results[stock.code].animations[field] = getChangeAnimation(
-              stock[field],
-              prevStock[field],
-              'volume'
-            );
-          }
-        });
-      }
+  
+      totalProcessed += Object.keys(results).length;
+  
+      self.postMessage({ 
+        action: 'chunkResults',
+        chunkIndex: index,
+        results: results
+      });
     });
-    
-    // Calculate processing time
+  
     const endTime = performance.now();
-    const processingTime = (endTime - startTime).toFixed(2);
-    
-    // Send results back to main thread
-    self.postMessage({ 
+    self.postMessage({
       action: 'batchResults',
-      results: results,
       stats: {
-        stockCount: Object.keys(results).length,
-        processingTime: processingTime
+        stockCount: totalProcessed,
+        processingTime: (endTime - startTime).toFixed(2),
+        chunkCount: chunks.length
       }
     });
-  }
+  }  
 };
 
 /**
