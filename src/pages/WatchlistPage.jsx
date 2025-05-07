@@ -111,6 +111,13 @@ const WatchlistPage = () => {
   // Get feature check function from store
   const features = useFeatureStore((state) => state.features);
 
+  // Lấy hàm kiểm tra quyền từ featureStore
+  const hasFeature = useFeatureStore(state => state.hasFeature);
+  
+  // Cờ kiểm tra quyền truy cập
+  const hasIndustryFeature = hasFeature("Quản lý danh mục theo dõi theo ngành");
+  const hasWatchlistFeature = hasFeature("Quản lý danh mục theo dõi cổ phiếu");
+
   // Add function to refresh industries data
   const refreshIndustries = () => {
     setShouldRefreshIndustries(prev => !prev);
@@ -1286,26 +1293,19 @@ const WatchlistPage = () => {
   </div>
 
   // Add function to check subscription
-  const checkSubscription = async () => {
+  const checkSubscription = () => {
     try {
       setIsLoadingSubscription(true);
-      // Đọc tính năng từ localStorage thay vì gọi API
-      const userFeatures = JSON.parse(localStorage.getItem('user_features')) || [];
       
-      // Cập nhật features trong store nếu cần thiết
-      if (useFeatureStore.getState().features.length === 0 && userFeatures.length > 0) {
-        useFeatureStore.setState({ features: userFeatures });
-      }
-      
-      // Giả lập đối tượng subscription dựa trên danh sách tính năng
+      // Kiểm tra quyền truy cập từ featureStore thay vì localStorage
       setUserSubscription({
-        isPremium: userFeatures.includes('Quản lý danh mục theo dõi theo ngành'),
-        hasIndustryFeature: userFeatures.includes('Quản lý danh mục theo dõi theo ngành'),
-        hasWatchlistFeature: userFeatures.includes('Quản lý danh mục theo dõi cổ phiếu'),
-        features: userFeatures
+        isPremium: hasIndustryFeature || hasWatchlistFeature,
+        hasIndustryFeature: hasIndustryFeature,
+        hasWatchlistFeature: hasWatchlistFeature,
+        features: useFeatureStore.getState().features
       });
     } catch (error) {
-      console.error('Error checking subscription from localStorage:', error);
+      console.error('Error checking subscription:', error);
       setUserSubscription(null);
     } finally {
       setIsLoadingSubscription(false);
@@ -1322,12 +1322,7 @@ const WatchlistPage = () => {
     try {
       console.log('Attempting to switch to tab:', tab);
       
-      // Đọc trực tiếp từ localStorage để đảm bảo dữ liệu mới nhất
-      const userFeatures = JSON.parse(localStorage.getItem('user_features')) || [];
-      console.log('User features from localStorage:', userFeatures);
-      
       if (tab === 'industries') {
-        const hasIndustryFeature = userFeatures.includes('Quản lý danh mục theo dõi theo ngành');
         console.log('Has industry feature:', hasIndustryFeature);
         
         if (!hasIndustryFeature) {
@@ -1335,7 +1330,6 @@ const WatchlistPage = () => {
           return;
         }
       } else if (tab === 'stocks') {
-        const hasWatchlistFeature = userFeatures.includes('Quản lý danh mục theo dõi cổ phiếu');
         console.log('Has watchlist feature:', hasWatchlistFeature);
         
         if (!hasWatchlistFeature) {
@@ -1452,11 +1446,7 @@ const WatchlistPage = () => {
           {watchlistTab === 'industries' && (
             <Button
               onClick={() => {
-                // Đọc trực tiếp từ localStorage để đảm bảo dữ liệu mới nhất
-                const userFeaturesFromStorage = JSON.parse(localStorage.getItem('user_features')) || [];
-                const canManageIndustries = userFeaturesFromStorage.includes('Quản lý danh mục theo dõi theo ngành');
-                
-                if (!canManageIndustries) {
+                if (!hasIndustryFeature) {
                   setIsUpgradeDialogOpen(true);
                   return;
                 }
@@ -1498,6 +1488,10 @@ const WatchlistPage = () => {
         </div>
             <Button
               onClick={() => {
+                if (!hasWatchlistFeature) {
+                  setIsUpgradeDialogOpen(true);
+                  return;
+                }
                 fetchAvailableStocks();
                 setIsAddStockDialogOpen(true);
               }}
