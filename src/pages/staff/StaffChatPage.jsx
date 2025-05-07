@@ -46,12 +46,17 @@ export default function StaffChatPage() {
   const soundRef = useRef(new Audio("/sounds/notification.mp3"));
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   };
 
   // Add effect to scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
+    // Thêm timeout để đảm bảo cuộn xuống tin nhắn mới nhất
+    const timeout = setTimeout(scrollToBottom, 300);
+    return () => clearTimeout(timeout);
   }, [messages]);
 
   // Helper function to format Firebase Timestamp to readable time
@@ -123,69 +128,99 @@ export default function StaffChatPage() {
   
   //Real time chat rooms
   useEffect(() => {
-    const q = query(collection(db, "room"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      // Map room data and update state
-      const roomData = querySnapshot.docs.map((doc) => ({
-        id: doc.id, // Store Firestore 
-        ...doc.data(), // Spread all room data
-      }));
-      
-      // Check for user activity status
-      const enhancedRoomData = roomData.map(room => {
-        // Check if room has lastActivity data
-        let lastActivity = null;
-        try {
-          lastActivity = room.lastActivity?.toDate ? new Date(room.lastActivity.toDate()) : null;
-        } catch (error) {
-          console.error(`Error converting lastActivity for room ${room.id}:`, error);
-        }
+    let unsubscribe = null;
+    try {
+      const q = query(collection(db, "room"));
+      unsubscribe = onSnapshot(q, (querySnapshot) => {
+        // Map room data and update state
+        const roomData = querySnapshot.docs.map((doc) => ({
+          id: doc.id, // Store Firestore 
+          ...doc.data(), // Spread all room data
+        }));
         
-        const now = new Date();
+        // Check for user activity status
+        const enhancedRoomData = roomData.map(room => {
+          // Check if room has lastActivity data
+          let lastActivity = null;
+          try {
+            lastActivity = room.lastActivity?.toDate ? new Date(room.lastActivity.toDate()) : null;
+          } catch (error) {
+            console.error(`Error converting lastActivity for room ${room.id}:`, error);
+          }
+          
+          const now = new Date();
+          
+          // Format last activity time for better debugging
+          const formattedLastActivity = lastActivity 
+            ? `${lastActivity.toLocaleDateString()} ${lastActivity.toLocaleTimeString()}`
+            : 'không có';
+          
+          // Calculate time difference in milliseconds
+          const timeDiff = lastActivity ? (now.getTime() - lastActivity.getTime()) : Infinity;
+          
+          // Consider user online if they were active in the last timeout period
+          const isOnline = !!lastActivity && (timeDiff < ACTIVITY_TIMEOUT);
+          
+          // Log for debugging
+          console.log(`Room ${room.id} - User ${room.userId || 'không xác định'} - Hoạt động gần nhất: ${formattedLastActivity} - Thời gian: ${Math.floor(timeDiff / 1000)}s - Trạng thái: ${isOnline ? 'online' : 'offline'}`);
+          
+          return {
+            ...room,
+            online: isOnline
+          };
+        });
         
-        // Format last activity time for better debugging
-        const formattedLastActivity = lastActivity 
-          ? `${lastActivity.toLocaleDateString()} ${lastActivity.toLocaleTimeString()}`
-          : 'không có';
-        
-        // Calculate time difference in milliseconds
-        const timeDiff = lastActivity ? (now.getTime() - lastActivity.getTime()) : Infinity;
-        
-        // Consider user online if they were active in the last timeout period
-        const isOnline = !!lastActivity && (timeDiff < ACTIVITY_TIMEOUT);
-        
-        // Log for debugging
-        console.log(`Room ${room.id} - User ${room.userId || 'không xác định'} - Hoạt động gần nhất: ${formattedLastActivity} - Thời gian: ${Math.floor(timeDiff / 1000)}s - Trạng thái: ${isOnline ? 'online' : 'offline'}`);
-        
-        return {
-          ...room,
-          online: isOnline
-        };
+        setRooms(enhancedRoomData);
       });
-      
-      setRooms(enhancedRoomData);
-    });
-    return () => unsubscribe();// Cleanup 
+    } catch (error) {
+      console.error("Error setting up room listener:", error);
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error("Error cleaning up room listener:", error);
+        }
+      }
+    }
   }, []);
   
   //Load message for selected room
   useEffect(() => {
+    let unsubscribe = null;
+    
     if (!selectedRoom) return;
-    // Query messages for specific room, ordered by timestamp
-    const q = query(
-      collection(db, "message"), 
-      where("roomId", "==", selectedRoom.id),
-      orderBy("timestamp", "asc")
-    );
-    //Update messages state when new messages are added
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const messageData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMessages(messageData);
-    });
-    return () => unsubscribe();
+    
+    try {
+      // Query messages for specific room, ordered by timestamp
+      const q = query(
+        collection(db, "message"), 
+        where("roomId", "==", selectedRoom.id),
+        orderBy("timestamp", "asc")
+      );
+      //Update messages state when new messages are added
+      unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const messageData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messageData);
+      });
+    } catch (error) {
+      console.error("Error setting up message listener:", error);
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error("Error cleaning up message listener:", error);
+        }
+      }
+    }
   }, [selectedRoom]);
   
 
@@ -373,31 +408,46 @@ export default function StaffChatPage() {
     if (!rooms) return;
     
     // Lắng nghe tin nhắn mới cho tất cả phòng chat
-    const messageListeners = rooms.map(room => {
-      const q = query(
-        collection(db, "message"),
-        where("roomId", "==", room.id),
-        orderBy("timestamp", "desc"),
-        // Chỉ lấy 1 tin nhắn mới nhất
-        limit(1)
-      );
-      
-      return onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "added") {
-            const message = { id: change.doc.id, ...change.doc.data() };
-            // Kiểm tra timestamp để đảm bảo là tin nhắn mới
-            if (message.timestamp && Date.now() - message.timestamp.toDate().getTime() < 10000) {
-              handleNewMessage(room.id, message, room);
+    const messageListeners = [];
+    
+    try {
+      rooms.forEach(room => {
+        const q = query(
+          collection(db, "message"),
+          where("roomId", "==", room.id),
+          orderBy("timestamp", "desc"),
+          // Chỉ lấy 1 tin nhắn mới nhất
+          limit(1)
+        );
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const message = { id: change.doc.id, ...change.doc.data() };
+              // Kiểm tra timestamp để đảm bảo là tin nhắn mới
+              if (message.timestamp && Date.now() - message.timestamp.toDate().getTime() < 10000) {
+                handleNewMessage(room.id, message, room);
+              }
             }
-          }
+          });
         });
+        
+        messageListeners.push(unsubscribe);
       });
-    });
+    } catch (error) {
+      console.error("Error setting up notification listeners:", error);
+    }
     
     // Cleanup listeners khi component bị unmount
     return () => {
-      messageListeners.forEach(unsubscribe => unsubscribe());
+      messageListeners.forEach(unsubscribe => {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error("Error cleaning up notification listener:", error);
+        }
+      });
+      
       if (notificationTimeoutRef.current) {
         clearTimeout(notificationTimeoutRef.current);
       }

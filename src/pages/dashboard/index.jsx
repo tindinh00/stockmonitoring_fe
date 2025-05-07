@@ -9,6 +9,9 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const currentYear = new Date().getFullYear()
+  const [loadingToday, setLoadingToday] = useState(true)
+  const [todayRevenue, setTodayRevenue] = useState(0)
+  const [todayPurchases, setTodayPurchases] = useState(0)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,6 +27,39 @@ export default function DashboardPage() {
     }
 
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    const fetchTodayRevenue = async () => {
+      try {
+        setLoadingToday(true)
+        const response = await apiService.getTodayRevenue()
+        // Cập nhật đường dẫn truy cập đúng với cấu trúc của response
+        console.log('Today revenue response:', response); // Log để debug
+        
+        // Kiểm tra đường dẫn đúng để truy cập dữ liệu
+        if (response?.value?.data) {
+          setTodayRevenue(response.value.data.totalRevenue || 0);
+          setTodayPurchases(response.value.data.totalPurchases || 0);
+        } else if (response?.data) {
+          // Fallback cho trường hợp API đã được xử lý trước đó
+          setTodayRevenue(response.data.totalRevenue || 0);
+          setTodayPurchases(response.data.totalPurchases || 0);
+        } else {
+          console.error('Unexpected API response structure:', response);
+          setTodayRevenue(0);
+          setTodayPurchases(0);
+        }
+      } catch (error) {
+        console.error('Error fetching today\'s revenue:', error);
+        setTodayRevenue(0);
+        setTodayPurchases(0);
+      } finally {
+        setLoadingToday(false);
+      }
+    }
+
+    fetchTodayRevenue()
   }, [])
 
   if (loading) {
@@ -82,6 +118,13 @@ export default function DashboardPage() {
     }).format(amount);
   }
 
+  // Lấy ngày hiện tại để hiển thị
+  const today = new Date().toLocaleDateString('vi-VN', { 
+    day: 'numeric', 
+    month: 'numeric', 
+    year: 'numeric'
+  });
+
   return (
     <div className="flex-1 p-4 md:p-8 pt-6 bg-[#0a0a14]">
       <div className="flex items-center justify-between mb-8">
@@ -93,7 +136,16 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="space-y-8">
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+          <StatsCard
+            title="Tổng doanh thu trong ngày"
+            value={loadingToday ? 'Đang tải...' : formatVND(todayRevenue)}
+            icon={<DollarSign className="h-4 w-4" />}
+            helperText={`${todayPurchases} giao dịch (${today})`}
+            trend="up"
+            className="bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-transparent border-0 shadow-xl shadow-cyan-500/5"
+            iconClassName="bg-cyan-500/10 text-cyan-500"
+          />
           <StatsCard
             title="Tổng doanh thu"
             value={formatVND(currentMonthStats.totalRevenue)}

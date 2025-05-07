@@ -46,7 +46,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subHours } from 'date-fns';
 import { vi } from "date-fns/locale";
 import {
   Select,
@@ -79,7 +79,7 @@ export default function ScraperManagementPage() {
   
   // Pagination states
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
   const [allData, setAllData] = useState([]);
 
   // Xử lý filter và sort dữ liệu
@@ -461,7 +461,7 @@ export default function ScraperManagementPage() {
                       </TableCell>
                       <TableCell className="min-w-[160px] lg:w-[180px] whitespace-nowrap py-2">
                         <div className="text-center">
-                          {format(parseISO(scraper.time), "dd/MM/yyyy HH:mm:ss")}
+                          {format(subHours(parseISO(scraper.time), 7), "dd/MM/yyyy HH:mm:ss")}
                         </div>
                       </TableCell>
                       <TableCell className="min-w-[60px] lg:w-[80px] text-center py-2">

@@ -1804,6 +1804,30 @@ export const apiService = {
       throw error.response?.data || error.message;
     }
   },
+
+  // Revenue APIs
+  getTodayRevenue: async () => {
+    try {
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập.");
+      }
+      const response = await axios.get(`${APP_BASE_URL}/api/revenue/current-day`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': '*/*'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Get today revenue error:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw error.response?.data || error.message;
+    }
+  },
 };
 
 export default axiosInstance;

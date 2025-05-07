@@ -48,7 +48,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { FileText, AlertTriangle, CheckCircle, Clock, Search, Filter, Eye, MoreVertical } from "lucide-react";
-import { format } from "date-fns";
+import { format, subHours } from "date-fns";
 import { vi } from "date-fns/locale";
 import { apiService } from "@/api/Api";
 
@@ -63,6 +63,21 @@ export default function ManagerReportPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [pageIndex, setPageIndex] = useState(1);
+  const pageSize = 10;
+  const filteredReports = reports.filter((report) => {
+    const matchesSearch = searchTerm
+      ? (report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         report.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         report.staffName?.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true;
+    const matchesType = selectedType === "all" || !selectedType || report.type === selectedType;
+    const matchesStatus = selectedStatus === "all" || !selectedStatus || report.status === selectedStatus;
+    const matchesSeverity = selectedSeverity === "all" || !selectedSeverity || report.severity === selectedSeverity;
+    return matchesSearch && matchesType && matchesStatus && matchesSeverity;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / pageSize));
+  const currentPageReports = filteredReports.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
 
   useEffect(() => {
     fetchReports();
@@ -121,17 +136,20 @@ export default function ManagerReportPage() {
     }
   };
 
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch = searchTerm
-      ? (report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         report.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         report.staffName?.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true;
-    const matchesType = selectedType === "all" || !selectedType || report.type === selectedType;
-    const matchesStatus = selectedStatus === "all" || !selectedStatus || report.status === selectedStatus;
-    const matchesSeverity = selectedSeverity === "all" || !selectedSeverity || report.severity === selectedSeverity;
-    return matchesSearch && matchesType && matchesStatus && matchesSeverity;
-  });
+  const translateType = (type) => {
+    switch (type) {
+      case 'system':
+        return 'Lỗi hệ thống';
+      case 'interface':
+        return 'Giao diện';
+      case 'performance':
+        return 'Hiệu năng';
+      case 'other':
+        return 'Khác';
+      default:
+        return type || 'Khác';
+    }
+  };
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
@@ -171,6 +189,10 @@ export default function ManagerReportPage() {
     setPreviewImage(imageUrl);
     setIsImagePreviewOpen(true);
   };
+
+  useEffect(() => {
+    setPageIndex(1);
+  }, [searchTerm, selectedType, selectedStatus, selectedSeverity]);
 
   return (
     <div className="container mx-auto py-8">
@@ -286,18 +308,13 @@ export default function ManagerReportPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredReports.map((report) => (
+                  currentPageReports.map((report) => (
                     <TableRow key={report.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium max-w-[300px] truncate text-left">
                         {report.title}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-left">
-                          <span>{report.staffName || 'N/A'}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({report.staffId})
-                          </span>
-                        </div>
+                      <TableCell className='text-left'>
+                        <span>{report.staffName || 'N/A'}</span>
                       </TableCell>
                       <TableCell>
                         {report.image ? (
@@ -311,7 +328,7 @@ export default function ManagerReportPage() {
                           <span className="text-muted-foreground text-sm">Không có ảnh</span>
                         )}
                       </TableCell>
-                      <TableCell className='text-left'>{report.type}</TableCell>
+                      <TableCell className='text-left'>{translateType(report.type)}</TableCell>
                       <TableCell className='text-left'>
                         <Badge variant="outline" className={getSeverityColor(report.level)}>
                           {report.level === "high" && "Cao"}
@@ -332,7 +349,7 @@ export default function ManagerReportPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className='text-left'>
-                        {format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        {format(subHours(new Date(report.createdAt), 7), "dd/MM/yyyy HH:mm", { locale: vi })}
                       </TableCell>
                       <TableCell className='text-left'>
                         <div className="flex items-center gap-2">
@@ -391,6 +408,53 @@ export default function ManagerReportPage() {
               </TableBody>
             </Table>
           </div>
+          {/* Pagination Controls */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Hiển thị {filteredReports.length === 0 ? 0 : ((pageIndex - 1) * pageSize) + 1} - {Math.min(pageIndex * pageSize, filteredReports.length)} / {filteredReports.length} báo cáo
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(1)}
+                disabled={pageIndex === 1}
+              >
+                Đầu
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(prev => Math.max(1, prev - 1))}
+                disabled={pageIndex === 1}
+              >
+                Trước
+              </Button>
+              <span className="min-w-[40px] text-center text-sm">
+                {pageIndex}/{totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(prev => Math.min(totalPages, prev + 1))}
+                disabled={pageIndex === totalPages}
+              >
+                Sau
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(totalPages)}
+                disabled={pageIndex === totalPages}
+              >
+                Cuối
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -418,18 +482,17 @@ export default function ManagerReportPage() {
                     <h4 className="text-sm font-medium mb-2">Nhân viên báo cáo</h4>
                     <div className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
                       <span className="text-base">{selectedReport.staffName || 'N/A'}</span>
-                      <span className="text-xs text-muted-foreground">({selectedReport.staffId})</span>
                     </div>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium mb-2">Ngày tạo</h4>
                     <p className="text-base bg-muted/50 p-3 rounded-lg">
-                      {format(new Date(selectedReport.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      {format(subHours(new Date(selectedReport.createdAt), 7), "dd/MM/yyyy HH:mm", { locale: vi })}
                     </p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium mb-2">Loại</h4>
-                    <p className="text-base bg-muted/50 p-3 rounded-lg">{selectedReport.type}</p>
+                    <p className="text-base bg-muted/50 p-3 rounded-lg">{translateType(selectedReport.type)}</p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium mb-2">Mức độ</h4>

@@ -1,5 +1,5 @@
 'use client';
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   ChevronRight, 
@@ -94,7 +94,7 @@ export function CustomSidebarTrigger() {
 }
 
 export default function StaffSidebar() {
-  const { state, isMobile } = useSidebar();
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
   const location = useLocation();
   const pathname = location.pathname;
   const { user, logout, isAuthenticated } = useAuth();
@@ -124,9 +124,10 @@ export default function StaffSidebar() {
   };
   
   return (
-    <Sidebar collapsible='icon'>
+    <Sidebar collapsible='icon' open={sidebarOpen}>
       <SidebarHeader>
-        <div className='flex gap-2 py-2 text-white'>
+        <div className='flex gap-2 py-2 text-white items-center'>
+          
           <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#09D1C7] to-[#0a8f88]'>
             <company.logo className='size-4 text-white' />
           </div>

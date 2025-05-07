@@ -412,6 +412,10 @@ const ProfilePage = () => {
     if (!userInfo.name || userInfo.name.trim().length === 0) {
       validationErrors.name = "Họ và tên không được để trống";
       hasErrors = true;
+    } else if (userInfo.name.length > 30) {
+      validationErrors.name = "Họ và tên không được vượt quá 30 ký tự";
+      hasErrors = true;
+      toast.error("Họ và tên không được vượt quá 30 ký tự");
     }
     
     // Validate số điện thoại
@@ -424,11 +428,21 @@ const ProfilePage = () => {
     
     // Validate ngày sinh
     if (userInfo.dateOfBirth) {
-      const birthDate = new Date(userInfo.dateOfBirth);
-      const today = new Date();
-      if (birthDate > today) {
-        validationErrors.dateOfBirth = "Ngày sinh không thể là ngày trong tương lai";
+      if (userInfo.dateOfBirth.length > 30) {
+        validationErrors.dateOfBirth = "Ngày sinh không được vượt quá 30 ký tự";
         hasErrors = true;
+        toast.error("Ngày sinh không được vượt quá 30 ký tự");
+      } else {
+        const birthDate = new Date(userInfo.dateOfBirth);
+        const today = new Date();
+        // Đặt giờ về 0 để so sánh chính xác ngày
+        birthDate.setHours(0,0,0,0);
+        today.setHours(0,0,0,0);
+        if (birthDate >= today) {
+          validationErrors.dateOfBirth = "Ngày sinh không thể là ngày hiện tại hoặc trong tương lai";
+          hasErrors = true;
+          toast.error("Ngày sinh không thể là ngày hiện tại hoặc trong tương lai");
+        }
       }
     }
     
