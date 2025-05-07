@@ -542,75 +542,26 @@ export default function StockDerivatives() {
   const [isDeletingStock, setIsDeletingStock] = useState(false);
   
   // Sorting and filtering
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filters, setFilters] = useState({
+  const [sortConfigState, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [filtersState, setFilters] = useState({
     priceChange: 'all',
     volume: 'all',
     percentChange: 'all',
     marketCap: 'all'
   });
   
+  // Memoize sortConfig and filters to prevent unnecessary re-renders
+  const sortConfig = useMemo(() => sortConfigState, [sortConfigState]);
+  const filters = useMemo(() => filtersState, [filtersState]);
+  
   // Handler functions
-  const handleSort = (key) => {
+  const handleSort = useCallback((key) => {
     let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+    if (sortConfigState.key === key && sortConfigState.direction === 'asc') {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-  };
-  
-  const handleStockClick = (stock) => {
-    setSelectedStock(stock);
-    setIsDialogOpen(true);
-    // Add chart data fetching logic here
-    const fetchChartData = async () => {
-      updateChartState(true, null); // Start loading
-
-      try {
-        const token = Cookies.get('auth_token');
-      
-        if (!token) {
-          updateChartState(false, 'Vui lòng đăng nhập để xem dữ liệu');
-          toast.error('Vui lòng đăng nhập để xem dữ liệu');
-          return;
-        }
-
-        const response = await axios.get(
-          `${APP_BASE_URL}/api/stock-price-history?ticketSymbol=${stock.code}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'accept': '*/*'
-            }
-          }
-        );
-
-        if (response.data?.value?.data) {
-          const formattedData = response.data.value.data.map(item => ({
-            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
-            open: item.openPrice,
-            high: item.highPrice,
-            low: item.lowPrice,
-            close: item.closePrice,
-            volume: item.volume
-          }));
-          updateChartData(formattedData);
-        } else {
-          updateChartData([]);
-          updateChartState(false, 'Không có dữ liệu cho mã này');
-        }
-      } catch (error) {
-        console.error('Error fetching chart data:', error);
-        updateChartData([]);
-        updateChartState(false, 'Không thể tải dữ liệu biểu đồ');
-        toast.error('Không thể tải dữ liệu biểu đồ');
-      } finally {
-        updateChartState(false);
-      }
-    };
-
-    fetchChartData();
-  };
+  }, [sortConfigState]);
   
   // Function to manually toggle dark mode
   const toggleDarkMode = () => {
@@ -925,7 +876,7 @@ export default function StockDerivatives() {
   ]);
 
   // Hàm ánh xạ từ trường khối lượng sang trường giá
-  const getPriceFieldForVolume = (volumeField) => {
+  const getPriceFieldForVolume = useCallback((volumeField) => {
     const fieldMapping = {
       'buyVolume3': 'buyPrice3',
       'buyVolume2': 'buyPrice2',
@@ -940,7 +891,7 @@ export default function StockDerivatives() {
     };
     
     return fieldMapping[volumeField] || volumeField.replace('Volume', 'Price');
-  };
+  }, []);
 
   /**
    * Fallback getPriceColor function in case the worker is not ready yet or fails.
@@ -1367,14 +1318,14 @@ export default function StockDerivatives() {
   };
 
   // Add sort indicator component
-  const SortIndicator = ({ columnKey }) => {
+  const SortIndicator = React.memo(({ columnKey }) => {
     if (sortConfig.key !== columnKey) return null;
     return (
       <span className="ml-1">
         {sortConfig.direction === 'asc' ? '↑' : '↓'}
       </span>
     );
-  };
+  });
 
   // Add useEffect for real-time clock update
   useEffect(() => {
@@ -1645,7 +1596,7 @@ export default function StockDerivatives() {
   };
 
   // useMemo for filtered data
-  const dataToDisplay = showWatchlist ? watchlist : realTimeStockData;
+  const dataToDisplay = useMemo(() => showWatchlist ? watchlist : realTimeStockData, [showWatchlist, watchlist, realTimeStockData]);
 
   // Add performance metrics state
   // const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -2487,14 +2438,9 @@ export default function StockDerivatives() {
       return filteredData;
     }
     
-    // In case filtering hasn't been applied yet, return the appropriate raw data
-    // Ensure we always return an array
-    if (showWatchlist) {
-      return Array.isArray(watchlist) ? watchlist : [];
-    } else {
-      return Array.isArray(realTimeStockData) ? realTimeStockData : [];
-    }
-  }, [filteredData, watchlist, realTimeStockData, showWatchlist]);
+    // In case filtering hasn't been applied yet, return dataToDisplay
+    return Array.isArray(dataToDisplay) ? dataToDisplay : [];
+  }, [filteredData, dataToDisplay]);
 
   // Render the tables
   const renderTables = () => {
@@ -2852,7 +2798,7 @@ export default function StockDerivatives() {
     const frameId = requestAnimationFrame(sendDataToWorker);
     
     return () => cancelAnimationFrame(frameId);
-  }, [realTimeStockData, watchlist, searchQuery, filters, sortConfig, showWatchlist]);
+  }, []); // Empty dependency array since we're using refs
 
   // Update worker effect to handle data properly
   useEffect(() => {
@@ -3306,6 +3252,60 @@ export default function StockDerivatives() {
   useEffect(() => {
     setTableKey(prev => prev + 1);
   }, [isDarkMode]);
+
+  // Move handleStockClick here after the useStock hook
+  const handleStockClick = useCallback((stock) => {
+    setSelectedStock(stock);
+    setIsDialogOpen(true);
+    // Add chart data fetching logic here
+    const fetchChartData = async () => {
+      updateChartState(true, null); // Start loading
+
+      try {
+        const token = Cookies.get('auth_token');
+      
+        if (!token) {
+          updateChartState(false, 'Vui lòng đăng nhập để xem dữ liệu');
+          toast.error('Vui lòng đăng nhập để xem dữ liệu');
+          return;
+        }
+
+        const response = await axios.get(
+          `${APP_BASE_URL}/api/stock-price-history?ticketSymbol=${stock.code}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': '*/*'
+            }
+          }
+        );
+
+        if (response.data?.value?.data) {
+          const formattedData = response.data.value.data.map(item => ({
+            time: Math.floor(new Date(item.tradingDate).getTime() / 1000),
+            open: item.openPrice,
+            high: item.highPrice,
+            low: item.lowPrice,
+            close: item.closePrice,
+            volume: item.volume
+          }));
+          updateChartData(formattedData);
+        } else {
+          updateChartData([]);
+          updateChartState(false, 'Không có dữ liệu cho mã này');
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        updateChartData([]);
+        updateChartState(false, 'Không thể tải dữ liệu biểu đồ');
+        toast.error('Không thể tải dữ liệu biểu đồ');
+      } finally {
+        updateChartState(false);
+      }
+    };
+
+    fetchChartData();
+  }, [updateChartData, updateChartState]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
