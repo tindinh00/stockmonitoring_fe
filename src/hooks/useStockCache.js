@@ -33,8 +33,8 @@ export function useStockCache() {
   useEffect(() => {
     const initializeCaches = async () => {
       try {
-        // Dynamically import LRUCache
-        const { default: LRUCache } = await import('lru-cache');
+        // Dynamically import LRUCache - use the named export
+        const { LRUCache } = await import('lru-cache');
         
         // Create new instances
         colorCacheRef.current = new LRUCache(COLOR_CACHE_OPTIONS);

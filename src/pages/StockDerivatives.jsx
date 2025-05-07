@@ -56,6 +56,8 @@ import CandlestickChart from '@/components/CandlestickChart';
 import useStockWorkerStore from '../stores/useStockWorkerStore';
 import useWorkerMetricsStore from '../stores/useWorkerMetricsStore';
 import { useStock } from '../hooks/useStock';
+// Additional utility function for memory management
+import { checkLocalStorageSize, clearOldCacheData, clearAllCacheData } from '../utils/memoryManager';
 
 // Define the BASE_URL constant for API calls
 const BASE_URL = APP_BASE_URL;
@@ -98,7 +100,7 @@ const getStockCache = (exchange) => {
     
     return parsedData.data;
   } catch (error) {
-    console.error('Error reading stock cache:', error);
+    console.error('[Cache] Error reading stock cache:', error);
     return null;
   }
 };
@@ -106,6 +108,15 @@ const getStockCache = (exchange) => {
 // Set stock data in cache
 const setStockCache = (exchange, data) => {
   try {
+    // First check available localStorage space
+    const storageInfo = checkLocalStorageSize();
+    
+    // If approaching critical threshold, clear old cache first
+    if (storageInfo.percentUsed > 80) {
+      console.warn('[Cache] localStorage usage high when setting stock cache, clearing old data');
+      clearOldCacheData(['stock_data_'], 12 * 60 * 60 * 1000); // Clear stock data older than 12 hours
+    }
+    
     const cacheKey = `stock_data_${exchange}`;
     const cacheData = {
       timestamp: new Date().getTime(),
@@ -113,8 +124,17 @@ const setStockCache = (exchange, data) => {
     };
     
     localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    
+    // Log cache update
+    console.log(`[Cache] Updated stock data cache for ${exchange}, items: ${data.length}`);
   } catch (error) {
-    console.error('Error storing stock cache:', error);
+    console.error('[Cache] Error storing stock cache:', error);
+    
+    // If we get a quota exceeded error, clear some space
+    if (error.name === 'QuotaExceededError' || error.code === 22) {
+      clearAllCacheData(['stock_data_']);
+      console.warn('[Cache] Cleared all stock cache due to quota exceeded');
+    }
   }
 };
 
@@ -137,7 +157,7 @@ const getWatchlistCache = (exchange, userId) => {
     
     return parsedData.data;
   } catch (error) {
-    console.error('Error reading watchlist cache:', error);
+    console.error('[Cache] Error reading watchlist cache:', error);
     return null;
   }
 };
@@ -145,6 +165,15 @@ const getWatchlistCache = (exchange, userId) => {
 // Set watchlist data in cache
 const setWatchlistCache = (exchange, userId, data) => {
   try {
+    // First check available localStorage space
+    const storageInfo = checkLocalStorageSize();
+    
+    // If approaching critical threshold, clear old cache first
+    if (storageInfo.percentUsed > 80) {
+      console.warn('[Cache] localStorage usage high when setting watchlist cache, clearing old data');
+      clearOldCacheData(['watchlist_'], 24 * 60 * 60 * 1000); // Clear watchlist data older than 24 hours
+    }
+    
     const cacheKey = `watchlist_${userId}_${exchange}`;
     const cacheData = {
       timestamp: new Date().getTime(),
@@ -152,8 +181,17 @@ const setWatchlistCache = (exchange, userId, data) => {
     };
     
     localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    
+    // Log cache update
+    console.log(`[Cache] Updated watchlist cache for ${userId}_${exchange}, items: ${data.length}`);
   } catch (error) {
-    console.error('Error storing watchlist cache:', error);
+    console.error('[Cache] Error storing watchlist cache:', error);
+    
+    // If we get a quota exceeded error, clear some space
+    if (error.name === 'QuotaExceededError' || error.code === 22) {
+      clearAllCacheData(['watchlist_']);
+      console.warn('[Cache] Cleared all watchlist cache due to quota exceeded');
+    }
   }
 };
 
@@ -437,7 +475,7 @@ function useStockState() {
 export default function StockDerivatives() {
   const navigate = useNavigate();
   const { hasFeature } = useFeatureStore();
-  
+
   // SignalR connection ref
   const connectionRef = useRef(null);
   
@@ -2972,6 +3010,131 @@ export default function StockDerivatives() {
     // Cleanup interval on unmount
     return () => clearInterval(interval);
   }, [updateCurrentTime]);
+
+  // Add ref to track worker restart intervals
+  const workerRestartIntervalRef = useRef(null);
+  
+  // Add refs to track worker last restart time
+  const lastWorkerRestartTimeRef = useRef(Date.now());
+  const workerRestartCountRef = useRef(0);
+  
+  // Add memory management effect
+  useEffect(() => {
+    // Check localStorage size and clear old cache if needed on component mount
+    checkLocalStorageSize();
+    
+    // Clear old cache data from localStorage every 10 minutes
+    const cacheCleanupInterval = setInterval(() => {
+      clearOldCacheData(['stock_data_', 'watchlist_'], 24 * 60 * 60 * 1000); // 24 hours
+      
+      // Log cache cleanup
+      console.log('[Memory Manager] Cleaned up old cache data:', new Date().toLocaleTimeString());
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    // Function to restart workers
+    const restartWorkers = () => {
+      try {
+        console.log('[Memory Manager] Restarting workers at:', new Date().toLocaleTimeString());
+        
+        // Increment restart count
+        workerRestartCountRef.current += 1;
+        
+        // Update last restart time
+        lastWorkerRestartTimeRef.current = Date.now();
+        
+        // Terminate existing workers if they exist
+        if (workerRef.current) {
+          workerRef.current.terminate();
+        }
+        if (colorWorkerRef.current) {
+          colorWorkerRef.current.terminate();
+        }
+        
+        // Re-initialize workers
+        workerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url), { type: 'module' });
+        colorWorkerRef.current = new Worker(new URL('../workers/priceColorWorker.js', import.meta.url), { type: 'module' });
+        
+        // Re-establish event listeners
+        if (workerRef.current) {
+          workerRef.current.addEventListener('message', handleWorkerMessage);
+        }
+        
+        if (colorWorkerRef.current && handlerRef.current) {
+          colorWorkerRef.current.addEventListener('message', handlerRef.current);
+        }
+        
+        // Re-process current data
+        if (showWatchlist && watchlist.length > 0) {
+          // Send data to workers after they've been reinitialized
+          setTimeout(() => {
+            // Re-send data to filter worker
+            if (workerRef.current) {
+              workerRef.current.postMessage({
+                action: 'filter',
+                data: watchlist,
+                searchQuery,
+                filters,
+                sortConfig,
+                showWatchlist
+              });
+            }
+            
+            // Re-send data to color worker
+            if (colorWorkerRef.current) {
+              batchProcessPriceColors(watchlist, previousValues);
+            }
+          }, 50);
+        } else if (realTimeStockData.length > 0) {
+          // Send data to workers after they've been reinitialized
+          setTimeout(() => {
+            // Re-send data to filter worker
+            if (workerRef.current) {
+              workerRef.current.postMessage({
+                action: 'filter',
+                data: realTimeStockData,
+                searchQuery,
+                filters,
+                sortConfig,
+                showWatchlist
+              });
+            }
+            
+            // Re-send data to color worker
+            if (colorWorkerRef.current) {
+              batchProcessPriceColors(realTimeStockData, previousValues);
+            }
+          }, 50);
+        }
+        
+        console.log('[Memory Manager] Workers successfully restarted');
+      } catch (error) {
+        console.error('[Memory Manager] Error restarting workers:', error);
+      }
+    };
+    
+    // Schedule worker restarts - initially after 30 minutes, then every 15 minutes
+    workerRestartIntervalRef.current = setInterval(() => {
+      // Only restart workers if the tab is not visible or if it's been more than 1 hour since last restart
+      const isLongSession = (Date.now() - lastWorkerRestartTimeRef.current) > 60 * 60 * 1000;
+      
+      if (document.visibilityState !== 'visible' || isLongSession) {
+        restartWorkers();
+      } else {
+        console.log('[Memory Manager] Worker restart deferred - tab is visible and session not too long');
+      }
+    }, 15 * 60 * 1000); // 15 minutes
+    
+    // Force a worker restart after 30 minutes initially
+    const initialRestartTimeout = setTimeout(() => {
+      restartWorkers();
+    }, 30 * 60 * 1000); // 30 minutes
+    
+    return () => {
+      clearInterval(cacheCleanupInterval);
+      clearInterval(workerRestartIntervalRef.current);
+      clearTimeout(initialRestartTimeout);
+    };
+  }, []);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
