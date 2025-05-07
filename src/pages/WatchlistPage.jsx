@@ -78,6 +78,8 @@ const WatchlistPage = () => {
 
   // Thêm state để phân biệt initial loading và update loading
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  // Thêm state mới để theo dõi việc đang cập nhật từ SignalR
+  const [isSignalRUpdating, setIsSignalRUpdating] = useState(false);
 
   // Add loading state for add stock
   const [isAddingStocks, setIsAddingStocks] = useState(false);
@@ -390,8 +392,9 @@ const WatchlistPage = () => {
   // Fetch stock data from API
   const fetchStockData = async () => {
     console.log("=== Fetching watchlist data ===");
-    // Chỉ hiển thị loading khi là lần tải ban đầu
-    if (isInitialLoading) {
+    
+    // Chỉ hiển thị loading khi là lần tải ban đầu và không phải cập nhật từ SignalR
+    if (isInitialLoading && !isSignalRUpdating) {
       setIsLoading(true);
     }
     
@@ -523,11 +526,10 @@ const WatchlistPage = () => {
       const totalTime = performance.now() - startTime;
       console.log(`Total fetchStockData time: ${totalTime.toFixed(0)}ms`);
       
-      // Chỉ khi là lần tải ban đầu thì mới cần tắt loading
-      if (isInitialLoading) {
-        setIsLoading(false);
-        setIsInitialLoading(false);
-      }
+      // Luôn tắt loading khi hoàn thành quá trình cập nhật dữ liệu
+      setIsLoading(false);
+      setIsInitialLoading(false);
+      setIsSignalRUpdating(false); // Đảm bảo reset lại trạng thái
       
       // Cập nhật timestamp
       setLastTimestamp(new Date());
@@ -537,6 +539,7 @@ const WatchlistPage = () => {
       console.error("Error in fetchStockData:", error);
       setIsLoading(false);
       setIsInitialLoading(false);
+      setIsSignalRUpdating(false); // Đảm bảo reset lại trạng thái
       toast.error("Không thể tải dữ liệu danh sách theo dõi");
       setWatchlist([]);
       return false;
@@ -568,7 +571,8 @@ const WatchlistPage = () => {
       // Tạo một debounce function để tránh gọi API quá nhiều lần khi nhận nhiều thông báo
       const debouncedFetchData = safeDebounce((exchange) => {
         console.log(`[SignalR] Debounced fetching ${exchange} data`);
-        // Đánh dấu không phải là lần tải đầu tiên để tránh hiển thị loading spinner
+        // Đánh dấu đang update từ SignalR để không hiện loading
+        setIsSignalRUpdating(true);
         setIsInitialLoading(false);
         fetchStockData();
       }, 300);
@@ -578,13 +582,20 @@ const WatchlistPage = () => {
         if (activeTab === 'hsx') {
           try {
             console.log("[SignalR] Received HSX update:", data);
-            // Không hiển thị loading spinner khi đang cập nhật
-            setIsLoading(false);
+            // Đánh dấu đang update từ SignalR để không hiện loading
+            setIsSignalRUpdating(true);
             setIsInitialLoading(false);
-            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
-            debouncedFetchData('hsx');
+            
+            // Thay vì gọi fetchStockData, cập nhật trực tiếp dữ liệu nhận được
+            if (data && data.stocks && Array.isArray(data.stocks)) {
+              updateStockPrices(data.stocks);
+            } else {
+              // Nếu không có dữ liệu cụ thể, gọi API để lấy dữ liệu mới
+              debouncedFetchData('hsx');
+            }
           } catch (error) {
             console.error("[SignalR] Error processing HSX update:", error);
+            setIsSignalRUpdating(false); // Reset state in case of error
           }
         }
       });
@@ -594,13 +605,20 @@ const WatchlistPage = () => {
         if (activeTab === 'hnx') {
           try {
             console.log("[SignalR] Received HNX update:", data);
-            // Không hiển thị loading spinner khi đang cập nhật
-            setIsLoading(false);
+            // Đánh dấu đang update từ SignalR để không hiện loading
+            setIsSignalRUpdating(true);
             setIsInitialLoading(false);
-            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
-            debouncedFetchData('hnx');
+            
+            // Thay vì gọi fetchStockData, cập nhật trực tiếp dữ liệu nhận được
+            if (data && data.stocks && Array.isArray(data.stocks)) {
+              updateStockPrices(data.stocks);
+            } else {
+              // Nếu không có dữ liệu cụ thể, gọi API để lấy dữ liệu mới
+              debouncedFetchData('hnx');
+            }
           } catch (error) {
             console.error("[SignalR] Error processing HNX update:", error);
+            setIsSignalRUpdating(false); // Reset state in case of error
           }
         }
       });
@@ -616,17 +634,134 @@ const WatchlistPage = () => {
     }
   };
 
-  // Initial data loading and SignalR setup
+  // Thêm hàm mới để cập nhật giá cổ phiếu mà không gọi lại API
+  const updateStockPrices = (updatedStocks) => {
+    console.log("[SignalR] Updating stock prices directly:", updatedStocks.length);
+    
+    if (!updatedStocks || updatedStocks.length === 0) {
+      setIsSignalRUpdating(false);
+      return;
+    }
+    
+    // Tạo một object lưu trữ animation classes mới
+    const newAnimations = {};
+    
+    // Cập nhật watchlist dựa trên dữ liệu mới
+    setWatchlist(prevWatchlist => {
+      if (!prevWatchlist || !Array.isArray(prevWatchlist)) {
+        setIsSignalRUpdating(false);
+        return prevWatchlist;
+      }
+      
+      // Tạo một bản sao của danh sách hiện tại
+      const updatedWatchlist = [...prevWatchlist];
+      
+      // Cập nhật giá cho từng cổ phiếu
+      updatedStocks.forEach(newStock => {
+        // Tìm index của cổ phiếu trong watchlist
+        const index = updatedWatchlist.findIndex(stock => stock.stockCode === newStock.stockCode);
+        
+        // Nếu tìm thấy, cập nhật thông tin
+        if (index !== -1) {
+          const currentStock = updatedWatchlist[index];
+          const previousStock = previousStockValues.current[newStock.stockCode];
+          
+          // Các trường cần kiểm tra
+          const fieldsToTrack = [
+            'matchPrice', 'matchedOrderVolume', 'volumeAccumulation',
+            'price3Buy', 'price2Buy', 'price1Buy',
+            'price1Sell', 'price2Sell', 'price3Sell',
+            'volume3Buy', 'volume2Buy', 'volume1Buy',
+            'volume1Sell', 'volume2Sell', 'volume3Sell',
+            'foreignBuyVolume', 'foreignSellVolume',
+            'plusMinus'
+          ];
+          
+          // Cập nhật từng trường
+          fieldsToTrack.forEach(field => {
+            if (newStock[field] !== undefined) {
+              // Lưu giá trị cũ trước khi cập nhật
+              const oldValue = currentStock[field];
+              
+              // Cập nhật giá trị mới
+              currentStock[field] = newStock[field];
+              
+              // Tạo animation nếu có thay đổi
+              if (previousStock && oldValue !== newStock[field] && 
+                  oldValue !== '--' && newStock[field] !== '--') {
+                // Xác định loại trường (giá hoặc khối lượng)
+                const fieldType = field.includes('volume') || field.includes('Volume') ? 'volume' : 'price';
+                
+                // Lấy animation class
+                const animClass = getChangeAnimation(newStock[field], oldValue, fieldType);
+                
+                // Log chi tiết
+                logAnimationDetails(newStock.stockCode, field, oldValue, newStock[field], animClass);
+                
+                // Lưu animation class nếu có
+                if (animClass) {
+                  newAnimations[`${newStock.stockCode}-${field}`] = animClass;
+                }
+              }
+            }
+          });
+          
+          // Cập nhật stock trong watchlist
+          updatedWatchlist[index] = currentStock;
+          
+          // Cập nhật giá trị trong ref
+          previousStockValues.current[newStock.stockCode] = { ...currentStock };
+        }
+      });
+      
+      return updatedWatchlist;
+    });
+    
+    // Cập nhật animations
+    const animationCount = Object.keys(newAnimations).length;
+    if (animationCount > 0) {
+      console.log('Updating animations:', animationCount, 'items');
+      setPriceChangeColors(prev => ({ ...prev, ...newAnimations }));
+    }
+    
+    // Cập nhật timestamp
+    setLastTimestamp(new Date());
+    
+    // Reset state khi hoàn thành cập nhật
+    setIsSignalRUpdating(false);
+  };
+
+  // Thêm useEffect để cài đặt polling interval cho fetchStockData
   useEffect(() => {
-    console.log("WatchlistPage - Component mounted");
-    setIsInitialLoading(true); // Đánh dấu mỗi khi thay đổi tab là đang tải lần đầu
+    console.log("Setting up polling interval");
+    // Đánh dấu đang tải lần đầu khi thay đổi tab
+    setIsInitialLoading(true);
+    // Fetch dữ liệu ban đầu
     fetchStockData();
-    setupSignalRConnection();
+    
+    // Tạo polling interval (mỗi 30 giây)
+    const interval = setInterval(() => {
+      console.log("Polling interval triggered");
+      setIsInitialLoading(false); // Không hiển thị loading indicator
+      fetchStockData();
+    }, 30000); // 30 seconds
+    
+    // Cleanup
+    return () => {
+      clearInterval(interval);
+    };
+  }, [activeTab]);
+
+  // Tách riêng useEffect cho việc setup SignalR
+  useEffect(() => {
+    console.log("Setting up SignalR connection");
+    const signalRCleanup = setupSignalRConnection();
     
     // Cleanup khi unmount
     return () => {
       console.log("WatchlistPage - Component unmounting");
       try {
+        if (typeof signalRCleanup === 'function') signalRCleanup();
         signalRService.offStock("ReceiveHSXStockUpdate");
         signalRService.offStock("ReceiveHNXStockUpdate");
         console.log("WatchlistPage - Unregistered SignalR listeners");
@@ -634,7 +769,7 @@ const WatchlistPage = () => {
         console.error("WatchlistPage - Error removing SignalR listeners:", error);
       }
     };
-  }, [activeTab]); // Thêm activeTab vào dependencies
+  }, [activeTab]);
 
   const removeFromWatchlist = (stock) => {
     setStockToDelete(stock);
@@ -833,21 +968,6 @@ const WatchlistPage = () => {
       setIsDeletingSector(false);
     }
   };
-
-  // Hook để fetch dữ liệu ban đầu và thiết lập SignalR
-  useEffect(() => {
-    fetchStockData();
-    
-    // Thiết lập kết nối SignalR
-    const signalRCleanup = setupSignalRConnection();
-    
-    // Cleanup khi component unmount
-    return () => {
-      if (typeof signalRCleanup === 'function') {
-        signalRCleanup();
-      }
-    };
-  }, [activeTab]);
 
   // Hàm nội bộ để xử lý dữ liệu cổ phiếu
   function processStocks(stocks) {
