@@ -55,8 +55,7 @@ import axiosInstance from '@/api/axiosInstance'; // Import axiosInstance
 import CandlestickChart from '@/components/CandlestickChart';
 import useStockWorkerStore from '../stores/useStockWorkerStore';
 import useWorkerMetricsStore from '../stores/useWorkerMetricsStore';
-import useStockStateStore from '@/stores/useStockStateStore';
-import useExchangeStore from '@/stores/useExchangeStore';
+import { useStock } from '../hooks/useStock';
 
 // Define the BASE_URL constant for API calls
 const BASE_URL = APP_BASE_URL;
@@ -177,51 +176,239 @@ function debounce(fn, delay) {
   };
 }
 
-export default function StockDerivatives() {
-  const navigate = useNavigate();
-  const { hasFeature } = useFeatureStore();
+// Custom hook to manage stock data states efficiently
+function useStockState() {
+  // Main stock data state
+  const [data, setData] = useState({
+    realTimeStockData: [],
+    watchlist: [],
+    previousValues: {},
+    priceHistory: {},
+    priceChangeColors: {},
+    volumeHistory: {},
+    filteredData: [],
+    chartData: [] // Add chartData to the data state
+  });
   
-  // Sử dụng exchange store
-  const { 
-    selectedExchange, 
-    setSelectedExchange, 
-    getApiExchange,
-    isMatchingExchange 
-  } = useExchangeStore();
-
-  // Sử dụng store mới
-  const {
-    // Main stock data
-    realTimeStockData,
-    watchlist,
-    previousValues,
-    priceHistory,
-    priceChangeColors,
-    volumeHistory,
-    filteredData,
-    chartData,
+  // UI state
+  const [uiState, setUiState] = useState({
+    isLoading: true,
+    isWatchlistLoading: false,
+    isInitialWatchlistLoad: true,
+    isSignalRUpdating: false,
+    isChartLoading: false,
+    chartError: null,
+    lastTimestamp: null,
+    currentTime: moment(),
+    showWatchlist: false
+  });
+  
+  // Performance metrics state
+  const [metrics, setMetrics] = useState({
+    performanceMetrics: {
+      processingTime: 0,
+      itemsIn: 0,
+      itemsOut: 0
+    },
+    colorWorkerMetrics: {
+      processingTime: 0,
+      stockCount: 0
+    },
+    showPerformanceMetrics: false
+  });
+  
+  // Add state for color cache and animation cache
+  const [colorCache, setColorCache] = useState({});
+  const [animationCache, setAnimationCache] = useState({});
+  
+  // Helper functions to update specific parts of the state
+  const updateStockData = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      realTimeStockData: newData
+    }));
+  }, []);
+  
+  const updateWatchlist = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      watchlist: typeof newData === 'function' ? newData(prevData.watchlist) : newData
+    }));
+  }, []);
+  
+  const updatePriceColors = useCallback((newColors) => {
+    setData(prevData => ({
+      ...prevData,
+      priceChangeColors: newColors
+    }));
+  }, []);
+  
+  const updateFilteredData = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      filteredData: newData
+    }));
+  }, []);
+  
+  // Add updateChartData function
+  const updateChartData = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      chartData: newData
+    }));
+  }, []);
+  
+  const updateLoading = useCallback((isLoading) => {
+    setUiState(prevState => ({
+      ...prevState,
+      isLoading
+    }));
+  }, []);
+  
+  const updateWatchlistLoading = useCallback((isWatchlistLoading) => {
+    setUiState(prevState => ({
+      ...prevState,
+      isWatchlistLoading
+    }));
+  }, []);
+  
+  const updateInitialWatchlistLoad = useCallback((isInitialWatchlistLoad) => {
+    setUiState(prevState => ({
+      ...prevState,
+      isInitialWatchlistLoad
+    }));
+  }, []);
+  
+  const updateSignalRUpdating = useCallback((isSignalRUpdating) => {
+    setUiState(prevState => ({
+      ...prevState,
+      isSignalRUpdating
+    }));
+  }, []);
+  
+  const updateLastTimestamp = useCallback((timestamp) => {
+    setUiState(prevState => ({
+      ...prevState,
+      lastTimestamp: timestamp
+    }));
+  }, []);
+  
+  const updateCurrentTime = useCallback((time) => {
+    setUiState(prevState => ({
+      ...prevState,
+      currentTime: time
+    }));
+  }, []);
+  
+  const updateChartState = useCallback((isLoading, error = null) => {
+    setUiState(prevState => ({
+      ...prevState,
+      isChartLoading: isLoading,
+      chartError: error
+    }));
+  }, []);
+  
+  const updateShowWatchlist = useCallback((showWatchlist) => {
+    setUiState(prevState => ({
+      ...prevState,
+      showWatchlist
+    }));
+  }, []);
+  
+  const updatePerformanceMetrics = useCallback((newMetrics) => {
+    setMetrics(prevMetrics => ({
+      ...prevMetrics,
+      performanceMetrics: newMetrics
+    }));
+  }, []);
+  
+  const updateColorWorkerMetrics = useCallback((newMetrics) => {
+    setMetrics(prevMetrics => ({
+      ...prevMetrics,
+      colorWorkerMetrics: newMetrics
+    }));
+  }, []);
+  
+  const togglePerformanceMetrics = useCallback(() => {
+    setMetrics(prevMetrics => ({
+      ...prevMetrics,
+      showPerformanceMetrics: !prevMetrics.showPerformanceMetrics
+    }));
+  }, []);
+  
+  // Add update functions for color cache and animation cache
+  const updateColorCache = useCallback((newData) => {
+    setColorCache(prevCache => {
+      if (typeof newData === 'function') {
+        return newData(prevCache);
+      }
+      return newData;
+    });
+  }, []);
+  
+  const updateAnimationCache = useCallback((newData) => {
+    setAnimationCache(prevCache => {
+      if (typeof newData === 'function') {
+        return newData(prevCache);
+      }
+      return newData;
+    });
+  }, []);
+  
+  // Batch update function to update multiple pieces of state at once
+  const batchUpdate = useCallback((updates) => {
+    if (updates.stockData) {
+      setData(prevData => ({
+        ...prevData,
+        ...updates.stockData
+      }));
+    }
     
-    // UI state
-    isLoading,
-    isWatchlistLoading,
-    isInitialWatchlistLoad,
-    isSignalRUpdating,
-    isChartLoading,
-    chartError,
-    lastTimestamp,
-    currentTime,
-    showWatchlist,
+    if (updates.uiState) {
+      setUiState(prevState => ({
+        ...prevState,
+        ...updates.uiState
+      }));
+    }
     
-    // Performance metrics
-    performanceMetrics,
-    colorWorkerMetrics,
-    showPerformanceMetrics,
-    
-    // Cache state
+    if (updates.metrics) {
+      setMetrics(prevMetrics => ({
+        ...prevMetrics,
+        ...updates.metrics
+      }));
+    }
+  }, []);
+  
+  // Add updatePriceHistory function
+  const updatePriceHistory = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      priceHistory: newData
+    }));
+  }, []);
+  
+  // Add updateVolumeHistory function
+  const updateVolumeHistory = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      volumeHistory: newData
+    }));
+  }, []);
+  
+  // Add updatePreviousValues function
+  const updatePreviousValues = useCallback((newData) => {
+    setData(prevData => ({
+      ...prevData,
+      previousValues: newData
+    }));
+  }, []);
+  
+  return {
+    ...data,
+    ...uiState,
+    ...metrics,
     colorCache,
     animationCache,
-    
-    // Actions
     updateStockData,
     updateWatchlist,
     updatePriceColors,
@@ -243,10 +430,14 @@ export default function StockDerivatives() {
     updateVolumeHistory,
     updatePreviousValues,
     updateColorCache,
-    updateAnimationCache,
-    resetState
-  } = useStockStateStore();
+    updateAnimationCache
+  };
+}
 
+export default function StockDerivatives() {
+  const navigate = useNavigate();
+  const { hasFeature } = useFeatureStore();
+  
   // SignalR connection ref
   const connectionRef = useRef(null);
   
@@ -283,6 +474,7 @@ export default function StockDerivatives() {
   }, [isDarkMode]);
   
   // UI state variables
+  const [selectedExchange, setSelectedExchange] = useState('HOSE');
   const [activeTab, setActiveTab] = useState('price');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -379,6 +571,64 @@ export default function StockDerivatives() {
   const toggleDarkMode = () => {
     setIsDarkMode(prev => !prev);
   };
+  
+  // Sử dụng custom hook để quản lý state tổng hợp
+  const {
+    // Main stock data
+    realTimeStockData,
+    watchlist,
+    previousValues,
+    priceHistory,
+    priceChangeColors,
+    volumeHistory,
+    chartData,
+    filteredData,
+    
+    // UI state
+    isLoading,
+    isWatchlistLoading,
+    isInitialWatchlistLoad,
+    isSignalRUpdating,
+    isChartLoading,
+    chartError,
+    lastTimestamp,
+    currentTime,
+    showWatchlist,
+    
+    // Performance metrics
+    performanceMetrics,
+    colorWorkerMetrics,
+    showPerformanceMetrics,
+    
+    // Color cache state
+    colorCache,
+    animationCache,
+    
+    // Update functions
+    updateStockData,
+    updateWatchlist,
+    updatePriceColors,
+    updateFilteredData,
+    updateChartData,
+    updateLoading,
+    updateWatchlistLoading,
+    updateInitialWatchlistLoad,
+    updateSignalRUpdating,
+    updateLastTimestamp,
+    updateCurrentTime,
+    updateChartState,
+    updateShowWatchlist,
+    updatePerformanceMetrics,
+    updateColorWorkerMetrics,
+    togglePerformanceMetrics,
+    batchUpdate,
+    updatePriceHistory,
+    updateVolumeHistory,
+    updatePreviousValues,
+    updateColorCache,
+    updateAnimationCache,
+    clearCaches
+  } = useStock();
   
   // Store update functions in refs to access them in event handlers without dependencies
   const updateColorCacheRef = useRef(updateColorCache);
@@ -858,25 +1108,19 @@ export default function StockDerivatives() {
 
   // Fetch stock data first, then set up SignalR
   const fetchStockData = async (retry = false, apiExchangeOverride = null, isSignalRUpdate = false) => {
+    const exchangeMap = {
+      'HOSE': 'hsx',
+      'HNX': 'hnx'
+    };
+    
+    let exchange = apiExchangeOverride || exchangeMap[selectedExchange] || 'hsx';
+    
     console.log('=== Fetch Stock Data ===');
     console.log(`Time: ${moment().format('HH:mm:ss.SSS')}`);
     console.log(`Selected Exchange: ${selectedExchange}`);
     console.log(`API Exchange Override: ${apiExchangeOverride}`);
-    console.log(`Is SignalR Update: ${isSignalRUpdate}`);
-
-    // Nếu là SignalR update, kiểm tra xem exchange có match với selected exchange không
-    if (isSignalRUpdate && apiExchangeOverride) {
-      if (!isMatchingExchange(apiExchangeOverride)) {
-        console.log(`❌ Ignoring update - Exchange mismatch`);
-        console.log(`Current selected exchange (${selectedExchange}) doesn't match incoming data exchange (${apiExchangeOverride})`);
-        console.log('======================');
-        return;
-      }
-    }
-
-    // Sử dụng exchange từ store
-    const exchange = isSignalRUpdate ? apiExchangeOverride : getApiExchange();
     console.log(`Final Exchange Used: ${exchange}`);
+    console.log(`Is SignalR Update: ${isSignalRUpdate}`);
     console.log('======================');
 
     try {
@@ -898,6 +1142,7 @@ export default function StockDerivatives() {
         }
       }
 
+      console.log(`FETCH STOCK DATA - Current tab: ${selectedExchange}, Using API exchange value: ${exchange}`);
       console.log(`Fetching ${exchange} stock data`);
 
       const response = await axiosInstance.get(`/api/stock/latest`, {
@@ -1466,30 +1711,37 @@ export default function StockDerivatives() {
     const handleStockUpdate = (event) => {
       const { exchange, data, timestamp } = event.detail;
       
+      // Define exchange mapping (from API format to display format)
+      const exchangeMap = {
+        'hsx': 'HOSE',
+        'hnx': 'HNX'
+      };
+      
       console.log('=== Stock Update Event ===');
       console.log(`Time: ${moment().format('HH:mm:ss.SSS')}`);
       console.log(`Received exchange: ${exchange}`);
       console.log(`Selected exchange: ${selectedExchange}`);
-      
-      // Kiểm tra ngay từ đầu xem exchange có match không
-      if (!isMatchingExchange(exchange)) {
-        console.log('❌ Ignoring update - Exchange mismatch');
-        console.log(`Current selected exchange (${selectedExchange}) doesn't match incoming data exchange (${exchange})`);
-        console.log('========================');
-        return;
-      }
-
-      console.log('✅ Exchange matches - Processing update');
+      console.log(`Mapped received exchange: ${exchangeMap[exchange]}`);
       console.log(`Show watchlist: ${showWatchlist}`);
       console.log(`Data timestamp: ${timestamp}`);
       console.log('========================');
       
+      // IMPORTANT: Only process updates for the currently selected exchange
+      // First, convert the received exchange to display format (HOSE/HNX)
+      const receivedExchangeDisplay = exchangeMap[exchange];
+      
+      // If the received update is not for the current exchange, ignore it
+      if (receivedExchangeDisplay !== selectedExchange) {
+        console.log(`[WebSocket] Ignoring update for ${exchange} as current tab is ${selectedExchange}`);
+        return;
+      }
+      
       // Now we know this update is for the current exchange, process it
       if (showWatchlist) {
-        console.log(`Updating watchlist data for ${selectedExchange}`);
+        console.log(`[WebSocket] Updating watchlist data for ${selectedExchange}`);
         debouncedFetchWatchlist(exchange);
       } else {
-        console.log(`Updating stock data for ${selectedExchange}`);
+        console.log(`[WebSocket] Updating stock data for ${selectedExchange}`);
         debouncedFetchStockData(exchange);
       }
     };
@@ -1498,7 +1750,7 @@ export default function StockDerivatives() {
     return () => {
       window.removeEventListener('stockUpdate', handleStockUpdate);
     };
-  }, [selectedExchange, showWatchlist, debouncedFetchWatchlist, debouncedFetchStockData, isMatchingExchange]);
+  }, [selectedExchange, showWatchlist, debouncedFetchWatchlist, debouncedFetchStockData]);
 
   // Combined useEffect to handle both watchlist toggle and exchange changes
   useEffect(() => {
@@ -1532,29 +1784,31 @@ export default function StockDerivatives() {
 
   const subscribeToStockData = () => {
     try {
-      const apiExchange = getApiExchange();
+      const exchangeMap = {
+        'HOSE': 'hsx',
+        'HNX': 'hnx'
+      };
+      const mappedExchange = exchangeMap[selectedExchange] || 'hsx';
       
-      console.log('=== Subscribe to Stock Data ===');
-      console.log(`Selected Exchange: ${selectedExchange}`);
-      console.log(`API Exchange: ${apiExchange}`);
+      console.log(`SUBSCRIBE - Current tab: ${selectedExchange}, mapped to: ${mappedExchange}`);
       
       if (connectionRef.current && connectionRef.current.state === 'Connected') {
         // Unsubscribe from previous channel first to avoid duplicate subscriptions
         connectionRef.current.invoke("LeaveGroup", "stock").catch(err => {
-          console.error("❌ Error leaving stock group:", err);
+          console.error("Error leaving stock group:", err);
         });
         
         // Subscribe to the appropriate channel based on current exchange
         connectionRef.current.invoke("JoinGroup", "stock").then(() => {
-          console.log(`✅ Successfully subscribed to stock updates for ${apiExchange}`);
+          console.log(`Successfully subscribed to stock updates for ${mappedExchange}`);
         }).catch(err => {
-          console.error("❌ Error joining stock group:", err);
+          console.error("Error joining stock group:", err);
         });
       } else {
-        console.warn("⚠️ Cannot subscribe: SignalR connection not established");
+        console.warn("Cannot subscribe: SignalR connection not established");
       }
     } catch (error) {
-      console.error("❌ Error in subscribeToStockData:", error);
+      console.error("Error in subscribeToStockData:", error);
     }
   };
 
@@ -1735,18 +1989,23 @@ export default function StockDerivatives() {
       updateStockData([]);
     }
     
-    // Lấy API exchange từ store
-    const apiExchange = getApiExchange();
+    // Định nghĩa exchangeMap
+    const exchangeMap = {
+      'HOSE': 'hsx',
+      'HNX': 'hnx'
+    };
+    
+    const apiExchange = exchangeMap[exchangeId];
     console.log('Mapped API exchange:', apiExchange);
     
     // Delay để UI có thể cập nhật trước
     setTimeout(() => {
       if (showWatchlist) {
         console.log('Fetching watchlist data for exchange:', apiExchange);
-        fetchWatchlistData(false, apiExchange, false);
+        fetchWatchlistData(false, apiExchange);
       } else {
         console.log('Fetching stock data for exchange:', apiExchange);
-        fetchStockData(false, null, false);
+        fetchStockData(null, false, apiExchange);
       }
     }, 100);
   };
@@ -2692,6 +2951,20 @@ export default function StockDerivatives() {
       workerMetricsStore.resetMetrics();
     };
   }, []);
+
+  // Add effect to update current time
+  useEffect(() => {
+    // Update time immediately
+    updateCurrentTime(moment());
+
+    // Update time every second
+    const interval = setInterval(() => {
+      updateCurrentTime(moment());
+    }, 1000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [updateCurrentTime]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">

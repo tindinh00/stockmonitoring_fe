@@ -4,9 +4,12 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { getUserId } from '@/api/Api';
 import axios from 'axios';
 import { toast } from "sonner";
-import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings } from 'lucide-react';
+import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings, Plus, Trash2, Search, Calendar } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { cn } from "@/lib/utils";
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
 
 const PersonalAnalyticsPage = () => {
   const [stocks, setStocks] = useState([]);
@@ -17,6 +20,20 @@ const PersonalAnalyticsPage = () => {
   const [isUpdatingWeights, setIsUpdatingWeights] = useState(false);
   const [editedWeights, setEditedWeights] = useState({});
   const [isWeightDialogOpen, setIsWeightDialogOpen] = useState(false);
+  
+  // Nuevos estados para manejar la adición de acciones
+  const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
+  const [availableStocks, setAvailableStocks] = useState([]);
+  const [selectedStockIds, setSelectedStockIds] = useState([]);
+  const [isLoadingStocks, setIsLoadingStocks] = useState(false);
+  const [stockSearchQuery, setStockSearchQuery] = useState('');
+  const [isAddingStocks, setIsAddingStocks] = useState(false);
+  
+  // Nuevos estados para manejar la eliminación de acciones
+  const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState(null);
+  const [isDeletingStock, setIsDeletingStock] = useState(false);
+  
   const itemsPerPage = 5;
   
   // Add new state for date range
@@ -24,6 +41,9 @@ const PersonalAnalyticsPage = () => {
     startDate: new Date(new Date().getFullYear(), 0, 1), // January 1st of current year
     endDate: new Date() // Current date
   });
+  
+  // State for showing date picker dialog
+  const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchStocksData();
@@ -96,6 +116,85 @@ const PersonalAnalyticsPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Function to handle date changes
+  const handleDateChange = (field, value) => {
+    try {
+      // Validate date format and convert to Date object
+      const dateValue = new Date(value);
+      
+      // Check if date is valid
+      if (isNaN(dateValue.getTime())) {
+        throw new Error("Invalid date format");
+      }
+      
+      // Check if date is within reasonable range (not before year 2000 and not after current year + 1)
+      const currentYear = new Date().getFullYear();
+      if (dateValue.getFullYear() < 2000 || dateValue.getFullYear() > currentYear + 1) {
+        toast.error("Năm không hợp lệ", {
+          description: `Năm phải nằm trong khoảng từ 2000 đến ${currentYear + 1}`
+        });
+        return;
+      }
+      
+      // Additional validation for date ranges
+      if (field === 'startDate' && dateRange.endDate && dateValue > dateRange.endDate) {
+        toast.warning("Ngày bắt đầu lớn hơn ngày kết thúc", {
+          description: "Ngày kết thúc sẽ được cập nhật"
+        });
+      } else if (field === 'endDate' && dateRange.startDate && dateValue < dateRange.startDate) {
+        toast.warning("Ngày kết thúc nhỏ hơn ngày bắt đầu", {
+          description: "Ngày bắt đầu sẽ được cập nhật"
+        });
+      }
+      
+      // Update the date range
+      if (field === 'startDate' && dateRange.endDate && dateValue > dateRange.endDate) {
+        // If start date is after end date, update both
+        setDateRange({
+          startDate: dateValue,
+          endDate: dateValue
+        });
+      } else if (field === 'endDate' && dateRange.startDate && dateValue < dateRange.startDate) {
+        // If end date is before start date, update both
+        setDateRange({
+          startDate: dateValue,
+          endDate: dateValue
+        });
+      } else {
+        // Normal update
+        setDateRange(prev => ({
+          ...prev,
+          [field]: dateValue
+        }));
+      }
+    } catch (error) {
+      toast.error("Định dạng ngày không hợp lệ", {
+        description: "Vui lòng nhập đúng định dạng MM/DD/YYYY"
+      });
+    }
+  };
+  
+  // Function to apply date range and fetch data
+  const applyDateRange = () => {
+    // Validate date range
+    if (dateRange.startDate > dateRange.endDate) {
+      toast.error("Ngày bắt đầu không thể sau ngày kết thúc");
+      return;
+    }
+    
+    // Check if the date range is too large (e.g., more than 5 years)
+    const differenceInDays = Math.floor((dateRange.endDate - dateRange.startDate) / (1000 * 60 * 60 * 24));
+    if (differenceInDays > 1825) { // 5 years * 365 days
+      const confirm = window.confirm("Khoảng thời gian đã chọn lớn hơn 5 năm. Việc tải dữ liệu có thể mất nhiều thời gian. Bạn có muốn tiếp tục?");
+      if (!confirm) {
+        return;
+      }
+    }
+    
+    setIsDateDialogOpen(false);
+    fetchStocksData();
   };
 
   // Hàm sắp xếp dữ liệu
@@ -358,6 +457,148 @@ const PersonalAnalyticsPage = () => {
     );
   };
 
+  // Funciones para agregar stocks
+  const handleOpenAddStockDialog = () => {
+    setIsAddStockDialogOpen(true);
+    fetchAvailableStocks();
+  };
+
+  // Fetch available stocks
+  const fetchAvailableStocks = async () => {
+    try {
+      setIsLoadingStocks(true);
+      const token = Cookies.get('auth_token');
+      
+      if (!token) {
+        toast.error("Vui lòng đăng nhập để sử dụng tính năng này");
+        setIsLoadingStocks(false);
+        return;
+      }
+
+      const response = await axios.get(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          params: {
+            pageIndex: 0,
+            pageSize: 2000
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setAvailableStocks(response.data.value.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stocks:', error);
+      toast.error('Không thể tải danh sách cổ phiếu');
+    } finally {
+      setIsLoadingStocks(false);
+    }
+  };
+
+  // Add selected stocks to watchlist
+  const addSelectedStocksToAnalytics = async () => {
+    try {
+      setIsAddingStocks(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error('Bạn cần đăng nhập để sử dụng tính năng này');
+        return;
+      }
+
+      // Filter out stocks that are already in the analytics
+      const newStocks = selectedStockIds
+        .map(id => {
+          const stock = availableStocks.find(s => s.id === id);
+          return stock ? stock.ticketSymbol : null;
+        })
+        .filter(Boolean)
+        .filter(ticker => !stocks.some(s => s.ticketSymbol === ticker));
+
+      if (newStocks.length === 0) {
+        toast.info('Tất cả cổ phiếu đã được chọn đã có trong danh sách phân tích');
+        return;
+      }
+      
+      // Sử dụng API của watchlist để thêm cổ phiếu
+      await axios.post(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          userId: userId,
+          tickerSymbol: newStocks
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success('Đã thêm cổ phiếu vào danh sách phân tích');
+      setIsAddStockDialogOpen(false);
+      setSelectedStockIds([]);
+      fetchStocksData(); // Refresh stock list
+    } catch (error) {
+      console.error('Error adding stocks:', error);
+      toast.error('Không thể thêm cổ phiếu vào danh sách phân tích');
+    } finally {
+      setIsAddingStocks(false);
+    }
+  };
+
+  // Remove stock from analytics
+  const handleRemoveStock = (stock) => {
+    setStockToDelete(stock);
+    setIsDeleteStockDialogOpen(true);
+  };
+
+  // Confirm delete stock
+  const confirmDeleteStock = async () => {
+    try {
+      setIsDeletingStock(true);
+      // Lấy userId từ getUserId
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        setIsDeletingStock(false);
+        return;
+      }
+      
+      // Gọi API để xóa khỏi danh sách phân tích - sử dụng API watchlist-stock
+      await axios.delete(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          params: {
+            userId: userId,
+            tickerSymbol: stockToDelete.ticketSymbol
+          },
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+      
+      // Cập nhật state
+      setStocks(stocks.filter(stock => stock.ticketSymbol !== stockToDelete.ticketSymbol));
+      
+      toast.success(`Đã xóa ${stockToDelete.ticketSymbol} khỏi danh sách phân tích`);
+      setIsDeleteStockDialogOpen(false);
+    } catch (error) {
+      console.error("Error removing from analytics:", error);
+      toast.error("Không thể xóa khỏi danh sách phân tích. Vui lòng thử lại sau.");
+    } finally {
+      setIsDeletingStock(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -377,6 +618,20 @@ const PersonalAnalyticsPage = () => {
             <p className="text-gray-500 dark:text-[#666]">Phân tích chuyên sâu danh mục cổ phiếu của bạn</p>
           </div>
           <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setIsDateDialogOpen(true)}
+              className="bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#252525] text-gray-700 dark:text-white px-4 py-2 rounded-lg"
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              {`${format(dateRange.startDate, 'dd/MM/yyyy')} - ${format(dateRange.endDate, 'dd/MM/yyyy')}`}
+            </Button>
+            <Button
+              onClick={handleOpenAddStockDialog}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Thêm cổ phiếu
+            </Button>
             <Button
               onClick={handleOpenWeightDialog}
               className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg"
@@ -445,7 +700,7 @@ const PersonalAnalyticsPage = () => {
                       </th>
                       <th className="w-[12%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
                         <div className="flex items-center justify-center gap-1">
-                          <span>TS Lợi nhuận</span>
+                          <span>Lợi nhuận đóng góp</span>
                           {getSortIcon('returnWeight')}
                         </div>
                       </th>
@@ -469,7 +724,7 @@ const PersonalAnalyticsPage = () => {
                       </th>
                       <th className="w-[13%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999] cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors">
                         <div className="flex items-center justify-center gap-1">
-                          <span>Mức độ rủi ro</span>
+                          <span>Mức độ biến động</span>
                           {getSortIcon('riskLevel')}
                         </div>
                       </th>
@@ -478,6 +733,9 @@ const PersonalAnalyticsPage = () => {
                           <span>Khuyến nghị</span>
                           {getSortIcon('recommendation')}
                         </div>
+                      </th>
+                      <th className="w-[6%] px-3 py-3 text-sm font-medium text-gray-500 dark:text-[#999]">
+                        <span>Thao tác</span>
                       </th>
                 </tr>
               </thead>
@@ -493,6 +751,15 @@ const PersonalAnalyticsPage = () => {
                     {renderValueCell(stock, 'returnLevel', 'returnLevel')}
                     {renderValueCell(stock, 'riskLevel', 'riskLevel')}
                     {renderValueCell(stock, 'recommendation', 'recommendation')}
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => handleRemoveStock(stock)}
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded-full transition-colors"
+                        title="Xóa khỏi danh sách phân tích"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -582,6 +849,209 @@ const PersonalAnalyticsPage = () => {
               ) : (
                 'Cập nhật trọng số'
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[480px] p-0">
+          <div className="p-6 border-b border-gray-200 dark:border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Thêm cổ phiếu vào danh sách phân tích</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Chọn các mã cổ phiếu bạn muốn thêm vào danh sách phân tích của mình
+            </DialogDescription>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Tìm kiếm mã cổ phiếu..."
+                value={stockSearchQuery}
+                onChange={(e) => setStockSearchQuery(e.target.value)}
+                className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-10"
+              />
+              <Search className="h-4 w-4 text-gray-500 dark:text-[#666] absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Stocks List */}
+            <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+              {isLoadingStocks ? (
+                <div className="flex justify-center items-center py-4">
+                  <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : availableStocks.length > 0 ? (
+                availableStocks
+                  .filter(stock => 
+                    stock.ticketSymbol.toLowerCase().includes(stockSearchQuery.toLowerCase()) &&
+                    !stocks.some(s => s.ticketSymbol.toLowerCase() === stock.ticketSymbol.toLowerCase())
+                  )
+                  .map(stock => (
+                    <div
+                      key={stock.id}
+                      className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedStockIds.includes(stock.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedStockIds(prev => [...prev, stock.id]);
+                          } else {
+                            setSelectedStockIds(prev => prev.filter(id => id !== stock.id));
+                          }
+                        }}
+                        className="h-4 w-4 border-gray-400 dark:border-[#666]"
+                      />
+                      <span className="font-medium">{stock.ticketSymbol}</span>
+                      <span className="text-gray-500 dark:text-[#999] text-sm flex-1 truncate">{stock.companyName}</span>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 dark:text-[#666]">
+                  {stockSearchQuery ? 'Không tìm thấy cổ phiếu phù hợp' : 'Không có cổ phiếu khả dụng'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#333]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddStockDialogOpen(false);
+                setSelectedStockIds([]);
+                setStockSearchQuery('');
+              }}
+              className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333] min-w-[100px]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={addSelectedStocksToAnalytics}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[140px]"
+              disabled={isAddingStocks || selectedStockIds.length === 0}
+            >
+              {isAddingStocks ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang thêm...
+                </>
+              ) : (
+                'Thêm cổ phiếu'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Stock Confirmation Dialog */}
+      <Dialog open={isDeleteStockDialogOpen} onOpenChange={setIsDeleteStockDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px] p-0">
+          <div className="p-6">
+            <DialogTitle className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Xác nhận xóa</DialogTitle>
+            <DialogDescription className="text-gray-700 dark:text-[#ccc] mb-4">
+              Bạn có chắc chắn muốn xóa mã <span className="font-medium text-gray-900 dark:text-white">{stockToDelete?.ticketSymbol}</span> khỏi danh sách phân tích cá nhân?
+            </DialogDescription>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteStockDialogOpen(false)}
+                className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333]"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={confirmDeleteStock}
+                className="bg-red-500 hover:bg-red-600 text-white"
+                disabled={isDeletingStock}
+              >
+                {isDeletingStock ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  'Xác nhận xóa'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Date Range Dialog */}
+      <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px] p-0">
+          <div className="p-6 border-b border-gray-200 dark:border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Chọn khoảng thời gian</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Chọn khoảng thời gian để xem phân tích cổ phiếu
+            </DialogDescription>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
+                  Ngày bắt đầu
+                </label>
+                <div className="relative">
+                  <Input
+                    id="start-date"
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={format(dateRange.startDate, 'dd/MM/yy')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
+                    onFocus={(e) => e.target.type = 'date'}
+                    onBlur={(e) => {
+                      e.target.type = 'text';
+                      e.target.value = format(dateRange.startDate, 'dd/MM/yy');
+                    }}
+                    onChange={(e) => handleDateChange('startDate', e.target.value)}
+                  />
+                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
+                  Ngày kết thúc
+                </label>
+                <div className="relative">
+                  <Input
+                    id="end-date"
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={format(dateRange.endDate, 'dd/MM/yy')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
+                    onFocus={(e) => e.target.type = 'date'}
+                    onBlur={(e) => {
+                      e.target.type = 'text';
+                      e.target.value = format(dateRange.endDate, 'dd/MM/yy');
+                    }}
+                    onChange={(e) => handleDateChange('endDate', e.target.value)}
+                  />
+                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#333]">
+            <Button
+              variant="outline"
+              onClick={() => setIsDateDialogOpen(false)}
+              className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={applyDateRange}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white"
+            >
+              Áp dụng
             </Button>
           </div>
         </DialogContent>

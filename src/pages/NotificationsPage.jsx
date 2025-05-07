@@ -618,7 +618,12 @@ const NotificationsPage = () => {
                       {notification.message}
                     </TableCell>
                     <TableCell className={cn("text-left", "dark:text-white text-gray-900")}>
-                      {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                      {(() => {
+                        const date = new Date(notification.createdAt);
+                        // Subtract 7 hours to fix timezone issue
+                        date.setHours(date.getHours() - 7);
+                        return date.toLocaleString('vi-VN');
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))}
