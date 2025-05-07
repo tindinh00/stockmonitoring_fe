@@ -1024,12 +1024,48 @@ export default function StockDerivatives() {
     return `${colorClass} ${animationClass} ${baseClass}`;
   }, [getColorCacheValue, getAnimationCacheValue, priceChangeColors, getPriceFieldForVolume]);
 
+  // Thêm hàm để xử lý animation sử dụng requestAnimationFrame
+  const animateChanges = useCallback((stock, field, newValue, oldValue) => {
+    if (!stock || !stock.code) return;
+    
+    // Chỉ tạo animation khi có sự thay đổi
+    if (newValue === oldValue) return;
+    
+    // Sử dụng requestAnimationFrame để đồng bộ với chu kỳ render
+    const applyAnimation = () => {
+      // Xác định loại animation dựa trên thay đổi giá trị
+      let animationClass = '';
+      if (parseFloat(newValue) > parseFloat(oldValue)) {
+        animationClass = field.includes('Price') ? 'price-up' : 'volume-up';
+      } else if (parseFloat(newValue) < parseFloat(oldValue)) {
+        animationClass = field.includes('Price') ? 'price-down' : 'volume-down';
+      }
+      
+      // Áp dụng animation nếu có
+      if (animationClass) {
+        updatePriceColors(prev => ({
+          ...prev,
+          [`${stock.code}-${field}`]: animationClass
+        }));
+        
+        // Xóa animation sau khi nó hoàn thành
+        setTimeout(() => {
+          updatePriceColors(prev => {
+            const newColors = { ...prev };
+            delete newColors[`${stock.code}-${field}`];
+            return newColors;
+          });
+        }, 1000); // Phù hợp với thời gian của animation CSS (1s)
+      }
+    };
+    
+    // Lên lịch animation vào frame tiếp theo
+    requestAnimationFrame(applyAnimation);
+  }, [updatePriceColors]);
+
   // Function to update CSS classes for price animation
   const handlePriceColorUpdates = useCallback((stock) => {
     if (!stock || !stock.code) return;
-    
-    // Copy current state
-    const newPriceChangeColors = { ...priceChangeColors };
     
     // Số lượng trường giá cần theo dõi
     const priceFields = [
@@ -1050,19 +1086,10 @@ export default function StockDerivatives() {
       // Skip if no previous value to compare
       if (!prevValue) return;
       
-      // Apply animation class based on price change
-      if (parseFloat(currentValue) > parseFloat(prevValue)) {
-        newPriceChangeColors[`${stock.code}-${field}`] = 'price-up';
-      } else if (parseFloat(currentValue) < parseFloat(prevValue)) {
-        newPriceChangeColors[`${stock.code}-${field}`] = 'price-down';
-      } else {
-        newPriceChangeColors[`${stock.code}-${field}`] = 'price-equal';
-      }
+      // Sử dụng animateChanges để tạo animation với requestAnimationFrame
+      animateChanges(stock, field, currentValue, prevValue);
     });
-    
-    // Update state
-    updatePriceColors(newPriceChangeColors);
-  }, [priceChangeColors, previousValues, updatePriceColors]);
+  }, [previousValues, animateChanges]);
 
   // Temporary debug function - có thể xóa sau khi đã sửa xong 
   const debugPriceColors = (stock) => {
@@ -1820,22 +1847,19 @@ export default function StockDerivatives() {
       to { transform: rotate(360deg); }
     }
 
-    /* Price change animations - Optimized for chunking */
+    /* Price change animations - Optimized for performance */
     @keyframes priceUp {
       0% { 
         background-color: rgba(0, 255, 0, 0.4);
         transform: scale(1.1);
-        border-right: 1px solid #333;
       }
       50% {
         background-color: rgba(0, 255, 0, 0.2);
         transform: scale(1.05);
-        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
-        border-right: 1px solid #333;
       }
     }
 
@@ -1843,17 +1867,14 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(255, 0, 0, 0.4);
         transform: scale(1.1);
-        border-right: 1px solid #333;
       }
       50% {
         background-color: rgba(255, 0, 0, 0.2);
         transform: scale(1.05);
-        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
-        border-right: 1px solid #333;
       }
     }
 
@@ -1861,26 +1882,22 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(255, 255, 0, 0.3);
         transform: scale(1.05);
-        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
-        border-right: 1px solid #333;
       }
     }
     
-    /* Volume change animations - Optimized for chunking */
+    /* Volume change animations - Optimized for performance */
     @keyframes volume-up {
       0% { 
         background-color: rgba(0, 255, 0, 0.25);
         transform: scale(1.05);
-        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
-        border-right: 1px solid #333;
       }
     }
 
@@ -1888,33 +1905,41 @@ export default function StockDerivatives() {
       0% { 
         background-color: rgba(255, 0, 0, 0.25);
         transform: scale(1.05);
-        border-right: 1px solid #333;
       }
       100% { 
         background-color: transparent;
         transform: scale(1);
-        border-right: 1px solid #333;
       }
     }
 
     .volume-up {
-      animation: volume-up 1.5s ease-out;
+      animation: volume-up 1s ease-out;
+      will-change: transform, background-color;
+      border-right: 1px solid #333;
     }
 
     .volume-down {
-      animation: volume-down 1.5s ease-out;
+      animation: volume-down 1s ease-out;
+      will-change: transform, background-color;
+      border-right: 1px solid #333;
     }
 
     .price-up {
-      animation: priceUp 1.5s ease-out;
+      animation: priceUp 1s ease-out;
+      will-change: transform, background-color;
+      border-right: 1px solid #333;
     }
 
     .price-down {
-      animation: priceDown 1.5s ease-out;
+      animation: priceDown 1s ease-out;
+      will-change: transform, background-color;
+      border-right: 1px solid #333;
     }
 
     .price-equal {
-      animation: priceEqual 1.5s ease-out;
+      animation: priceEqual 1s ease-out;
+      will-change: transform, background-color;
+      border-right: 1px solid #333;
     }
 
     /* Table styles */
@@ -3306,6 +3331,45 @@ export default function StockDerivatives() {
 
     fetchChartData();
   }, [updateChartData, updateChartState]);
+
+  // Thêm hàm để xử lý animation sử dụng requestAnimationFrame
+  // const animateChanges = useCallback((stock, field, newValue, oldValue) => {
+  //   if (!stock || !stock.code) return;
+    
+  //   // Chỉ tạo animation khi có sự thay đổi
+  //   if (newValue === oldValue) return;
+    
+  //   // Sử dụng requestAnimationFrame để đồng bộ với chu kỳ render
+  //   const applyAnimation = () => {
+  //     // Xác định loại animation dựa trên thay đổi giá trị
+  //     let animationClass = '';
+  //     if (parseFloat(newValue) > parseFloat(oldValue)) {
+  //       animationClass = field.includes('Price') ? 'price-up' : 'volume-up';
+  //     } else if (parseFloat(newValue) < parseFloat(oldValue)) {
+  //       animationClass = field.includes('Price') ? 'price-down' : 'volume-down';
+  //     }
+      
+  //     // Áp dụng animation nếu có
+  //     if (animationClass) {
+  //       updatePriceColors(prev => ({
+  //         ...prev,
+  //         [`${stock.code}-${field}`]: animationClass
+  //       }));
+        
+  //       // Xóa animation sau khi nó hoàn thành
+  //       setTimeout(() => {
+  //         updatePriceColors(prev => {
+  //           const newColors = { ...prev };
+  //           delete newColors[`${stock.code}-${field}`];
+  //           return newColors;
+  //         });
+  //       }, 1000); // Phù hợp với thời gian của animation CSS (1s)
+  //     }
+  //   };
+    
+  //   // Lên lịch animation vào frame tiếp theo
+  //   requestAnimationFrame(applyAnimation);
+  // }, [updatePriceColors]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
