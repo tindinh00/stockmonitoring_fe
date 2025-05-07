@@ -60,6 +60,7 @@ const AIChatPage = () => {
   const [filePreview, setFilePreview] = useState(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const fileInputRef = useRef(null);
+  const fileInputDialogRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -176,6 +177,13 @@ const AIChatPage = () => {
     inputRef.current?.focus();
   };
 
+  // Function to open file upload dialog
+  const openFileDialog = (ref) => {
+    if (ref && ref.current) {
+      ref.current.click();
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(107vh-12rem)] bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] overflow-hidden relative">
       {/* Gradient Background */}
@@ -227,15 +235,19 @@ const AIChatPage = () => {
                   />
                   <input
                     type="file"
-                    ref={fileInputRef}
+                    ref={fileInputDialogRef}
                     onChange={handleFileSelect}
                     className="hidden"
                     accept="image/*,.pdf,.doc,.docx,.txt"
                   />
                   <Button
+                    type="button"
                     variant="outline"
                     size="icon"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFileDialog(fileInputDialogRef);
+                    }}
                     className="absolute right-16 bg-transparent border-0 text-[#09D1C7] hover:text-[#09D1C7] hover:bg-transparent transition-colors opacity-50 group-hover:opacity-100"
                   >
                     <ImageIcon className="h-5 w-5" />
@@ -390,9 +402,10 @@ const AIChatPage = () => {
             accept="image/*,.pdf,.doc,.docx,.txt"
           />
           <Button
+            type="button"
             variant="outline"
             size="icon"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => openFileDialog(fileInputRef)}
             className="bg-gray-100 dark:bg-[#333] border-gray-200 dark:border-[#444] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#444] hover:text-[#09D1C7] transition-colors"
             disabled={isSending}
           >

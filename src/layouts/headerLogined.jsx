@@ -195,12 +195,13 @@ export default function HeaderLogined() {
       }
 
       const response = await stockService.getNotificationMessages(userId);
+      
       if (response?.value?.data) {
         const readNotifications = getReadNotifications();
         const notificationMessages = response.value.data.map(notification => {
           // Extract information from message using regex
           const messageRegex = /\[(.*?)\] Thông báo: Giá của mã (.*?) đã đạt hoặc vượt qua mức (.*?)\. Tại mức: (.*?) theo sàn (.*?)$/;
-          const matches = notification.message.match(messageRegex);
+          const matches = notification.message.match(messageRegex);  
           
           let stockCode = '';
           let targetPrice = '';
@@ -214,6 +215,19 @@ export default function HeaderLogined() {
             targetPrice = matches[3].trim();
             currentPrice = matches[4].trim();
             exchange = matches[5].trim();
+          }
+
+          // If regex fails, try to extract data differently
+          if (!stockCode && notification.message.includes("Thông báo: Giá của mã")) {
+            const parts = notification.message.split(" ");
+            for (let i = 0; i < parts.length; i++) {
+              if (parts[i] === "mã" && i+1 < parts.length) {
+                stockCode = parts[i+1];
+              }
+              if (parts[i] === "sàn" && i+1 < parts.length) {
+                exchange = parts[i+1];
+              }
+            }
           }
 
           // Xác định kiểu thông báo dựa trên phân tích giá
@@ -234,6 +248,8 @@ export default function HeaderLogined() {
           try {
             if (messageTime) {
               const date = new Date(messageTime.replace(' ', 'T') + '.000Z');
+              // Adjust for timezone by subtracting 7 hours
+              date.setHours(date.getHours() - 7);
               formattedTime = date.toLocaleString('vi-VN', {
                 year: 'numeric',
                 month: '2-digit',
@@ -243,25 +259,33 @@ export default function HeaderLogined() {
                 second: '2-digit',
                 hour12: false
               });
+            } else if (notification.createdAt) {
+              const date = new Date(notification.createdAt);
+              date.setHours(date.getHours() - 7);
+              formattedTime = date.toLocaleString('vi-VN');
             }
           } catch (e) {
-            console.error('Error formatting time:', e, messageTime);
-            formattedTime = messageTime; // Fallback to raw time if formatting fails
+            console.error('Error formatting time:', e, messageTime || notification.createdAt);
+            formattedTime = messageTime || notification.createdAt || 'N/A'; // Fallback
           }
 
-          return {
+          const result = {
             id: notification.id,
             type: notificationType,
             title: 'Thông báo giá',
             message: notification.message,
             time: formattedTime || 'N/A',
             read: readNotifications[notification.id] === true,
-            stockCode: stockCode,
-            exchange: exchange,
-            createdAt: notification.createdAt || messageTime
+            stockCode: stockCode || 'Unknown', // Always provide a stock code
+            exchange: exchange || 'HSX', // Default to HSX if not found
+            createdAt: notification.createdAt || messageTime || new Date().toISOString()
           };
+          
+          
+          return result;
         });
 
+        // Sort notifications by date
         notificationMessages.sort((a, b) => {
           // Ensure we have valid dates for comparison
           const dateA = new Date(a.createdAt);
@@ -283,6 +307,7 @@ export default function HeaderLogined() {
           return 0;
         });
 
+        console.log("Final processed notifications:", notificationMessages);
         setNotifications(notificationMessages);
       }
     } catch (error) {
@@ -305,6 +330,12 @@ export default function HeaderLogined() {
   useEffect(() => {
     // Initial fetch
     fetchNotifications();
+
+    // Setup poll interval for notifications - always run regardless of SignalR
+    const pollInterval = setInterval(() => {
+      console.log("[Polling] Checking for new notifications");
+      fetchNotifications();
+    }, 10000); // Check every 10 seconds
 
     // Setup SignalR listener for real-time notifications
     const setupNotificationListener = async () => {
@@ -343,26 +374,43 @@ export default function HeaderLogined() {
           const priceChange = parseFloat(currentPrice) - parseFloat(targetPrice);
           const readNotifications = getReadNotifications();
 
+          // Create a unique ID for the new notification
+          const newNotificationId = crypto.randomUUID();
+
           setNotifications(prev => {
             const newNotification = {
-              id: crypto.randomUUID(),
+              id: newNotificationId,
               type: priceChange >= 0 ? 'increase' : 'decrease',
               title: 'Thông báo giá',
               message: data.message,
-              time: new Date(data.time).toLocaleString('vi-VN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-              }),
-              read: readNotifications[newNotification.id] === true,
+              time: (() => {
+                const date = new Date(data.time);
+                // Adjust for timezone by subtracting 7 hours
+                date.setHours(date.getHours() - 7);
+                return date.toLocaleString('vi-VN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                });
+              })(),
+              read: readNotifications[newNotificationId] === true, // Use the ID directly
               stockCode: stockCode,
               exchange: exchange,
               createdAt: data.time
             };
+            
+            // Verify notification has all required properties
+            console.log("New notification details:", {
+              id: newNotification.id,
+              type: newNotification.type,
+              stockCode: newNotification.stockCode,
+              exchange: newNotification.exchange,
+            });
+            
             return [newNotification, ...prev];
           });
 
@@ -396,13 +444,18 @@ export default function HeaderLogined() {
         };
       } catch (error) {
         console.error("[SignalR] Error setting up notification listener:", error);
+        console.log("[SignalR] Falling back to polling mechanism entirely");
         // Retry connection after 5 seconds
         setTimeout(() => setupNotificationListener(), 5000);
       }
     };
 
     const cleanup = setupNotificationListener();
+    
+    // Clear both polling interval and SignalR listeners on unmount
     return () => {
+      clearInterval(pollInterval);
+      
       if (cleanup && typeof cleanup.then === 'function') {
         cleanup.then(cleanupFn => {
           if (cleanupFn) cleanupFn();
@@ -456,6 +509,16 @@ export default function HeaderLogined() {
   const isValidDate = (dateString) => {
     const date = new Date(dateString);
     return !isNaN(date.getTime());
+  };
+
+  // Add a helper function to adjust and format dates
+  const formatAdjustedDate = (dateString) => {
+    if (!isValidDate(dateString)) return dateString;
+    
+    const date = new Date(dateString);
+    // Adjust for timezone by subtracting 7 hours
+    date.setHours(date.getHours() - 7);
+    return date.toLocaleString('vi-VN');
   };
 
   return (
@@ -663,12 +726,11 @@ export default function HeaderLogined() {
                   >
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
-                        {notification.type === 'increase' && (
+                        {notification.type === 'increase' ? (
                           <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                             <TrendingUp className="w-4 h-4 text-[#10B981] dark:text-green-400" />
                           </div>
-                        )}
-                        {notification.type === 'decrease' && (
+                        ) : (
                           <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                             <TrendingDown className="w-4 h-4 text-red-500 dark:text-red-400" />
                           </div>
@@ -679,26 +741,30 @@ export default function HeaderLogined() {
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {notification.title}
                           </p>
-                          {notification.stockCode && (
-                            <Badge 
-                              variant="default"
-                              className={`text-[10px] px-2 ${
-                                notification.type === 'increase' 
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-[#10B981] dark:text-green-400' 
-                                  : 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
-                              }`}
-                            >
-                              {notification.stockCode}
-                            </Badge>
-                          )}
-                          {notification.exchange && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-[10px] px-2 border-gray-300 dark:border-[#15919B]/30 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#1a2e3f]"
-                            >
-                              {notification.exchange}
-                            </Badge>
-                          )}
+                          
+                          {/* Force display stock code badge */}
+                          <Badge 
+                            variant="default"
+                            className={`text-[10px] px-2 ${
+                              notification.type === 'increase' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-[#10B981] dark:text-green-400' 
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
+                            }`}
+                          >
+                            {notification.stockCode || 
+                             notification.message.match(/Giá của mã (.*?) đã/)?.[1] || 
+                             "HTI"}
+                          </Badge>
+                          
+                          {/* Force display exchange badge */}
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] px-2 border-gray-300 dark:border-[#15919B]/30 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#1a2e3f]"
+                          >
+                            {notification.exchange || 
+                             notification.message.match(/theo sàn (.*?)$/)?.[1] || 
+                             "HSX"}
+                          </Badge>
                         </div>
                         <div className={`text-sm text-gray-700 dark:text-gray-300 transition-all duration-200 overflow-hidden
                           ${expandedId === notification.id ? 'max-h-[500px]' : 'max-h-[20px]'}`}>
@@ -708,11 +774,20 @@ export default function HeaderLogined() {
                         </div>
                         <div className="flex items-center justify-between mt-1">
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {notification.time && notification.time !== 'Invalid Date' 
-                              ? notification.time 
-                              : (isValidDate(notification.createdAt) 
-                                ? new Date(notification.createdAt).toLocaleString('vi-VN') 
-                                : notification.createdAt)}
+                            {(() => {
+                              // First try to use the already formatted time
+                              if (notification.time && notification.time !== 'Invalid Date' && notification.time !== 'N/A') {
+                                return notification.time;
+                              }
+                              
+                              // If that fails, try formatting from createdAt
+                              if (isValidDate(notification.createdAt)) {
+                                return formatAdjustedDate(notification.createdAt);
+                              }
+                              
+                              // Last resort, show what we have
+                              return notification.time || notification.createdAt || 'N/A';
+                            })()}
                           </p>
                           {expandedId === notification.id && (
                             <button 

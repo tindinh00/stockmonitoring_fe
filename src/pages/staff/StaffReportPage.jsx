@@ -46,7 +46,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { FileText, AlertTriangle, CheckCircle, Clock, Plus, Pencil, MoreVertical, Trash, Eye, X } from "lucide-react";
-import { format } from "date-fns";
+import { format, subHours } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
 import { apiService } from "@/api/Api";
@@ -92,6 +92,10 @@ export default function StaffReportPage() {
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [pageIndex, setPageIndex] = useState(1);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(reports.length / pageSize));
+  const currentPageReports = reports.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
   const form = useForm({
     resolver: zodResolver(reportSchema),
     defaultValues: {
@@ -113,7 +117,7 @@ export default function StaffReportPage() {
       
       if (!user?.id) {
         console.error("User ID not found");
-        toast.error("Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.");
+        toast.error("Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.", { style: { textAlign: 'left' } });
         setIsLoading(false);
         return;
       }
@@ -128,7 +132,7 @@ export default function StaffReportPage() {
       setReports(Array.isArray(data) ? data : [data]);
     } catch (error) {
       console.error("Error fetching reports:", error);
-      toast.error(error.message || "Không thể tải danh sách báo cáo");
+      toast.error(error.message || "Không thể tải danh sách báo cáo", { style: { textAlign: 'left' } });
     } finally {
       setIsLoading(false);
     }
@@ -167,10 +171,10 @@ export default function StaffReportPage() {
 
       if (selectedReport) {
         await apiService.updateReport(selectedReport.id, reportData);
-        toast.success("Cập nhật báo cáo thành công");
+        toast.success("Cập nhật báo cáo thành công", { style: { textAlign: 'left' } });
       } else {
         await apiService.createReport(reportData);
-        toast.success("Tạo báo cáo thành công");
+        toast.success("Tạo báo cáo thành công", { style: { textAlign: 'left' } });
       }
       
       setIsDialogOpen(false);
@@ -178,7 +182,7 @@ export default function StaffReportPage() {
       await fetchReports();
     } catch (error) {
       console.error("Error in onSubmit:", error);
-      toast.error(error.message || "Không thể tạo báo cáo");
+      toast.error(error.message || "Không thể tạo báo cáo, vui lòng nhập đủ tất cả các thông tin", { style: { textAlign: 'left' } });
     } finally {
       setIsSubmitting(false);
     }
@@ -192,12 +196,12 @@ export default function StaffReportPage() {
       const response = await apiService.deleteReport(report.id);
       console.log("Delete response:", response);
       
-      toast.success("Xóa báo cáo thành công");
+      toast.success("Xóa báo cáo thành công", { style: { textAlign: 'left' } });
       setShowDeleteDialog(false);
       await fetchReports(); // Refresh list after deleting
     } catch (error) {
       console.error("Delete error:", error);
-      toast.error(error.message || "Không thể xóa báo cáo. Vui lòng thử lại sau.");
+      toast.error(error.message || "Không thể xóa báo cáo. Vui lòng thử lại sau.", { style: { textAlign: 'left' } });
     } finally {
       setIsDeleting(false);
     }
@@ -232,13 +236,30 @@ export default function StaffReportPage() {
   const getStatusText = (status) => {
     switch (status?.toLowerCase()) {
       case "pending":
+      case "process":
         return "Đang xử lý";
       case "resolved":
+      case "done":
         return "Đã xử lý";
       case "urgent":
         return "Khẩn cấp";
       default:
-        return status;
+        return status ? status : "Không xác định";
+    }
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case "pending":
+      case "process":
+        return "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20";
+      case "resolved":
+      case "done":
+        return "bg-green-500/10 text-green-500 border border-green-500/20";
+      case "urgent":
+        return "bg-red-500/10 text-red-500 border border-red-500/20";
+      default:
+        return "bg-gray-500/10 text-gray-500 border border-gray-500/20";
     }
   };
 
@@ -251,7 +272,7 @@ export default function StaffReportPage() {
       setSelectedReport(detailData);
       setShowDetailDialog(true);
     } catch (error) {
-      toast.error(error.message || "Không thể tải chi tiết báo cáo");
+      toast.error("Không thể tải chi tiết báo cáo", { style: { textAlign: 'left' } });
     } finally {
       setIsLoadingDetail(false);
     }
@@ -299,7 +320,7 @@ export default function StaffReportPage() {
       });
     } catch (error) {
       console.error("Error fetching report details:", error);
-      toast.error("Không thể tải thông tin báo cáo");
+      toast.error("Không thể tải thông tin báo cáo", { style: { textAlign: 'left' } });
     }
   };
 
@@ -316,6 +337,11 @@ export default function StaffReportPage() {
     });
     setIsDialogOpen(true);
   };
+
+  // Reset về trang 1 khi danh sách báo cáo thay đổi
+  useEffect(() => {
+    setPageIndex(1);
+  }, [reports]);
 
   return (
     <div className="container mx-auto py-8">
@@ -556,18 +582,16 @@ export default function StaffReportPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  reports.map((report) => (
+                  currentPageReports.map((report) => (
                     <TableRow key={report.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium max-w-[300px] truncate text-left">
                         {report.title}
                       </TableCell>
                       <TableCell className="text-left">
-                        <div className="flex items-center gap-2">
-                          <span className={getStatusColor(report.status)}>
-                            {getStatusIcon(report.status)}
-                          </span>
-                          <span>{getStatusText(report.status)}</span>
-                        </div>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-md font-medium text-sm ${getStatusBadgeClass(report.status)}`}>
+                          {getStatusIcon(report.status)}
+                          {getStatusText(report.status)}
+                        </span>
                       </TableCell>
                       <TableCell className="text-left">
                         {report.image ? (
@@ -586,7 +610,7 @@ export default function StaffReportPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-left">
-                        {report.createdAt ? format(new Date(report.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
+                        {report.createdAt ? format(subHours(new Date(report.createdAt), 7), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
                       </TableCell>
                       <TableCell className="text-left space-x-2">
                         <Button
@@ -598,31 +622,59 @@ export default function StaffReportPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditClick(report)}
-                          className="hover:bg-blue-500 hover:text-white"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedReport(report);
-                            setShowDeleteDialog(true);
-                          }}
-                          className="hover:bg-red-500 hover:text-white"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+          </div>
+          {/* Pagination Controls */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Hiển thị {reports.length === 0 ? 0 : ((pageIndex - 1) * pageSize) + 1} - {Math.min(pageIndex * pageSize, reports.length)} / {reports.length} báo cáo
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(1)}
+                disabled={pageIndex === 1}
+              >
+                Đầu
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(prev => Math.max(1, prev - 1))}
+                disabled={pageIndex === 1}
+              >
+                Trước
+              </Button>
+              <span className="min-w-[40px] text-center text-sm">
+                {pageIndex}/{totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(prev => Math.min(totalPages, prev + 1))}
+                disabled={pageIndex === totalPages}
+              >
+                Sau
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setPageIndex(totalPages)}
+                disabled={pageIndex === totalPages}
+              >
+                Cuối
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -733,7 +785,7 @@ export default function StaffReportPage() {
                   <div>
                     <h4 className="text-sm font-medium mb-2">Ngày tạo</h4>
                     <p className="text-base bg-muted/50 p-3 rounded-lg">
-                      {selectedReport.createdAt ? format(new Date(selectedReport.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
+                      {selectedReport.createdAt ? format(subHours(new Date(selectedReport.createdAt), 7), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A"}
                     </p>
                   </div>
                   <div>

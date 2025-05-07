@@ -43,7 +43,7 @@ setTimeout(() => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="theme">
       <BrowserRouter>
         <App />
       </BrowserRouter>

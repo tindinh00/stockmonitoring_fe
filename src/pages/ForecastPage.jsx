@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { getUserId } from '@/api/Api';
 import axios from 'axios';
 import { toast } from "sonner";
-import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Settings, Plus, Trash2, Search, Sparkles } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const ForecastPage = () => {
   const [forecastData, setForecastData] = useState(null);
@@ -18,6 +20,24 @@ const ForecastPage = () => {
   const [sortDirection, setSortDirection] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Add state for weights editing
+  const [isUpdatingWeights, setIsUpdatingWeights] = useState(false);
+  const [editedWeights, setEditedWeights] = useState({});
+  const [isWeightDialogOpen, setIsWeightDialogOpen] = useState(false);
+  
+  // Add state for adding stocks
+  const [isAddStockDialogOpen, setIsAddStockDialogOpen] = useState(false);
+  const [availableStocks, setAvailableStocks] = useState([]);
+  const [selectedStockIds, setSelectedStockIds] = useState([]);
+  const [isLoadingStocks, setIsLoadingStocks] = useState(false);
+  const [stockSearchQuery, setStockSearchQuery] = useState('');
+  const [isAddingStocks, setIsAddingStocks] = useState(false);
+  
+  // Add state for deleting stocks
+  const [isDeleteStockDialogOpen, setIsDeleteStockDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState(null);
+  const [isDeletingStock, setIsDeletingStock] = useState(false);
 
   // Reusable classes for badges
   const badgeClass = "text-xs bg-gray-100 dark:bg-[#252525] text-gray-500 dark:text-[#999] border-gray-200 dark:border-[#333]";
@@ -197,7 +217,7 @@ const ForecastPage = () => {
     const bgColor = isPositive ? 'bg-[#002108]' : 'bg-[#290000]';
     
     return (
-      <Card className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]">
+      <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333]">
         <CardContent className="p-4">
           <div className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
@@ -223,6 +243,229 @@ const ForecastPage = () => {
     );
   };
 
+  // Weight handling functions
+  const handleOpenWeightDialog = () => {
+    setEditedWeights({});
+    setIsWeightDialogOpen(true);
+  };
+  
+  const handleWeightChange = (stockId, value) => {
+    const numericValue = parseFloat(value) || 0;
+    setEditedWeights(prev => ({
+      ...prev,
+      [stockId]: numericValue
+    }));
+  };
+  
+  const calculateTotalWeight = () => {
+    // Handle case when forecastData is not loaded yet
+    if (!forecastData?.stocks || forecastData.stocks.length === 0) return 0;
+    
+    // Calculate total weight from all stocks
+    const weights = forecastData.stocks.map(stock => {
+      const weight = editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight;
+      return parseFloat(parseFloat(weight || 0).toFixed(2));
+    });
+    
+    // Sum all weights
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    
+    // Return the total with 2 decimal places
+    return parseFloat(total.toFixed(2));
+  };
+  
+  const handleUpdateWeights = async () => {
+    try {
+      const totalWeight = calculateTotalWeight();
+      
+      if (Math.abs(totalWeight - 100) > 0.01) {
+        toast.error("Tổng trọng số phải bằng 100%", {
+          description: `Tổng hiện tại: ${totalWeight.toFixed(2)}%`
+        });
+        return;
+      }
+
+      setIsUpdatingWeights(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để thực hiện chức năng này");
+        return;
+      }
+
+      const stockWeights = forecastData.stocks.map(stock => ({
+        stockId: stock.id,
+        weight: editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight
+      }));
+
+      await axios.put(
+        'https://stockmonitoring-api-gateway.onrender.com/api/personal-analysis',
+        {
+          userId: userId,
+          stockWeights: stockWeights
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success("Cập nhật trọng số thành công");
+      await fetchForecastData(); // Refresh data
+      setEditedWeights({}); // Reset edited weights
+      setIsWeightDialogOpen(false); // Close dialog
+    } catch (error) {
+      console.error("Error updating weights:", error);
+      toast.error("Không thể cập nhật trọng số", {
+        description: error.message || "Vui lòng thử lại sau"
+      });
+    } finally {
+      setIsUpdatingWeights(false);
+    }
+  };
+  
+  // Functions for adding stocks
+  const handleOpenAddStockDialog = () => {
+    setIsAddStockDialogOpen(true);
+    fetchAvailableStocks();
+  };
+  
+  const fetchAvailableStocks = async () => {
+    try {
+      setIsLoadingStocks(true);
+      const token = Cookies.get('auth_token');
+      
+      if (!token) {
+        toast.error("Vui lòng đăng nhập để sử dụng tính năng này");
+        setIsLoadingStocks(false);
+        return;
+      }
+
+      const response = await axios.get(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          params: {
+            pageIndex: 0,
+            pageSize: 2000
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*'
+          }
+        }
+      );
+
+      if (response?.data?.value?.data) {
+        setAvailableStocks(response.data.value.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stocks:', error);
+      toast.error('Không thể tải danh sách cổ phiếu');
+    } finally {
+      setIsLoadingStocks(false);
+    }
+  };
+  
+  const addSelectedStocksToForecast = async () => {
+    try {
+      setIsAddingStocks(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error('Bạn cần đăng nhập để sử dụng tính năng này');
+        return;
+      }
+
+      // Filter out stocks that are already in the forecast
+      const currentTickerSymbols = forecastData?.stocks?.map(s => s.ticketSymbol) || [];
+      
+      const newStocks = selectedStockIds
+        .map(id => {
+          const stock = availableStocks.find(s => s.id === id);
+          return stock ? stock.ticketSymbol : null;
+        })
+        .filter(Boolean)
+        .filter(ticker => !currentTickerSymbols.includes(ticker));
+
+      if (newStocks.length === 0) {
+        toast.info('Tất cả cổ phiếu đã được chọn đã có trong danh sách dự đoán');
+        return;
+      }
+      
+      // Use the watchlist API to add stocks
+      await axios.post(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          userId: userId,
+          tickerSymbol: newStocks
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success('Đã thêm cổ phiếu vào danh sách dự đoán');
+      setIsAddStockDialogOpen(false);
+      setSelectedStockIds([]);
+      fetchForecastData(); // Refresh forecast data
+    } catch (error) {
+      console.error('Error adding stocks:', error);
+      toast.error('Không thể thêm cổ phiếu vào danh sách dự đoán');
+    } finally {
+      setIsAddingStocks(false);
+    }
+  };
+  
+  // Functions for deleting stocks
+  const handleRemoveStock = (stock) => {
+    setStockToDelete(stock);
+    setIsDeleteStockDialogOpen(true);
+  };
+  
+  const confirmDeleteStock = async () => {
+    try {
+      setIsDeletingStock(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        toast.error("Bạn cần đăng nhập để sử dụng tính năng này");
+        setIsDeletingStock(false);
+        return;
+      }
+      
+      // Use the watchlist API to remove the stock
+      await axios.delete(
+        'https://stockmonitoring-api-gateway.onrender.com/api/watchlist-stock',
+        {
+          params: {
+            userId: userId,
+            tickerSymbol: stockToDelete.ticketSymbol
+          },
+          headers: {
+            'Authorization': `Bearer ${Cookies.get('auth_token')}`,
+            'accept': '*/*'
+          }
+        }
+      );
+      
+      toast.success(`Đã xóa ${stockToDelete.ticketSymbol} khỏi danh sách dự đoán`);
+      setIsDeleteStockDialogOpen(false);
+      
+      // Tải lại toàn bộ dữ liệu thay vì chỉ cập nhật state
+      fetchForecastData();
+    } catch (error) {
+      console.error("Error removing from forecast:", error);
+      toast.error("Không thể xóa khỏi danh sách dự đoán. Vui lòng thử lại sau.");
+    } finally {
+      setIsDeletingStock(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -240,20 +483,36 @@ const ForecastPage = () => {
       <div className="border-b border-gray-200 dark:border-[#1a1a1a]">
         <div className="px-4 py-4 md:px-8 flex items-center justify-between">
           <h1 className={cn("text-lg font-medium", "dark:text-white text-gray-900")}>Dự đoán giá</h1>
-          <Button
-            onClick={fetchForecastData}
-            className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white h-8 px-3 rounded-md text-sm"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                Đang phân tích...
-              </>
-            ) : (
-              'Cập nhật'
-            )}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleOpenAddStockDialog}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white h-8 px-3 rounded-md text-sm"
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              Thêm cổ phiếu
+            </Button>
+            <Button
+              onClick={handleOpenWeightDialog}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white h-8 px-3 rounded-md text-sm"
+            >
+              <Settings className="mr-1 h-3 w-3" />
+              Cài đặt trọng số
+            </Button>
+            <Button
+              onClick={fetchForecastData}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white h-8 px-3 rounded-md text-sm"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  Đang phân tích...
+                </>
+              ) : (
+                'Cập nhật'
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -433,6 +692,7 @@ const ForecastPage = () => {
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1M</th>
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1Q</th>
                     <th className="text-center text-xs font-medium text-gray-500 dark:text-[#666] p-4">Khuyến nghị</th>
+                    <th className="text-center text-xs font-medium text-gray-500 dark:text-[#666] p-4">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -505,7 +765,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex justify-center">
                           <Badge className={`${
-                            stock.recommendation.includes('mua')
+                            (stock.recommendation || '').includes('mua')
                               ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.recommendation === 'Nên bán'
                               ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
@@ -514,6 +774,15 @@ const ForecastPage = () => {
                             {stock.recommendation}
                           </Badge>
                         </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={() => handleRemoveStock(stock)}
+                          className="p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded-full transition-colors"
+                          title="Xóa khỏi danh sách dự đoán"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -580,6 +849,210 @@ const ForecastPage = () => {
           </div>
         </div>
       )}
+
+      {/* Weight Edit Dialog */}
+      <Dialog open={isWeightDialogOpen} onOpenChange={setIsWeightDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[480px] p-0">
+          <div className="p-6 border-b border-gray-200 dark:border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Cài đặt trọng số</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Điều chỉnh trọng số cho từng cổ phiếu trong danh mục. Tổng trọng số phải bằng 100%.
+            </DialogDescription>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-100 dark:bg-[#252525] rounded-lg">
+              <span className="text-gray-500 dark:text-[#666]">Tổng trọng số:</span>
+              <span className={`font-medium ${
+                Math.abs(calculateTotalWeight() - 100) < 0.01 
+                  ? 'text-[#09D1C7]' 
+                  : 'text-[#FF4A4A]'
+              }`}>
+                {calculateTotalWeight().toFixed(2)}%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-[1fr,120px] gap-4">
+              <div className="text-gray-500 dark:text-[#999] text-sm">Mã CK</div>
+              <div className="text-gray-500 dark:text-[#999] text-sm text-center">Trọng số (%)</div>
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto pr-2 -mr-2">
+              <div className="space-y-3">
+                {forecastData?.stocks?.map((stock) => (
+                  <div key={stock.id} className="grid grid-cols-[1fr,120px] gap-4 items-center">
+                    <div className="font-medium">{stock.ticketSymbol}</div>
+                    <input
+                      type="number"
+                      value={editedWeights[stock.id] !== undefined ? editedWeights[stock.id] : stock.weight}
+                      onChange={(e) => handleWeightChange(stock.id, e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-100 dark:bg-[#252525] border border-gray-300 dark:border-[#333] rounded text-gray-900 dark:text-white text-center focus:outline-none focus:border-[#09D1C7]"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#333]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditedWeights({});
+                setIsWeightDialogOpen(false);
+              }}
+              className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333] min-w-[100px]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleUpdateWeights}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[140px]"
+              disabled={isUpdatingWeights || Math.abs(calculateTotalWeight() - 100) > 0.01}
+            >
+              {isUpdatingWeights ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang cập nhật...
+                </>
+              ) : (
+                'Cập nhật trọng số'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[480px] p-0">
+          <div className="p-6 border-b border-gray-200 dark:border-[#333]">
+            <DialogTitle className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Thêm cổ phiếu vào danh sách dự đoán</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#666]">
+              Chọn các mã cổ phiếu bạn muốn thêm vào danh sách dự đoán
+            </DialogDescription>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Tìm kiếm mã cổ phiếu..."
+                value={stockSearchQuery}
+                onChange={(e) => setStockSearchQuery(e.target.value)}
+                className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-10"
+              />
+              <Search className="h-4 w-4 text-gray-500 dark:text-[#666] absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Stocks List */}
+            <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+              {isLoadingStocks ? (
+                <div className="flex justify-center items-center py-4">
+                  <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : availableStocks.length > 0 ? (
+                availableStocks
+                  .filter(stock => 
+                    stock.ticketSymbol.toLowerCase().includes(stockSearchQuery.toLowerCase()) &&
+                    !forecastData?.stocks?.some(s => s.ticketSymbol.toLowerCase() === stock.ticketSymbol.toLowerCase())
+                  )
+                  .map(stock => (
+                    <div
+                      key={stock.id}
+                      className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#252525] hover:bg-gray-200/80 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedStockIds.includes(stock.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedStockIds(prev => [...prev, stock.id]);
+                          } else {
+                            setSelectedStockIds(prev => prev.filter(id => id !== stock.id));
+                          }
+                        }}
+                        className="h-4 w-4 border-gray-400 dark:border-[#666]"
+                      />
+                      <span className="font-medium">{stock.ticketSymbol}</span>
+                      <span className="text-gray-500 dark:text-[#999] text-sm flex-1 truncate">{stock.companyName}</span>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 dark:text-[#666]">
+                  {stockSearchQuery ? 'Không tìm thấy cổ phiếu phù hợp' : 'Không có cổ phiếu khả dụng'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#333]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddStockDialogOpen(false);
+                setSelectedStockIds([]);
+                setStockSearchQuery('');
+              }}
+              className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333] min-w-[100px]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={addSelectedStocksToForecast}
+              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white min-w-[140px]"
+              disabled={isAddingStocks || selectedStockIds.length === 0}
+            >
+              {isAddingStocks ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang thêm...
+                </>
+              ) : (
+                'Thêm cổ phiếu'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Stock Confirmation Dialog */}
+      <Dialog open={isDeleteStockDialogOpen} onOpenChange={setIsDeleteStockDialogOpen}>
+        <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-[400px] p-0">
+          <div className="p-6">
+            <DialogTitle className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Xác nhận xóa</DialogTitle>
+            <DialogDescription className="text-gray-700 dark:text-[#ccc] mb-4">
+              Bạn có chắc chắn muốn xóa mã <span className="font-medium text-gray-900 dark:text-white">{stockToDelete?.ticketSymbol}</span> khỏi danh sách dự đoán?
+            </DialogDescription>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteStockDialogOpen(false)}
+                className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333]"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={confirmDeleteStock}
+                className="bg-red-500 hover:bg-red-600 text-white"
+                disabled={isDeletingStock}
+              >
+                {isDeletingStock ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  'Xác nhận xóa'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
