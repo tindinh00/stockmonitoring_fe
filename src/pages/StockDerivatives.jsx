@@ -1474,57 +1474,34 @@ export default function StockDerivatives() {
         return;
       }
 
-      // Check if stock is already in watchlist
-      const isAlreadyInWatchlist = watchlist.some(item => item.code === stock.code);
-      
-      if (isAlreadyInWatchlist) {
-        // Remove from watchlist
-        const response = await axiosInstance.delete(
-          `/api/watchlist-stock`,
-          {
-            params: {
-              userId: userId,
-              tickerSymbol: [stock.code]
-            },
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'accept': '*/*'
-            }
+      // Add to watchlist with correct request format
+      const response = await axiosInstance.post(
+        `/api/watchlist-stock`,
+        {
+          userId: userId,
+          tickerSymbol: [stock.code]
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*',
+            'Content-Type': 'application/json'
           }
-        );
-        
-        updateWatchlist(watchlist.filter(item => item.code !== stock.code));
-        toast.success(`Đã xóa ${stock.code} khỏi danh sách theo dõi`);
-      } else {
-        // Add to watchlist with correct request format
-        const response = await axiosInstance.post(
-          `/api/watchlist-stock`,
-          {
-            userId: userId,
-            tickerSymbol: [stock.code]
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'accept': '*/*',
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-
-        // Kiểm tra nếu có thông báo đã tồn tại trong watchlist
-        if (response.data?.value?.message?.includes("already in the watchlist")) {
-          toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
-          return;
         }
-        
-        updateWatchlist([...watchlist, stock]);
-        toast.success(`Đã thêm ${stock.code} vào danh sách theo dõi`);
+      );
+
+      // Kiểm tra nếu có thông báo đã tồn tại trong watchlist
+      if (response.data?.value?.message?.includes("already in the watchlist")) {
+        toast.error(`Mã ${stock.code} đã tồn tại trong danh sách theo dõi. Vui lòng chọn mã khác`);
+        return;
       }
+      
+      updateWatchlist([...watchlist, stock]);
+      toast.success(`Đã thêm ${stock.code} vào danh sách theo dõi`);
     } catch (error) {
       console.error('Error updating watchlist:', error);
       if (error.response?.data?.value?.message?.includes("already in the watchlist")) {
-        toast.error("Mã cổ phiếu đã có trong danh sách theo dõi");
+        toast.error(`Mã ${stock.code} đã tồn tại trong danh sách theo dõi. Vui lòng chọn mã khác`);
       } else if (error.response?.status === 401) {
         toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
       } else if (error.response?.status === 403) {
