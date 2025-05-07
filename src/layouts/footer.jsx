@@ -76,19 +76,6 @@ const Footer = () => {
                   <Instagram className="h-6 w-6" />
                 </a>
               </div>
-              <div className="space-y-2">
-                <p className="text-gray-400 text-sm text-center md:text-left">Đăng ký nhận tin tức</p>
-                <div className="flex w-full max-w-sm mx-auto md:mx-0">
-                  <input
-                    type="email"
-                    placeholder="Nhập email của bạn"
-                    className="flex-grow px-3 py-2 rounded-l-md bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                  <Button className="bg-green-600 hover:bg-green-700 rounded-l-none px-4 py-2 text-sm">
-                    Đăng ký
-                  </Button>
-                </div>
-              </div>
             </div>
           </div>
 
