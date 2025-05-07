@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +26,137 @@ import signalRService from '@/api/signalRService';
 import axios from 'axios';
 import { useAuth } from '@/Authentication/AuthContext';
 
+// Component MarketIndices - được tách riêng và memo hóa để không re-render không cần thiết
+const MarketIndexStyles = () => (
+  <style>{`
+    @-webkit-keyframes scroll {
+      0% { -webkit-transform: translateX(0); transform: translateX(0); }
+      100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+    }
+    
+    @keyframes scroll {
+      0% { -webkit-transform: translateX(0); transform: translateX(0); }
+      100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+    }
+    
+    .scroll-container {
+      -webkit-animation: scroll 20s linear infinite;
+      animation: scroll 20s linear infinite;
+      display: flex;
+      width: max-content;
+      -webkit-transition: none;
+      transition: none;
+      will-change: transform;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      -moz-transform: translateZ(0);
+      -ms-transform: translateZ(0);
+      -o-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    
+    .scroll-container:hover {
+      -webkit-animation-play-state: paused;
+      animation-play-state: paused;
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .scroll-container {
+        -webkit-animation-play-state: paused;
+        animation-play-state: paused;
+      }
+    }
+    
+    /* Khoảng cách giữa repeating blocks */
+    .indices-block:last-child {
+      margin-left: 40px; /* Thêm khoảng cách lớn giữa 2 khối */
+    }
+    
+    /* Fix cho Safari */
+    @supports (-webkit-hyphens:none) {
+      .scroll-container {
+        -webkit-animation: scroll 20s linear infinite;
+        transform: translate3d(0, 0, 0);
+        -webkit-transform: translate3d(0, 0, 0);
+      }
+    }
+    
+    /* Fix cho Firefox */
+    @-moz-document url-prefix() {
+      .scroll-container {
+        animation: scroll 20s linear infinite;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+    
+    /* Fix cho IE và Edge cũ */
+    @media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+      .scroll-container {
+        animation: scroll 20s linear infinite;
+        -ms-transform: translateX(0);
+      }
+      @keyframes scroll {
+        0% { -ms-transform: translateX(0); }
+        100% { -ms-transform: translateX(-50%); }
+      }
+    }
+  `}</style>
+);
+
+// Component riêng cho Market Indices
+const MarketIndices = memo(({ isLoadingIndices, marketIndices }) => {
+  return (
+    <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
+      <div className='flex items-center gap-2 border border-[#15919B]/30 bg-gray-300 dark:bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
+        <MarketIndexStyles />
+        <div className="scroll-container">
+          <div className='flex items-center gap-8 indices-block'>
+            {isLoadingIndices ? (
+              <span className="text-[#666]">Đang tải...</span>
+            ) : (
+              marketIndices.map((index) => (
+                <span 
+                  key={index.id} 
+                  className={`whitespace-nowrap ${
+                    index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
+                    index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
+                    'text-[#F4BE37]'
+                  }`}
+                >
+                  {index.market}: {index.close} {' '}
+                  {index.arrow === 'icon-arrow-up' ? '↑' : 
+                   index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
+                  {index.change}
+                </span>
+              ))
+            )}
+          </div>
+          <div className='flex items-center gap-8 indices-block'>
+            {!isLoadingIndices && marketIndices.map((index) => (
+              <span 
+                key={`${index.id}-duplicate`}
+                className={`whitespace-nowrap ${
+                  index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
+                  index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
+                  'text-[#F4BE37]'
+                }`}
+              >
+                {index.market}: {index.close} {' '}
+                {index.arrow === 'icon-arrow-up' ? '↑' : 
+                 index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
+                {index.change}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MarketIndices.displayName = 'MarketIndices';
+
 export default function HeaderLogined() {
   // State to store notifications
   const [notifications, setNotifications] = useState([]);
@@ -37,6 +168,9 @@ export default function HeaderLogined() {
   const [isLoadingIndices, setIsLoadingIndices] = useState(true);
   const [theme, setTheme] = useState('dark');
   const { user } = useAuth();
+  
+  // Tạo ref để theo dõi việc gắn listener cho marketIndices
+  const marketIndicesListenerRef = React.useRef(false);
 
   // Add function to get read notifications from localStorage
   const getReadNotifications = () => {
@@ -108,8 +242,9 @@ export default function HeaderLogined() {
   };
 
   // Fetch market indices
-  const fetchMarketIndices = async () => {
+  const fetchMarketIndices = React.useCallback(async () => {
     try {
+      console.log('[Market Indices] Fetching market indices');
       const response = await axios.get('https://stockmonitoring-api-gateway.onrender.com/api/stock/indexes/latest');
       if (response?.data?.value?.data) {
         setMarketIndices(response.data.value.data);
@@ -119,7 +254,7 @@ export default function HeaderLogined() {
     } finally {
       setIsLoadingIndices(false);
     }
-  };
+  }, []);
 
   // Update trading hours status every minute
   useEffect(() => {
@@ -128,7 +263,7 @@ export default function HeaderLogined() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch market indices initially and setup SignalR listener
+  // Fetch market indices initially and setup SignalR listener - tách thành useEffect riêng
   useEffect(() => {
     // Initial fetch
     fetchMarketIndices();
@@ -136,6 +271,8 @@ export default function HeaderLogined() {
     // Setup SignalR listener for market indices updates
     const setupMarketIndicesListener = async () => {
       try {
+        if (marketIndicesListenerRef.current) return;
+        
         // Wait for connection to be established
         await signalRService.getConnection();
         
@@ -149,6 +286,7 @@ export default function HeaderLogined() {
 
         // Add event listener
         window.addEventListener('ReceiveIndexUpdate', handleMarketIndices);
+        marketIndicesListenerRef.current = true;
 
         // Handle connection status changes
         const handleConnectionStatus = (event) => {
@@ -165,6 +303,7 @@ export default function HeaderLogined() {
         return () => {
           window.removeEventListener('ReceiveIndexUpdate', handleMarketIndices);
           window.removeEventListener('signalrConnectionStatus', handleConnectionStatus);
+          marketIndicesListenerRef.current = false;
         };
       } catch (error) {
         console.error("[SignalR] Error setting up market indices listener:", error);
@@ -182,7 +321,7 @@ export default function HeaderLogined() {
         });
       }
     };
-  }, []);
+  }, [fetchMarketIndices]); // Chỉ phụ thuộc vào fetchMarketIndices
 
   // Modify fetchNotifications to include read status from localStorage
   const fetchNotifications = async () => {
@@ -535,125 +674,11 @@ export default function HeaderLogined() {
         </div>
         <Separator orientation='vertical' className='hidden sm:block h-4 bg-[#15919B]/30' />
         
-        {/* Market Indices */}
-        <div className='hidden lg:flex items-center gap-4 text-sm flex-1 min-w-0'>
-          <div className='flex items-center gap-2 border border-[#15919B]/30 bg-gray-300 dark:bg-[#1a2e3f] rounded-md px-3 py-1.5 w-full max-w-[1050px] overflow-hidden relative'>
-            <style>{`
-              @-webkit-keyframes scroll {
-                0% { -webkit-transform: translateX(0); transform: translateX(0); }
-                100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
-              }
-              
-              @keyframes scroll {
-                0% { -webkit-transform: translateX(0); transform: translateX(0); }
-                100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
-              }
-              
-              .scroll-container {
-                -webkit-animation: scroll 20s linear infinite;
-                animation: scroll 20s linear infinite;
-                display: flex;
-                width: max-content;
-                -webkit-transition: none;
-                transition: none;
-                will-change: transform;
-                transform: translateZ(0);
-                -webkit-transform: translateZ(0);
-                -moz-transform: translateZ(0);
-                -ms-transform: translateZ(0);
-                -o-transform: translateZ(0);
-                backface-visibility: hidden;
-                -webkit-backface-visibility: hidden;
-              }
-              
-              .scroll-container:hover {
-                -webkit-animation-play-state: paused;
-                animation-play-state: paused;
-              }
-              
-              @media (prefers-reduced-motion: reduce) {
-                .scroll-container {
-                  -webkit-animation-play-state: paused;
-                  animation-play-state: paused;
-                }
-              }
-              
-              /* Khoảng cách giữa repeating blocks */
-              .indices-block:last-child {
-                margin-left: 40px; /* Thêm khoảng cách lớn giữa 2 khối */
-              }
-              
-              /* Fix cho Safari */
-              @supports (-webkit-hyphens:none) {
-                .scroll-container {
-                  -webkit-animation: scroll 20s linear infinite;
-                  transform: translate3d(0, 0, 0);
-                  -webkit-transform: translate3d(0, 0, 0);
-                }
-              }
-              
-              /* Fix cho Firefox */
-              @-moz-document url-prefix() {
-                .scroll-container {
-                  animation: scroll 20s linear infinite;
-                  transform: translate3d(0, 0, 0);
-                }
-              }
-              
-              /* Fix cho IE và Edge cũ */
-              @media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
-                .scroll-container {
-                  animation: scroll 20s linear infinite;
-                  -ms-transform: translateX(0);
-                }
-                @keyframes scroll {
-                  0% { -ms-transform: translateX(0); }
-                  100% { -ms-transform: translateX(-50%); }
-                }
-              }
-            `}</style>
-            <div className="scroll-container" key={`scroll-${marketIndices.length > 0 ? marketIndices[0].close : 'loading'}-${Date.now()}`}>
-              <div className='flex items-center gap-8 indices-block'>
-                {isLoadingIndices ? (
-                  <span className="text-[#666]">Đang tải...</span>
-                ) : (
-                  marketIndices.map((index) => (
-                    <span 
-                      key={index.id} 
-                      className={`whitespace-nowrap ${
-                        index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
-                        index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
-                        'text-[#F4BE37]'
-                      }`}
-                    >
-                      {index.market}: {index.close} {' '}
-                      {index.arrow === 'icon-arrow-up' ? '↑' : 
-                       index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
-                      {index.change}
-                    </span>
-                  ))
-                )}
-              </div>
-              <div className='flex items-center gap-8 indices-block'>
-                {!isLoadingIndices && marketIndices.map((index) => (
-                  <span 
-                    key={`${index.id}-duplicate`}
-                    className={`whitespace-nowrap ${
-                      index.changeClass === 'txt-green' ? 'dark:text-[#00FF00] text-[#10B981]' : 
-                      index.changeClass === 'txt-red' ? 'text-[#FF4A4A]' :
-                      'text-[#F4BE37]'
-                    }`}
-                  >
-                    {index.market}: {index.close} {' '}
-                    {index.arrow === 'icon-arrow-up' ? '↑' : 
-                     index.arrow === 'icon-arrow-down' ? '↓' : '■'} {' '}
-                    {index.change}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Market Indices - Sử dụng component đã memo hóa */}
+        <MarketIndices 
+          isLoadingIndices={isLoadingIndices}
+          marketIndices={marketIndices}
+        />
       </div>
 
       <div className='flex items-center gap-2 px-4 shrink-0'>

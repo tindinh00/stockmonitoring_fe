@@ -1457,20 +1457,26 @@ const WatchlistPage = () => {
             </button>
           </div>
           {watchlistTab === 'industries' && (
-            <Button
-              onClick={() => {
-                if (!hasIndustryFeature) {
-                  setIsUpgradeDialogOpen(true);
-                  return;
-                }
-                fetchAvailableIndustries();
-                setIsAddIndustryDialogOpen(true);
-              }}
-              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm ngành</span>
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333]">
+                <span className="text-gray-500 dark:text-[#666]">Số ngành:</span>
+                <span className="text-[#09D1C7] font-medium">{industries.length}</span>
+              </div>
+              <Button
+                onClick={() => {
+                  if (!hasIndustryFeature) {
+                    setIsUpgradeDialogOpen(true);
+                    return;
+                  }
+                  fetchAvailableIndustries();
+                  setIsAddIndustryDialogOpen(true);
+                }}
+                className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Thêm ngành</span>
+              </Button>
+            </div>
           )}
       </div>
 
@@ -1806,27 +1812,28 @@ const WatchlistPage = () => {
             </div>
             
       {/* Quick Stats - Show in both views */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
-              </div>
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
-          <p className="text-xl font-semibold text-[#00FF00]">
-            {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
-          </p>
-            </div>
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
-          <p className="text-xl font-semibold text-[#FF4A4A]">
-            {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {/* Only show these stats in stocks tab */}
+              {watchlistTab === 'stocks' && (
+                <>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
+                    <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
+                  </div>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
+                    <p className="text-xl font-semibold text-[#00FF00]">
+                      {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
+                    <p className="text-xl font-semibold text-[#FF4A4A]">
+                      {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
+                    </p>
+                  </div>
+                </>
+              )}
       </div>
 
       {/* Industry Detail Dialog */}
