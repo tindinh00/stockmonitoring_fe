@@ -52,6 +52,21 @@ import { format, subHours } from "date-fns";
 import { vi } from "date-fns/locale";
 import { apiService } from "@/api/Api";
 
+const translateType = (type) => {
+  switch (type) {
+    case 'system':
+      return 'Lỗi hệ thống';
+    case 'interface':
+      return 'Giao diện';
+    case 'performance':
+      return 'Hiệu năng';
+    case 'other':
+      return 'Khác';
+    default:
+      return type || 'Khác';
+  }
+};
+
 export default function ManagerReportPage() {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,9 +86,16 @@ export default function ManagerReportPage() {
          report.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
          report.staffName?.toLowerCase().includes(searchTerm.toLowerCase()))
       : true;
-    const matchesType = selectedType === "all" || !selectedType || report.type === selectedType;
-    const matchesStatus = selectedStatus === "all" || !selectedStatus || report.status === selectedStatus;
-    const matchesSeverity = selectedSeverity === "all" || !selectedSeverity || report.severity === selectedSeverity;
+    
+    const matchesType = selectedType === "all" || !selectedType ? true : 
+      report.type === selectedType || translateType(report.type) === selectedType;
+    
+    const matchesStatus = selectedStatus === "all" || !selectedStatus ? true : 
+      report.status === selectedStatus;
+    
+    const matchesSeverity = selectedSeverity === "all" || !selectedSeverity ? true :
+      report.level === selectedSeverity;
+    
     return matchesSearch && matchesType && matchesStatus && matchesSeverity;
   });
   const totalPages = Math.max(1, Math.ceil(filteredReports.length / pageSize));
@@ -133,21 +155,6 @@ export default function ManagerReportPage() {
         return <AlertTriangle className="h-4 w-4" />;
       default:
         return null;
-    }
-  };
-
-  const translateType = (type) => {
-    switch (type) {
-      case 'system':
-        return 'Lỗi hệ thống';
-      case 'interface':
-        return 'Giao diện';
-      case 'performance':
-        return 'Hiệu năng';
-      case 'other':
-        return 'Khác';
-      default:
-        return type || 'Khác';
     }
   };
 
@@ -223,9 +230,10 @@ export default function ManagerReportPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="Lỗi hệ thống">Lỗi hệ thống</SelectItem>
-                    <SelectItem value="Giao diện">Giao diện</SelectItem>
-                    <SelectItem value="Hiệu năng">Hiệu năng</SelectItem>
+                    <SelectItem value="system">Lỗi hệ thống</SelectItem>
+                    <SelectItem value="interface">Giao diện</SelectItem>
+                    <SelectItem value="performance">Hiệu năng</SelectItem>
+                    <SelectItem value="other">Khác</SelectItem>
                   </SelectContent>
                 </Select>
 

@@ -78,6 +78,8 @@ const WatchlistPage = () => {
 
   // Thêm state để phân biệt initial loading và update loading
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  // Thêm state mới để theo dõi việc đang cập nhật từ SignalR
+  const [isSignalRUpdating, setIsSignalRUpdating] = useState(false);
 
   // Add loading state for add stock
   const [isAddingStocks, setIsAddingStocks] = useState(false);
@@ -390,8 +392,9 @@ const WatchlistPage = () => {
   // Fetch stock data from API
   const fetchStockData = async () => {
     console.log("=== Fetching watchlist data ===");
-    // Chỉ hiển thị loading khi là lần tải ban đầu
-    if (isInitialLoading) {
+    
+    // Chỉ hiển thị loading khi là lần tải ban đầu và không phải cập nhật từ SignalR
+    if (isInitialLoading && !isSignalRUpdating) {
       setIsLoading(true);
     }
     
@@ -523,11 +526,10 @@ const WatchlistPage = () => {
       const totalTime = performance.now() - startTime;
       console.log(`Total fetchStockData time: ${totalTime.toFixed(0)}ms`);
       
-      // Chỉ khi là lần tải ban đầu thì mới cần tắt loading
-      if (isInitialLoading) {
-        setIsLoading(false);
-        setIsInitialLoading(false);
-      }
+      // Luôn tắt loading khi hoàn thành quá trình cập nhật dữ liệu
+      setIsLoading(false);
+      setIsInitialLoading(false);
+      setIsSignalRUpdating(false); // Đảm bảo reset lại trạng thái
       
       // Cập nhật timestamp
       setLastTimestamp(new Date());
@@ -537,6 +539,7 @@ const WatchlistPage = () => {
       console.error("Error in fetchStockData:", error);
       setIsLoading(false);
       setIsInitialLoading(false);
+      setIsSignalRUpdating(false); // Đảm bảo reset lại trạng thái
       toast.error("Không thể tải dữ liệu danh sách theo dõi");
       setWatchlist([]);
       return false;
@@ -568,7 +571,8 @@ const WatchlistPage = () => {
       // Tạo một debounce function để tránh gọi API quá nhiều lần khi nhận nhiều thông báo
       const debouncedFetchData = safeDebounce((exchange) => {
         console.log(`[SignalR] Debounced fetching ${exchange} data`);
-        // Đánh dấu không phải là lần tải đầu tiên để tránh hiển thị loading spinner
+        // Đánh dấu đang update từ SignalR để không hiện loading
+        setIsSignalRUpdating(true);
         setIsInitialLoading(false);
         fetchStockData();
       }, 300);
@@ -578,13 +582,20 @@ const WatchlistPage = () => {
         if (activeTab === 'hsx') {
           try {
             console.log("[SignalR] Received HSX update:", data);
-            // Không hiển thị loading spinner khi đang cập nhật
-            setIsLoading(false);
+            // Đánh dấu đang update từ SignalR để không hiện loading
+            setIsSignalRUpdating(true);
             setIsInitialLoading(false);
-            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
-            debouncedFetchData('hsx');
+            
+            // Thay vì gọi fetchStockData, cập nhật trực tiếp dữ liệu nhận được
+            if (data && data.stocks && Array.isArray(data.stocks)) {
+              updateStockPrices(data.stocks);
+            } else {
+              // Nếu không có dữ liệu cụ thể, gọi API để lấy dữ liệu mới
+              debouncedFetchData('hsx');
+            }
           } catch (error) {
             console.error("[SignalR] Error processing HSX update:", error);
+            setIsSignalRUpdating(false); // Reset state in case of error
           }
         }
       });
@@ -594,13 +605,20 @@ const WatchlistPage = () => {
         if (activeTab === 'hnx') {
           try {
             console.log("[SignalR] Received HNX update:", data);
-            // Không hiển thị loading spinner khi đang cập nhật
-            setIsLoading(false);
+            // Đánh dấu đang update từ SignalR để không hiện loading
+            setIsSignalRUpdating(true);
             setIsInitialLoading(false);
-            // Khi nhận thông báo từ SignalR, gọi API để lấy dữ liệu mới
-            debouncedFetchData('hnx');
+            
+            // Thay vì gọi fetchStockData, cập nhật trực tiếp dữ liệu nhận được
+            if (data && data.stocks && Array.isArray(data.stocks)) {
+              updateStockPrices(data.stocks);
+            } else {
+              // Nếu không có dữ liệu cụ thể, gọi API để lấy dữ liệu mới
+              debouncedFetchData('hnx');
+            }
           } catch (error) {
             console.error("[SignalR] Error processing HNX update:", error);
+            setIsSignalRUpdating(false); // Reset state in case of error
           }
         }
       });
@@ -616,17 +634,134 @@ const WatchlistPage = () => {
     }
   };
 
-  // Initial data loading and SignalR setup
+  // Thêm hàm mới để cập nhật giá cổ phiếu mà không gọi lại API
+  const updateStockPrices = (updatedStocks) => {
+    console.log("[SignalR] Updating stock prices directly:", updatedStocks.length);
+    
+    if (!updatedStocks || updatedStocks.length === 0) {
+      setIsSignalRUpdating(false);
+      return;
+    }
+    
+    // Tạo một object lưu trữ animation classes mới
+    const newAnimations = {};
+    
+    // Cập nhật watchlist dựa trên dữ liệu mới
+    setWatchlist(prevWatchlist => {
+      if (!prevWatchlist || !Array.isArray(prevWatchlist)) {
+        setIsSignalRUpdating(false);
+        return prevWatchlist;
+      }
+      
+      // Tạo một bản sao của danh sách hiện tại
+      const updatedWatchlist = [...prevWatchlist];
+      
+      // Cập nhật giá cho từng cổ phiếu
+      updatedStocks.forEach(newStock => {
+        // Tìm index của cổ phiếu trong watchlist
+        const index = updatedWatchlist.findIndex(stock => stock.stockCode === newStock.stockCode);
+        
+        // Nếu tìm thấy, cập nhật thông tin
+        if (index !== -1) {
+          const currentStock = updatedWatchlist[index];
+          const previousStock = previousStockValues.current[newStock.stockCode];
+          
+          // Các trường cần kiểm tra
+          const fieldsToTrack = [
+            'matchPrice', 'matchedOrderVolume', 'volumeAccumulation',
+            'price3Buy', 'price2Buy', 'price1Buy',
+            'price1Sell', 'price2Sell', 'price3Sell',
+            'volume3Buy', 'volume2Buy', 'volume1Buy',
+            'volume1Sell', 'volume2Sell', 'volume3Sell',
+            'foreignBuyVolume', 'foreignSellVolume',
+            'plusMinus'
+          ];
+          
+          // Cập nhật từng trường
+          fieldsToTrack.forEach(field => {
+            if (newStock[field] !== undefined) {
+              // Lưu giá trị cũ trước khi cập nhật
+              const oldValue = currentStock[field];
+              
+              // Cập nhật giá trị mới
+              currentStock[field] = newStock[field];
+              
+              // Tạo animation nếu có thay đổi
+              if (previousStock && oldValue !== newStock[field] && 
+                  oldValue !== '--' && newStock[field] !== '--') {
+                // Xác định loại trường (giá hoặc khối lượng)
+                const fieldType = field.includes('volume') || field.includes('Volume') ? 'volume' : 'price';
+                
+                // Lấy animation class
+                const animClass = getChangeAnimation(newStock[field], oldValue, fieldType);
+                
+                // Log chi tiết
+                logAnimationDetails(newStock.stockCode, field, oldValue, newStock[field], animClass);
+                
+                // Lưu animation class nếu có
+                if (animClass) {
+                  newAnimations[`${newStock.stockCode}-${field}`] = animClass;
+                }
+              }
+            }
+          });
+          
+          // Cập nhật stock trong watchlist
+          updatedWatchlist[index] = currentStock;
+          
+          // Cập nhật giá trị trong ref
+          previousStockValues.current[newStock.stockCode] = { ...currentStock };
+        }
+      });
+      
+      return updatedWatchlist;
+    });
+    
+    // Cập nhật animations
+    const animationCount = Object.keys(newAnimations).length;
+    if (animationCount > 0) {
+      console.log('Updating animations:', animationCount, 'items');
+      setPriceChangeColors(prev => ({ ...prev, ...newAnimations }));
+    }
+    
+    // Cập nhật timestamp
+    setLastTimestamp(new Date());
+    
+    // Reset state khi hoàn thành cập nhật
+    setIsSignalRUpdating(false);
+  };
+
+  // Thêm useEffect để cài đặt polling interval cho fetchStockData
   useEffect(() => {
-    console.log("WatchlistPage - Component mounted");
-    setIsInitialLoading(true); // Đánh dấu mỗi khi thay đổi tab là đang tải lần đầu
+    console.log("Setting up polling interval");
+    // Đánh dấu đang tải lần đầu khi thay đổi tab
+    setIsInitialLoading(true);
+    // Fetch dữ liệu ban đầu
     fetchStockData();
-    setupSignalRConnection();
+    
+    // Tạo polling interval (mỗi 30 giây)
+    const interval = setInterval(() => {
+      console.log("Polling interval triggered");
+      setIsInitialLoading(false); // Không hiển thị loading indicator
+      fetchStockData();
+    }, 30000); // 30 seconds
+    
+    // Cleanup
+    return () => {
+      clearInterval(interval);
+    };
+  }, [activeTab]);
+
+  // Tách riêng useEffect cho việc setup SignalR
+  useEffect(() => {
+    console.log("Setting up SignalR connection");
+    const signalRCleanup = setupSignalRConnection();
     
     // Cleanup khi unmount
     return () => {
       console.log("WatchlistPage - Component unmounting");
       try {
+        if (typeof signalRCleanup === 'function') signalRCleanup();
         signalRService.offStock("ReceiveHSXStockUpdate");
         signalRService.offStock("ReceiveHNXStockUpdate");
         console.log("WatchlistPage - Unregistered SignalR listeners");
@@ -634,7 +769,7 @@ const WatchlistPage = () => {
         console.error("WatchlistPage - Error removing SignalR listeners:", error);
       }
     };
-  }, [activeTab]); // Thêm activeTab vào dependencies
+  }, [activeTab]);
 
   const removeFromWatchlist = (stock) => {
     setStockToDelete(stock);
@@ -834,21 +969,6 @@ const WatchlistPage = () => {
     }
   };
 
-  // Hook để fetch dữ liệu ban đầu và thiết lập SignalR
-  useEffect(() => {
-    fetchStockData();
-    
-    // Thiết lập kết nối SignalR
-    const signalRCleanup = setupSignalRConnection();
-    
-    // Cleanup khi component unmount
-    return () => {
-      if (typeof signalRCleanup === 'function') {
-        signalRCleanup();
-      }
-    };
-  }, [activeTab]);
-
   // Hàm nội bộ để xử lý dữ liệu cổ phiếu
   function processStocks(stocks) {
     console.log("Processing stocks data:", stocks);
@@ -1013,8 +1133,21 @@ const WatchlistPage = () => {
         }
       );
 
-      if (response?.data?.value?.data) {
+      console.log("API Response structure:", {
+        status: response.status,
+        responseStructure: Object.keys(response.data || {}),
+        valueStructure: Object.keys(response.data?.value || {}),
+        dataStructure: response.data?.value?.data ? 
+          `Array with ${response.data.value.data.length} items` : 
+          'No data array found'
+      });
+
+      if (response?.data?.value?.data?.length > 0) {
+        console.log("First stock example:", response.data.value.data[0]);
         setAvailableStocks(response.data.value.data);
+      } else {
+        console.log("No stocks found in API response");
+        setAvailableStocks([]);
       }
     } catch (error) {
       console.error('Error fetching stocks:', error);
@@ -1444,20 +1577,26 @@ const WatchlistPage = () => {
             </button>
           </div>
           {watchlistTab === 'industries' && (
-            <Button
-              onClick={() => {
-                if (!hasIndustryFeature) {
-                  setIsUpgradeDialogOpen(true);
-                  return;
-                }
-                fetchAvailableIndustries();
-                setIsAddIndustryDialogOpen(true);
-              }}
-              className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm ngành</span>
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333]">
+                <span className="text-gray-500 dark:text-[#666]">Số ngành:</span>
+                <span className="text-[#09D1C7] font-medium">{industries.length}</span>
+              </div>
+              <Button
+                onClick={() => {
+                  if (!hasIndustryFeature) {
+                    setIsUpgradeDialogOpen(true);
+                    return;
+                  }
+                  fetchAvailableIndustries();
+                  setIsAddIndustryDialogOpen(true);
+                }}
+                className="bg-[#09D1C7] hover:bg-[#0a8f88] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Thêm ngành</span>
+              </Button>
+            </div>
           )}
       </div>
 
@@ -1793,27 +1932,28 @@ const WatchlistPage = () => {
             </div>
             
       {/* Quick Stats - Show in both views */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-                <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Số ngành</h3>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{industries.length}</p>
-              </div>
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
-          <p className="text-xl font-semibold text-[#00FF00]">
-            {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
-          </p>
-            </div>
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
-          <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
-          <p className="text-xl font-semibold text-[#FF4A4A]">
-            {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {/* Only show these stats in stocks tab */}
+              {watchlistTab === 'stocks' && (
+                <>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tổng số cổ phiếu</h3>
+                    <p className="text-xl font-semibold text-gray-900 dark:text-white">{watchlist.length}</p>
+                  </div>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Tăng trong ngày</h3>
+                    <p className="text-xl font-semibold text-[#00FF00]">
+                      {watchlist.filter(stock => parseFloat(stock.plusMinus) > 0).length}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4">
+                    <h3 className="text-gray-500 dark:text-[#666] text-sm mb-2">Giảm trong ngày</h3>
+                    <p className="text-xl font-semibold text-[#FF4A4A]">
+                      {watchlist.filter(stock => parseFloat(stock.plusMinus) < 0).length}
+                    </p>
+                  </div>
+                </>
+              )}
       </div>
 
       {/* Industry Detail Dialog */}
@@ -1956,7 +2096,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Industries List */}
-          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2 pb-16">
             {isLoadingAvailableIndustries ? (
               <div className="flex justify-center items-center py-4">
                 <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
@@ -1964,8 +2104,9 @@ const WatchlistPage = () => {
             ) : availableIndustries.length > 0 ? (
               availableIndustries
                 .filter(industry => 
-                  (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
-                  industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
+                  (industry.name?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+                  industry.code?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+                  (industry.sector?.toLowerCase() || '').includes(newIndustryName.toLowerCase())) &&
                   !industries.some(existingIndustry => existingIndustry.id === industry.id)
                 )
                 .map(industry => (
@@ -1990,7 +2131,10 @@ const WatchlistPage = () => {
                       htmlFor={`industry-${industry.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-gray-900 dark:text-white">{industry.name}</span>
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 dark:text-white font-medium">{industry.name}</span>
+                        {industry.code && <span className="text-xs text-gray-500 dark:text-[#999]">Mã: {industry.code}</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
@@ -2012,8 +2156,9 @@ const WatchlistPage = () => {
             {/* Hiển thị thông báo nếu tất cả ngành đều đã được theo dõi */}
             {!isLoadingAvailableIndustries && availableIndustries.length > 0 && 
              availableIndustries.filter(industry => 
-               (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
-               industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
+               (industry.name?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+               industry.code?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+               (industry.sector?.toLowerCase() || '').includes(newIndustryName.toLowerCase())) &&
                !industries.some(existingIndustry => existingIndustry.id === industry.id)
              ).length === 0 && (
               <div className="bg-gray-100 dark:bg-[#252525] p-4 rounded-lg text-center">
@@ -2032,7 +2177,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Footer with buttons */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] z-10">
             <div className="flex items-center justify-between">
             <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedIndustryIds.length} ngành
@@ -2240,7 +2385,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Stocks List */}
-          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2 pb-16">
             {isLoadingStocks ? (
               <div className="flex justify-center items-center py-4">
                 <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
@@ -2248,8 +2393,9 @@ const WatchlistPage = () => {
             ) : availableStocks.length > 0 ? (
               availableStocks
                 .filter(stock => 
-                  stock.ticketSymbol.toLowerCase().includes(stockSearchQuery.toLowerCase()) &&
-                  !watchlist.some(w => w.stockCode.toLowerCase() === stock.ticketSymbol.toLowerCase())
+                  (stock.ticketSymbol?.toLowerCase().includes(stockSearchQuery.toLowerCase()) ||
+                   stock.name?.toLowerCase().includes(stockSearchQuery.toLowerCase())) &&
+                  !watchlist.some(w => w.stockCode?.toLowerCase() === stock.ticketSymbol?.toLowerCase())
                 )
                 .map(stock => (
                   <div
@@ -2273,7 +2419,10 @@ const WatchlistPage = () => {
                       htmlFor={`stock-${stock.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
+                        {stock.name && <span className="text-xs text-gray-500 dark:text-[#999]">{stock.name}</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
@@ -2296,7 +2445,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Footer with buttons */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] z-10">
             <div className="flex items-center justify-between">
             <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedStockIds.length} cổ phiếu
