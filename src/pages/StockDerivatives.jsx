@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useFeatureStore from '@/store/featureStore';
 import UnauthorizedFeatureMessage from '@/components/UnauthorizedFeatureMessage';
@@ -519,6 +519,9 @@ export default function StockDerivatives() {
   const [selectedExchange, setSelectedExchange] = useState('HOSE');
   const [activeTab, setActiveTab] = useState('price');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Debounce searchQuery để tránh gửi liên tục sang worker
+  const debouncedSearchQuery = useDeferredValue(searchQuery);
   
   // Dialog state
   const [selectedStock, setSelectedStock] = useState(null);
@@ -1262,7 +1265,7 @@ export default function StockDerivatives() {
           workerRef.current.postMessage({
             action: 'filter',
             data: formattedData,
-            searchQuery: searchQuery,
+            searchQuery: debouncedSearchQuery,
             filters: filters,
             sortConfig: sortConfig,
             showWatchlist: showWatchlist
@@ -1827,7 +1830,7 @@ export default function StockDerivatives() {
     } else {
       // Handle regular stock data display
       console.log(`Loading regular stock data - using API exchange: ${apiExchange} for selected exchange: ${selectedExchange}`);
-      fetchStockData(null, false, apiExchange, false);
+      fetchStockData(null, false, apiExchange);
     }
   }, [showWatchlist, selectedExchange]); // Depend on both showWatchlist and selectedExchange
 
@@ -2482,11 +2485,11 @@ export default function StockDerivatives() {
   }, [filteredData]); // Only depend on filteredData to trigger the effect, but use refs inside
 
   // Tạo một hàm debounced để xử lý cập nhật tìm kiếm
-  const debouncedSetSearchQuery = useRef(
+  const debouncedSetSearchQuery = useDeferredValue(
     debounce((value) => {
       setSearchQuery(value);
     }, 300)
-  ).current;
+  );
 
   // Add state for showing performance metrics
   // const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
@@ -3282,13 +3285,13 @@ export default function StockDerivatives() {
     filterWorkerRef.current.postMessage({
       action: 'updateFilters',
       data: {
-        searchQuery,
+        searchQuery: debouncedSearchQuery,
         filters,
         sortConfig,
         showWatchlist
       }
     });
-  }, [searchQuery, filters, sortConfig, showWatchlist]);
+  }, [debouncedSearchQuery, filters, sortConfig, showWatchlist]);
 
   // Clear filters
   const clearFilters = useCallback(() => {
@@ -3303,6 +3306,9 @@ export default function StockDerivatives() {
     
     filterWorkerRef.current?.postMessage({ action: 'clear' });
   }, []);
+
+  // deferredFilteredData để render bảng điện mượt hơn
+  const deferredFilteredData = useDeferredValue(filteredData);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
@@ -3787,15 +3793,7 @@ export default function StockDerivatives() {
                           </div>
                         </td>
                       </tr>
-                    ) : filteredData.length === 0 
-                        && (
-                          (searchQuery.trim() !== '' 
-                            || filters.priceChange !== 'all'
-                            || filters.volume !== 'all'
-                            || filters.percentChange !== 'all'
-                            || filters.marketCap !== 'all')
-                          && (showWatchlist ? watchlist.length > 0 : realTimeStockData.length > 0)
-                        ) ? (
+                    ) : filteredData.length === 0 ? (
                       <tr>
                         <td colSpan="26" className="text-center py-8">
                           <div className="flex flex-col items-center gap-4">
