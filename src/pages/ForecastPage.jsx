@@ -101,6 +101,11 @@ const ForecastPage = () => {
   };
 
   const handleSort = (field) => {
+    // Skip the sort operation if we're trying to sort by the removed 'trend' field
+    if (field === 'trend') {
+      return;
+    }
+    
     const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
     setSortField(field);
     setSortDirection(newDirection);
@@ -171,13 +176,6 @@ const ForecastPage = () => {
         break;
       case 'price':
         formattedValue = value ? value.toFixed(2) : '--';
-        break;
-      case 'trend':
-        switch (value) {
-          case 'Xu hướng tăng': color = 'text-emerald-500 dark:text-emerald-400'; break;
-          case 'Xu hướng giảm': color = 'text-[#FF4A4A]'; break;
-          default: color = 'text-[#F4BE37]';
-        }
         break;
       case 'recommendation':
         switch (value) {
@@ -686,7 +684,6 @@ const ForecastPage = () => {
                   <tr className="border-b border-gray-200 dark:border-[#333]">
                     <th className="text-left text-xs font-medium text-gray-500 dark:text-[#666] p-4">Mã CK</th>
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Giá hiện tại</th>
-                    <th className="text-center text-xs font-medium text-gray-500 dark:text-[#666] p-4">Xu hướng</th>
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1D</th>
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1W</th>
                     <th className="text-right text-xs font-medium text-gray-500 dark:text-[#666] p-4">Dự đoán 1M</th>
@@ -708,19 +705,6 @@ const ForecastPage = () => {
                       </td>
                       <td className="p-4 text-right font-medium dark:text-white text-gray-900">
                         {stock.currentPrice.toFixed(2)}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-center">
-                          <Badge className={`${
-                            stock.trend === 'Xu hướng tăng'
-                              ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
-                              : stock.trend === 'Xu hướng giảm'
-                              ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'
-                              : 'bg-yellow-100 hover:bg-yellow-200 dark:bg-[#252525] dark:hover:bg-[#333333] text-yellow-600 dark:text-[#F4BE37]'
-                          } transition-colors duration-200`}>
-                            {stock.trend}
-                          </Badge>
-                        </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">

@@ -208,31 +208,8 @@ function Home() {
                     size="lg"
                     className="bg-transparent border-2 border-[#46DFB1] text-[#46DFB1] hover:bg-[#46DFB1]/10 hover:text-white hover:border-[#46DFB1] font-semibold w-full sm:w-auto transition-all duration-300"
                   >
-                    <Link to="/tools">Nhận Tư Vấn</Link>
+                    <Link to="/contact">Nhận Tư Vấn</Link>
                   </Button>
-                </motion.div>
-              </div>
-            </AnimatedSection>
-            
-            {/* WhatsApp Image - Centered and Responsive */}
-            <AnimatedSection delay={1.0}>
-              <div className="flex justify-center -mt-5">
-                <motion.div 
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="relative w-full max-w-[150px] sm:max-w-[180px] md:max-w-[200px] px-2"
-                >
-                  <img
-                    src="https://static.whatsapp.net/rsrc.php/v3/yY/r/Q5OhYIrTxr_.png"
-                    alt="WhatsApp QR Code"
-                    className="w-full h-auto rounded-x mx-auto"
-                  />
-                  <motion.div
-                    className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full opacity-30"
-                    style={{ backgroundColor: "#46DFB1" }}
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.5, 0.3] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
                 </motion.div>
               </div>
             </AnimatedSection>
