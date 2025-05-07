@@ -765,7 +765,7 @@ const ForecastPage = () => {
                       <td className="p-4">
                         <div className="flex justify-center">
                           <Badge className={`${
-                            stock.recommendation.includes('mua')
+                            (stock.recommendation || '').includes('mua')
                               ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-[#002108] dark:hover:bg-[#003110] text-emerald-600 dark:text-emerald-400'
                               : stock.recommendation === 'Nên bán'
                               ? 'bg-red-100 hover:bg-red-200 dark:bg-[#290000] dark:hover:bg-[#330000] text-red-600 dark:text-[#FF4A4A]'

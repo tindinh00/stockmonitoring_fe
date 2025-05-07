@@ -359,10 +359,10 @@ const PersonalAnalyticsPage = () => {
         color = formattedValue > 0 ? 'text-[#00FF00]' : formattedValue < 0 ? 'text-[#FF4A4A]' : 'text-gray-900 dark:text-white';
         break;
       case 'beta':
-        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}` : '--';
         break;
       case 'betaWeight':
-        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}%` : '--';
+        formattedValue = formattedValue ? `${formattedValue.toFixed(2)}` : '--';
         break;
       case 'returnLevel':
         switch (formattedValue) {
@@ -662,9 +662,18 @@ const PersonalAnalyticsPage = () => {
         <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Phân tích danh mục đầu tư</h2>
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
-              <span>Tổng số cổ phiếu:</span>
-              <span className="text-gray-900 dark:text-white font-medium">{stocks.length}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center">
+                <span className="bg-[#09D1C7] text-white rounded-md px-3 py-1 text-sm font-semibold" title="Tổng TS Beta của danh mục">
+                  Tổng TS Beta: {
+                    stocks.reduce((sum, stock) => sum + (typeof stock.betaWeight === 'number' ? stock.betaWeight : 0), 0).toFixed(2)
+                  }
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#999]">
+                <span>Tổng số cổ phiếu:</span>
+                <span className="text-gray-900 dark:text-white font-medium">{stocks.length}</span>
+              </div>
             </div>
           </div>
           

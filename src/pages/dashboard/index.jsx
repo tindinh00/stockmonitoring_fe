@@ -9,6 +9,8 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const currentYear = new Date().getFullYear()
+  const [loadingToday, setLoadingToday] = useState(true)
+  const [todayRevenue, setTodayRevenue] = useState(0)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,6 +26,22 @@ export default function DashboardPage() {
     }
 
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    const fetchTodayRevenue = async () => {
+      try {
+        setLoadingToday(true)
+        const response = await apiService.getTodayRevenue()
+        setTodayRevenue(response.data.revenue)
+      } catch (error) {
+        console.error('Error fetching today\'s revenue:', error)
+      } finally {
+        setLoadingToday(false)
+      }
+    }
+
+    fetchTodayRevenue()
   }, [])
 
   if (loading) {
@@ -93,7 +111,16 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="space-y-8">
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+          <StatsCard
+            title="Tổng doanh thu trong ngày"
+            value={loadingToday ? 'Đang tải...' : formatVND(todayRevenue)}
+            icon={<DollarSign className="h-4 w-4" />}
+            helperText=""
+            trend="up"
+            className="bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-transparent border-0 shadow-xl shadow-cyan-500/5"
+            iconClassName="bg-cyan-500/10 text-cyan-500"
+          />
           <StatsCard
             title="Tổng doanh thu"
             value={formatVND(currentMonthStats.totalRevenue)}

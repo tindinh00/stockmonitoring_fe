@@ -998,7 +998,7 @@ export default function StockDerivatives() {
 
     if (price === ceilPrice) return isDarkMode ? '#FF3B3B' : '#FF0000';
     if (price === floorPrice) return isDarkMode ? '#00C7FF' : '#0066FF';
-    if (price > refPrice) return isDarkMode ? '#FF6B6B' : '#FF2626';
+    if (price > refPrice) return isDarkMode ? '#00FF00' : '#22c55e';
     if (price < refPrice) return isDarkMode ? '#39DFD6' : '#007AFF';
     return isDarkMode ? '#FFFFFF' : '#000000';
   };
@@ -3310,6 +3310,26 @@ export default function StockDerivatives() {
   // deferredFilteredData để render bảng điện mượt hơn
   const deferredFilteredData = useDeferredValue(filteredData);
 
+  // Clear worker cache when theme changes
+  useEffect(() => {
+    if (colorWorkerRef.current) {
+      colorWorkerRef.current.postMessage({ action: 'clearCache' });
+    }
+    // Đảm bảo store cũng clear cache và cập nhật trạng thái dark mode
+    try {
+      const useStockWorkerStore = require('../stores/useStockWorkerStore').default;
+      useStockWorkerStore.getState().setIsDarkMode(isDarkMode);
+    } catch (e) {
+      // ignore if not available
+    }
+  }, [isDarkMode]);
+
+  // Force re-render table when theme changes
+  const [tableKey, setTableKey] = useState(0);
+  useEffect(() => {
+    setTableKey(prev => prev + 1);
+  }, [isDarkMode]);
+
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -3639,7 +3659,7 @@ export default function StockDerivatives() {
           <div className="h-full">
             <div className="stock-table-container">
               <div className="min-w-[1400px]">
-                <table className="w-full border-collapse" style={{ borderCollapse: 'collapse' }}>
+                <table key={tableKey} className="w-full border-collapse" style={{ borderCollapse: 'collapse' }}>
                   <colgroup>
                     <col className="w-[80px]" />
                     <col className="w-[60px]" />
