@@ -32,11 +32,16 @@ const ChatPage = () => {
   const userId = getUserIdFromCookie() || user?.id || 2;
   const userName = getUserNameFromCookie() || user?.name;
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
+    // Thêm timeout để đảm bảo cuộn xuống tin nhắn mới nhất sau khi render
+    const timeout = setTimeout(scrollToBottom, 300);
+    return () => clearTimeout(timeout);
   }, [messages]);
 
   // Helper function to format Firebase Timestamp to readable time
@@ -53,56 +58,85 @@ const ChatPage = () => {
 
   // Get the room for current user and update user info if needed
   useEffect(() => {
+    let isActive = true;
+    
     // Use the userId from the authenticated user
     const fetchUserRoom = async () => {
-      const roomsRef = collection(db, "room");
-      const q = query(roomsRef, where("userId", "==", userId));
-      const roomSnapshot = await getDocs(q);
-      
-      if (!roomSnapshot.empty) {
-        const roomId = roomSnapshot.docs[0].id;
-        const roomData = roomSnapshot.docs[0].data();
-        setCurrentRoomId(roomId);
+      try {
+        const roomsRef = collection(db, "room");
+        const q = query(roomsRef, where("userId", "==", userId));
+        const roomSnapshot = await getDocs(q);
         
-        // Update room with current user name if it's different
-        if (roomData.userName !== userName && userName) {
-          console.log(`Updating room user name from ${roomData.userName} to ${userName}`);
+        if (!isActive) return;
+        
+        if (!roomSnapshot.empty) {
+          const roomId = roomSnapshot.docs[0].id;
+          const roomData = roomSnapshot.docs[0].data();
+          setCurrentRoomId(roomId);
+          
+          // Update room with current user name if it's different
+          if (roomData.userName !== userName && userName) {
+            console.log(`Updating room user name from ${roomData.userName} to ${userName}`);
+            const roomRef = doc(db, "room", roomId);
+            await updateDoc(roomRef, { 
+              userName: userName 
+            });
+          }
+          
+          // Update lastActivity timestamp to show user is online
           const roomRef = doc(db, "room", roomId);
-          await updateDoc(roomRef, { 
-            userName: userName 
+          await updateDoc(roomRef, {
+            lastActivity: serverTimestamp()
           });
         }
-        
-        // Update lastActivity timestamp to show user is online
-        const roomRef = doc(db, "room", roomId);
-        await updateDoc(roomRef, {
-          lastActivity: serverTimestamp()
-        });
+      } catch (error) {
+        console.error("Error fetching user room:", error);
+        if (isActive) {
+          toast.error("Không thể kết nối. Vui lòng tải lại trang.");
+        }
       }
     };
 
     fetchUserRoom();
+    
+    return () => {
+      isActive = false;
+    };
   }, [userId, userName]);
 
   // Add this useEffect to load messages for the current room
   useEffect(() => {
     if (!currentRoomId) return;
 
-    const q = query(
-      collection(db, "message"),
-      where("roomId", "==", currentRoomId),
-      orderBy("timestamp", "asc")
-    );
+    let unsubscribe = null;
+    try {
+      const q = query(
+        collection(db, "message"),
+        where("roomId", "==", currentRoomId),
+        orderBy("timestamp", "asc")
+      );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const messageData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMessages(messageData);
-    });
+      unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const messageData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messageData);
+      });
+    } catch (error) {
+      console.error("Error setting up message listener:", error);
+      toast.error("Không thể tải tin nhắn. Vui lòng tải lại trang.");
+    }
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error("Error cleaning up message listener:", error);
+        }
+      }
+    };
   }, [currentRoomId]);
 
   // Periodically update user's activity status
@@ -242,7 +276,7 @@ const ChatPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleImageSelect = (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit

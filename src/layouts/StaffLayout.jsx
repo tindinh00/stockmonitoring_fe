@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import StaffSidebar from "./StaffSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -7,8 +7,17 @@ import HeaderManager from "./headerManager";
 
 // Thêm props children để nhận các component từ Route
 export default function StaffLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const stored = localStorage.getItem('staffSidebarOpen');
+    return stored === 'true' ? true : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('staffSidebarOpen', sidebarOpen);
+  }, [sidebarOpen]);
+
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <div className="grid h-screen w-full overflow-hidden bg-[#0a0a14] text-slate-50 lg:grid-cols-[auto_1fr]">
         <StaffSidebar />
         <div className="flex flex-col">
