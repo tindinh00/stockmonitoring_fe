@@ -1,44 +1,79 @@
 // Web worker for filtering and sorting stock data
 // This offloads potentially expensive operations from the main thread
 
+let currentData = [];
+let currentFilters = {
+  searchQuery: '',
+  filters: {},
+  sortConfig: { key: null, direction: 'asc' },
+  showWatchlist: false
+};
+
 // Message handler for the worker
 self.onmessage = function(e) {
-  const { 
-    action, 
-    data, 
-    searchQuery, 
-    filters, 
-    sortConfig,
-    showWatchlist 
-  } = e.data;
+  const { action, data } = e.data;
 
-  if (action === 'filter') {
-    const startTime = performance.now();
-    
-    // Perform filtering and sorting
-    const filteredData = getFilteredData(data, searchQuery, filters, sortConfig);
-    
-    // Calculate processing time
-    const endTime = performance.now();
-    const processingTime = (endTime - startTime).toFixed(2);
-    
-    // Send results back to main thread
-    self.postMessage({ 
-      filteredData: filteredData,
-      showWatchlist: showWatchlist,
-      stats: {
-        itemsIn: data.length,
-        itemsOut: filteredData.length,
-        processingTime: processingTime
-      }
-    });
-    
-    // Log performance info in worker
-    console.log(`[Worker] Filtered ${data.length} items to ${filteredData.length} in ${processingTime}ms`);
+  switch (action) {
+    case 'updateData':
+      currentData = data;
+      processData();
+      break;
+
+    case 'updateFilters':
+      currentFilters = {
+        ...currentFilters,
+        ...data
+      };
+      processData();
+      break;
+
+    case 'clear':
+      currentData = [];
+      currentFilters = {
+        searchQuery: '',
+        filters: {},
+        sortConfig: { key: null, direction: 'asc' },
+        showWatchlist: false
+      };
+      self.postMessage({ action: 'clear' });
+      break;
   }
 };
 
-// The filtering and sorting function moved from the main component
+function processData() {
+  const startTime = performance.now();
+  
+  // Perform filtering and sorting
+  const filteredData = getFilteredData(
+    currentData,
+    currentFilters.searchQuery,
+    currentFilters.filters,
+    currentFilters.sortConfig
+  );
+  
+  // Calculate processing time
+  const endTime = performance.now();
+  const processingTime = (endTime - startTime).toFixed(2);
+  
+  // Send results back to main thread
+  self.postMessage({ 
+    action: 'filteredData',
+    data: {
+      filteredData,
+      showWatchlist: currentFilters.showWatchlist,
+      stats: {
+        itemsIn: currentData.length,
+        itemsOut: filteredData.length,
+        processingTime
+      }
+    }
+  });
+  
+  // Log performance info in worker
+  console.log(`[Worker] Filtered ${currentData.length} items to ${filteredData.length} in ${processingTime}ms`);
+}
+
+// The filtering and sorting function
 function getFilteredData(data, searchQuery, filters, sortConfig) {
   if (!data || !Array.isArray(data)) {
     return [];

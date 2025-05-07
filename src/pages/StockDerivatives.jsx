@@ -3237,6 +3237,73 @@ export default function StockDerivatives() {
     }
   }, [processUpdateQueue]);
 
+  // Add these refs near other refs
+  const filterWorkerRef = useRef(null);
+  
+
+  // Add this effect to initialize filter worker
+  useEffect(() => {
+    filterWorkerRef.current = new Worker(new URL('../workers/stockFilterWorker.js', import.meta.url));
+    
+    filterWorkerRef.current.onmessage = (e) => {
+      const { action, data } = e.data;
+      
+      switch (action) {
+        case 'filteredData':
+          updateFilteredData(data.filteredData);
+          break;
+          
+        case 'clear':
+          updateFilteredData([]);
+          break;
+      }
+    };
+    
+    return () => {
+      filterWorkerRef.current?.terminate();
+    };
+  }, []);
+
+  // Update data effect
+  useEffect(() => {
+    if (!filterWorkerRef.current) return;
+    
+    const dataToFilter = showWatchlist ? watchlist : realTimeStockData;
+    filterWorkerRef.current.postMessage({
+      action: 'updateData',
+      data: dataToFilter
+    });
+  }, [watchlist, realTimeStockData, showWatchlist]);
+
+  // Update filters effect
+  useEffect(() => {
+    if (!filterWorkerRef.current) return;
+    
+    filterWorkerRef.current.postMessage({
+      action: 'updateFilters',
+      data: {
+        searchQuery,
+        filters,
+        sortConfig,
+        showWatchlist
+      }
+    });
+  }, [searchQuery, filters, sortConfig, showWatchlist]);
+
+  // Clear filters
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setFilters({
+      priceChange: 'all',
+      volume: 'all',
+      percentChange: 'all',
+      marketCap: 'all'
+    });
+    setSortConfig({ key: null, direction: 'asc' });
+    
+    filterWorkerRef.current?.postMessage({ action: 'clear' });
+  }, []);
+
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
       <style>{animations}</style>
@@ -3720,7 +3787,15 @@ export default function StockDerivatives() {
                           </div>
                         </td>
                       </tr>
-                    ) : filteredData.length === 0 ? (
+                    ) : filteredData.length === 0 
+                        && (
+                          (searchQuery.trim() !== '' 
+                            || filters.priceChange !== 'all'
+                            || filters.volume !== 'all'
+                            || filters.percentChange !== 'all'
+                            || filters.marketCap !== 'all')
+                          && (showWatchlist ? watchlist.length > 0 : realTimeStockData.length > 0)
+                        ) ? (
                       <tr>
                         <td colSpan="26" className="text-center py-8">
                           <div className="flex flex-col items-center gap-4">
