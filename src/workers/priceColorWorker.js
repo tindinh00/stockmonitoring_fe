@@ -1,11 +1,35 @@
-// Web worker for price color and animation calculations
+// Web worker for price color and animation calculations with maxUpdatesPerFrame
 
-// Local caches for performance
 const colorCache = new Map();
 const animCache = new Map();
 let latestBatchTimestamp = 0;
 
-// Handle messages from main thread
+const MAX_UPDATES_PER_FRAME = 100;
+let updateQueue = [];
+let animationFrameScheduled = false;
+
+function enqueueUpdate(message) {
+  updateQueue.push(message);
+  if (!animationFrameScheduled) {
+    animationFrameScheduled = true;
+    requestAnimationFrame(flushUpdateQueue);
+  }
+}
+
+function flushUpdateQueue() {
+  let count = 0;
+  while (updateQueue.length > 0 && count < MAX_UPDATES_PER_FRAME) {
+    self.postMessage(updateQueue.shift());
+    count++;
+  }
+
+  if (updateQueue.length > 0) {
+    requestAnimationFrame(flushUpdateQueue);
+  } else {
+    animationFrameScheduled = false;
+  }
+}
+
 self.onmessage = function(e) {
   const { action, data } = e.data;
 
@@ -13,60 +37,34 @@ self.onmessage = function(e) {
     case 'getPriceColor': {
       const { price, refPrice, ceilPrice, floorPrice, isDarkMode, cacheKey } = data;
       const color = getPriceColor(price, refPrice, ceilPrice, floorPrice, isDarkMode);
-      
-      // Cache result locally
       colorCache.set(cacheKey, color);
-      
-      // Send back to main thread to update store
-      self.postMessage({
-        action: 'updateCache',
-        cacheType: 'color',
-        key: cacheKey,
-        value: color
-      });
+      enqueueUpdate({ action: 'updateCache', cacheType: 'color', key: cacheKey, value: color });
       break;
     }
 
     case 'getChangeAnimation': {
       const { currentValue, previousValue, type, cacheKey } = data;
       const animation = getChangeAnimation(currentValue, previousValue, type);
-      
-      // Cache result locally
       animCache.set(cacheKey, animation);
-      
-      // Send back to main thread to update store
-      self.postMessage({
-        action: 'updateCache',
-        cacheType: 'animation',
-        key: cacheKey,
-        value: animation
-      });
+      enqueueUpdate({ action: 'updateCache', cacheType: 'animation', key: cacheKey, value: animation });
       break;
     }
 
     case 'batchProcess': {
       const { stocks, previousValues, isDarkMode, chunkSize = 50, priority = 'normal', batchTimestamp } = data;
-      
-      // Skip if this is an outdated batch
-      if (batchTimestamp < latestBatchTimestamp) {
-        console.log(`[Worker] Skipping outdated batch: ${batchTimestamp} < ${latestBatchTimestamp}`);
-        return;
-      }
-      
+      if (batchTimestamp < latestBatchTimestamp) return;
       latestBatchTimestamp = batchTimestamp;
+
       const startTime = performance.now();
-      
-      // Break stocks into chunks
       const chunks = chunkArray(stocks, chunkSize);
-      const results = {};
-      
-      // Process chunks
+
       const processChunks = async (start = 0) => {
         for (let i = start; i < chunks.length; i++) {
           if (batchTimestamp < latestBatchTimestamp) return;
 
           const chunk = chunks[i];
-          
+          const results = {};
+
           chunk.forEach((stock) => {
             if (!stock || !stock.code) return;
 
@@ -83,28 +81,14 @@ self.onmessage = function(e) {
                 const colorKey = `${stock.code}-${field}`;
                 const color = getPriceColor(val, stock.ref, stock.ceiling, stock.floor, isDarkMode);
                 priceColors[field] = color;
-                
-                // Send individual updates to main thread
-                self.postMessage({
-                  action: 'updateCache',
-                  cacheType: 'color',
-                  key: colorKey,
-                  value: color
-                });
+                enqueueUpdate({ action: 'updateCache', cacheType: 'color', key: colorKey, value: color });
               }
 
               if (prevStock?.[field] && val !== prevStock[field]) {
                 const animKey = `${stock.code}-${field}`;
                 const animation = getChangeAnimation(val, prevStock[field], 'price');
                 animations[field] = animation;
-                
-                // Send individual updates to main thread
-                self.postMessage({
-                  action: 'updateCache',
-                  cacheType: 'animation',
-                  key: animKey,
-                  value: animation
-                });
+                enqueueUpdate({ action: 'updateCache', cacheType: 'animation', key: animKey, value: animation });
               }
             });
 
@@ -114,22 +98,14 @@ self.onmessage = function(e) {
                 const animKey = `${stock.code}-${field}`;
                 const animation = getChangeAnimation(val, prevStock[field], 'volume');
                 animations[field] = animation;
-                
-                // Send individual updates to main thread
-                self.postMessage({
-                  action: 'updateCache',
-                  cacheType: 'animation',
-                  key: animKey,
-                  value: animation
-                });
+                enqueueUpdate({ action: 'updateCache', cacheType: 'animation', key: animKey, value: animation });
               }
             });
 
             results[stock.code] = { priceColors, animations };
           });
 
-          // Send chunk results
-          self.postMessage({
+          enqueueUpdate({
             action: 'chunkResults',
             chunkIndex: i,
             totalChunks: chunks.length,
@@ -138,13 +114,13 @@ self.onmessage = function(e) {
           });
 
           if (priority === 'low' && i < chunks.length - 1) {
-            await new Promise(res => setTimeout(res, 50)); // Add delay for low priority
+            await new Promise(res => setTimeout(res, 50));
           }
         }
 
         if (batchTimestamp >= latestBatchTimestamp) {
           const endTime = performance.now();
-          self.postMessage({
+          enqueueUpdate({
             action: 'batchResults',
             batchTimestamp,
             priority,

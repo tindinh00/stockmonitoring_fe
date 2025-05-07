@@ -472,6 +472,10 @@ function useStockState() {
   };
 }
 
+// Add these constants at the top of the file
+const MAX_UPDATES_PER_FRAME = 100;
+const BATCH_UPDATE_TYPES = ['updateCache', 'chunkResults', 'batchResults'];
+
 export default function StockDerivatives() {
   const navigate = useNavigate();
   const { hasFeature } = useFeatureStore();
@@ -3135,6 +3139,103 @@ export default function StockDerivatives() {
       clearTimeout(initialRestartTimeout);
     };
   }, []);
+
+  // Add these refs near other refs
+  const updateQueueRef = useRef([]);
+  const isFrameScheduledRef = useRef(false);
+
+  // Add this function before handleColorWorkerMessage
+  const processUpdateQueue = useCallback(() => {
+    const queue = updateQueueRef.current;
+    const updates = queue.splice(0, MAX_UPDATES_PER_FRAME);
+    
+    if (updates.length > 0) {
+      // Group updates by type
+      const groupedUpdates = updates.reduce((acc, update) => {
+        if (!acc[update.action]) {
+          acc[update.action] = [];
+        }
+        acc[update.action].push(update);
+        return acc;
+      }, {});
+
+      // Process each group
+      Object.entries(groupedUpdates).forEach(([action, items]) => {
+        switch (action) {
+          case 'updateCache':
+            items.forEach(item => {
+              if (item.cacheType === 'color') {
+                updateColorCache(prev => ({
+                  ...prev,
+                  [item.key]: item.value
+                }));
+              } else if (item.cacheType === 'animation') {
+                updateAnimationCache(prev => ({
+                  ...prev,
+                  [item.key]: item.value
+                }));
+              }
+            });
+            break;
+
+          case 'chunkResults':
+            items.forEach(item => {
+              setStockData(prev => {
+                const newData = { ...prev };
+                Object.entries(item.results).forEach(([code, data]) => {
+                  if (!newData[code]) newData[code] = {};
+                  newData[code] = {
+                    ...newData[code],
+                    ...data
+                  };
+                });
+                return newData;
+              });
+            });
+            break;
+
+          case 'batchResults':
+            // Process the last batch result only
+            const lastBatch = items[items.length - 1];
+            if (lastBatch.stats) {
+              console.log(`[Worker] Processed ${lastBatch.stats.stockCount} stocks in ${lastBatch.stats.processingTime}ms`);
+            }
+            break;
+        }
+      });
+    }
+
+    // Schedule next frame if there are more updates
+    if (queue.length > 0) {
+      requestAnimationFrame(processUpdateQueue);
+    } else {
+      isFrameScheduledRef.current = false;
+    }
+  }, [updateColorCache, updateAnimationCache]);
+
+  // Replace the existing handleColorWorkerMessage with this version
+  const handleColorWorkerMessage = useCallback((e) => {
+    const { action, ...data } = e.data;
+
+    if (BATCH_UPDATE_TYPES.includes(action)) {
+      // Add to queue
+      updateQueueRef.current.push(e.data);
+
+      // Schedule frame if not already scheduled
+      if (!isFrameScheduledRef.current) {
+        isFrameScheduledRef.current = true;
+        requestAnimationFrame(processUpdateQueue);
+      }
+    } else {
+      // Handle non-batch messages immediately
+      switch (action) {
+        case 'error':
+          console.error('[Worker Error]', data.error);
+          break;
+        // Add other non-batch message handlers here
+      }
+    }
+  }, [processUpdateQueue]);
 
   return (
     <div className="bg-white dark:bg-[#0a0a14] min-h-[calc(100vh-4rem)] -mx-4 md:-mx-8 flex flex-col">
