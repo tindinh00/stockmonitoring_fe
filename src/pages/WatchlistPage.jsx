@@ -1013,8 +1013,21 @@ const WatchlistPage = () => {
         }
       );
 
-      if (response?.data?.value?.data) {
+      console.log("API Response structure:", {
+        status: response.status,
+        responseStructure: Object.keys(response.data || {}),
+        valueStructure: Object.keys(response.data?.value || {}),
+        dataStructure: response.data?.value?.data ? 
+          `Array with ${response.data.value.data.length} items` : 
+          'No data array found'
+      });
+
+      if (response?.data?.value?.data?.length > 0) {
+        console.log("First stock example:", response.data.value.data[0]);
         setAvailableStocks(response.data.value.data);
+      } else {
+        console.log("No stocks found in API response");
+        setAvailableStocks([]);
       }
     } catch (error) {
       console.error('Error fetching stocks:', error);
@@ -1956,7 +1969,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Industries List */}
-          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2 pb-16">
             {isLoadingAvailableIndustries ? (
               <div className="flex justify-center items-center py-4">
                 <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
@@ -1964,8 +1977,9 @@ const WatchlistPage = () => {
             ) : availableIndustries.length > 0 ? (
               availableIndustries
                 .filter(industry => 
-                  (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
-                  industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
+                  (industry.name?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+                  industry.code?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+                  (industry.sector?.toLowerCase() || '').includes(newIndustryName.toLowerCase())) &&
                   !industries.some(existingIndustry => existingIndustry.id === industry.id)
                 )
                 .map(industry => (
@@ -1990,7 +2004,10 @@ const WatchlistPage = () => {
                       htmlFor={`industry-${industry.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-gray-900 dark:text-white">{industry.name}</span>
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 dark:text-white font-medium">{industry.name}</span>
+                        {industry.code && <span className="text-xs text-gray-500 dark:text-[#999]">Mã: {industry.code}</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
@@ -2012,8 +2029,9 @@ const WatchlistPage = () => {
             {/* Hiển thị thông báo nếu tất cả ngành đều đã được theo dõi */}
             {!isLoadingAvailableIndustries && availableIndustries.length > 0 && 
              availableIndustries.filter(industry => 
-               (industry.name.toLowerCase().includes(newIndustryName.toLowerCase()) ||
-               industry.code.toLowerCase().includes(newIndustryName.toLowerCase())) &&
+               (industry.name?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+               industry.code?.toLowerCase().includes(newIndustryName.toLowerCase()) ||
+               (industry.sector?.toLowerCase() || '').includes(newIndustryName.toLowerCase())) &&
                !industries.some(existingIndustry => existingIndustry.id === industry.id)
              ).length === 0 && (
               <div className="bg-gray-100 dark:bg-[#252525] p-4 rounded-lg text-center">
@@ -2032,7 +2050,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Footer with buttons */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] z-10">
             <div className="flex items-center justify-between">
             <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedIndustryIds.length} ngành
@@ -2240,7 +2258,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Stocks List */}
-          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2 pb-16">
             {isLoadingStocks ? (
               <div className="flex justify-center items-center py-4">
                 <div className="w-6 h-6 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
@@ -2248,8 +2266,9 @@ const WatchlistPage = () => {
             ) : availableStocks.length > 0 ? (
               availableStocks
                 .filter(stock => 
-                  stock.ticketSymbol.toLowerCase().includes(stockSearchQuery.toLowerCase()) &&
-                  !watchlist.some(w => w.stockCode.toLowerCase() === stock.ticketSymbol.toLowerCase())
+                  (stock.ticketSymbol?.toLowerCase().includes(stockSearchQuery.toLowerCase()) ||
+                   stock.name?.toLowerCase().includes(stockSearchQuery.toLowerCase())) &&
+                  !watchlist.some(w => w.stockCode?.toLowerCase() === stock.ticketSymbol?.toLowerCase())
                 )
                 .map(stock => (
                   <div
@@ -2273,7 +2292,10 @@ const WatchlistPage = () => {
                       htmlFor={`stock-${stock.id}`}
                       className="flex-1 flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
+                        {stock.name && <span className="text-xs text-gray-500 dark:text-[#999]">{stock.name}</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-2 py-0.5 rounded ${
                           stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
@@ -2296,7 +2318,7 @@ const WatchlistPage = () => {
           </div>
 
           {/* Footer with buttons */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a]">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] z-10">
             <div className="flex items-center justify-between">
             <div className="text-gray-500 dark:text-[#666] text-sm">
               Đã chọn: {selectedStockIds.length} cổ phiếu
