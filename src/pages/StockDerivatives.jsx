@@ -600,9 +600,13 @@ export default function StockDerivatives() {
     colorWorkerMetrics,
     showPerformanceMetrics,
     
-    // Color cache state
+    // Cache state and methods
     colorCache,
     animationCache,
+    colorCacheSize,
+    animationCacheSize,
+    getColorCacheValue,
+    getAnimationCacheValue,
     
     // Update functions
     updateStockData,
@@ -969,7 +973,7 @@ export default function StockDerivatives() {
     return '';
   };
 
-  // Modify the getCellClass function to use our cache
+  // Modify the getCellClass function to use our new cache methods
   const getCellClass = useCallback((stock, field, type = 'price') => {
     // Base styles
     const baseClass = 'border-r border-gray-200 dark:border-[#333] text-center whitespace-nowrap py-2';
@@ -992,8 +996,9 @@ export default function StockDerivatives() {
     if (type === 'price') {
       // Try to get from cache first
       const cacheKey = `${stockCode}-${field}`;
-      if (colorCache[cacheKey]) {
-        colorClass = colorCache[cacheKey];
+      const cachedColor = getColorCacheValue(cacheKey);
+      if (cachedColor) {
+        colorClass = cachedColor;
       }
     } else if (type === 'volume') {
       // For volume fields, use the price color of associated price field
@@ -1001,8 +1006,9 @@ export default function StockDerivatives() {
       
       if (stock[priceField]) {
         const cacheKey = `${stockCode}-${priceField}`;
-        if (colorCache[cacheKey]) {
-          colorClass = colorCache[cacheKey];
+        const cachedColor = getColorCacheValue(cacheKey);
+        if (cachedColor) {
+          colorClass = cachedColor;
         }
       }
     }
@@ -1011,15 +1017,16 @@ export default function StockDerivatives() {
     let animationClass = '';
     const changeKey = `${stockCode}-${field}`;
     
-    if (animationCache[changeKey]) {
-      animationClass = animationCache[changeKey];
+    const cachedAnimation = getAnimationCacheValue(changeKey);
+    if (cachedAnimation) {
+      animationClass = cachedAnimation;
     } else if (priceChangeColors[changeKey]) {
       // Fallback to the old system
       animationClass = priceChangeColors[changeKey];
     }
 
     return `${colorClass} ${animationClass} ${baseClass}`;
-  }, [colorCache, animationCache, priceChangeColors, getPriceFieldForVolume]);
+  }, [getColorCacheValue, getAnimationCacheValue, priceChangeColors, getPriceFieldForVolume]);
 
   // Function to update CSS classes for price animation
   const handlePriceColorUpdates = useCallback((stock) => {
