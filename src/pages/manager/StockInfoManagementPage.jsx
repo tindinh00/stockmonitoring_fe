@@ -311,8 +311,9 @@ export default function StockInfoManagementPage() {
         }
       );
       
-      if (response.data.isSuccess) {
-        toast.success("Tải lên file thành công");
+      // Kiểm tra response status và message
+      if (response.status === 200) {
+        toast.success("Upload và xử lý file CSV thành công!");
         setUploadDialogOpen(false);
         setSelectedFile(null);
         setFileType("");
@@ -320,8 +321,8 @@ export default function StockInfoManagementPage() {
         // Refresh the data
         fetchStocks();
       } else {
-        // Hiển thị thông báo lỗi từ response
-        const errorMessage = response.data.value?.message || response.data.message || "Tải lên file thất bại";
+        // Nếu có message từ server thì hiển thị, nếu không thì hiển thị message mặc định
+        const errorMessage = response.data?.message || "Tải lên file thất bại";
         toast.error(errorMessage);
       }
     } catch (error) {

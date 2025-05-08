@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock, Bell, Loader2 } from 'lucide-react';
+import { Plus, X, Eye, ChevronRight, AlertTriangle, Info, Clock, Bell, Loader2, Trash2, FolderOpen } from 'lucide-react';
 import { toast } from "sonner";
 import CandlestickChart from '@/components/CandlestickChart';
 import { getUserId } from '@/api/Api';
@@ -1837,91 +1837,109 @@ const WatchlistPage = () => {
             <>
               {/* Industries View */}
               <div className="lg:col-span-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Industries Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {isLoadingIndustries ? (
-                    <div className="col-span-full flex justify-center items-center py-8">
-                      <div className="w-8 h-8 border-2 border-[#09D1C7] border-t-transparent rounded-full animate-spin"></div>
-              </div>
+                    // Loading skeletons
+                    Array(4).fill(0).map((_, index) => (
+                      <div key={index} className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] p-4 animate-pulse">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded bg-gray-200 dark:bg-[#252525]"></div>
+                          <div className="flex-1">
+                            <div className="h-4 w-24 bg-gray-200 dark:bg-[#252525] rounded"></div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 w-full bg-gray-200 dark:bg-[#252525] rounded"></div>
+                          <div className="h-3 w-3/4 bg-gray-200 dark:bg-[#252525] rounded"></div>
+                        </div>
+                      </div>
+                    ))
                   ) : industries.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-[#252525] rounded-full flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-gray-400 dark:text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                  </div>
-                      <h3 className="text-gray-900 dark:text-white font-medium mb-1">Chưa có ngành theo dõi</h3>
-                      <p className="text-gray-500 dark:text-[#666] text-sm">Thêm ngành để bắt đầu theo dõi cổ phiếu</p>
-                </div>
+                    <div className="col-span-full flex flex-col items-center justify-center py-8 text-gray-500 dark:text-[#666]">
+                      <FolderOpen className="w-12 h-12 mb-3 opacity-50" />
+                      <p>Chưa có ngành nào được theo dõi</p>
+                      <button
+                        onClick={() => setIsAddIndustryDialogOpen(true)}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#09D1C7] hover:bg-[#0a8f88] text-white transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Thêm ngành</span>
+                      </button>
+                    </div>
                   ) : (
                     industries.map((industry) => (
                       <div
                         key={industry.id}
-                        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#333] p-4 hover:border-[#09D1C7] transition-colors cursor-pointer"
+                        className="group bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#333] p-4 hover:border-[#09D1C7] hover:shadow-lg hover:shadow-[#09D1C7]/10 transition-all duration-300 cursor-pointer relative"
                         onClick={() => handleIndustryClick(industry)}
                       >
+                        {/* Header section */}
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-medium text-gray-900 dark:text-white">{industry.name}</h3>
-                            <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteSector(industry, e);
-                            }}
-                            className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors"
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded bg-gradient-to-br from-[#09D1C7] to-[#0a8f88] flex items-center justify-center text-white font-medium text-sm">
+                              {industry.name.charAt(0)}
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-[#09D1C7] transition-colors text-sm">
+                                {industry.name}
+                              </h3>
+                              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-[#666]">
+                                <span>{industry.stocks?.length || 0} cổ phiếu</span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => handleDeleteSector(industry, e)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded"
                           >
-                            <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        
-                        <div className="grid grid-cols-4 gap-4 mb-4">
-                          <div className="text-center">
-                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full mb-1 ${
-                              industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                                industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                              'bg-red-500/10 text-red-500'
-                            }`}>
-                              {industry.smg}
-                          </div>
-                            <div className="text-xs text-gray-500 dark:text-[#666]">SMG</div>
-                          </div>
-                          <div className="text-center">
-                            <div className={`text-sm font-medium mb-1 ${
-                              industry.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
-                            }`}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+
+                        {/* Performance metrics */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-gray-50 dark:bg-[#252525] rounded p-2 text-center">
+                            <div className={`text-sm font-medium ${industry.percentD > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
                               {industry.percentD > 0 ? '+' : ''}{industry.percentD.toFixed(2)}%
                             </div>
                             <div className="text-xs text-gray-500 dark:text-[#666]">Ngày</div>
                           </div>
-                          <div className="text-center">
-                            <div className={`text-sm font-medium mb-1 ${
-                              industry.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
-                            }`}>
+                          <div className="bg-gray-50 dark:bg-[#252525] rounded p-2 text-center">
+                            <div className={`text-sm font-medium ${industry.percentW > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
                               {industry.percentW > 0 ? '+' : ''}{industry.percentW.toFixed(2)}%
                             </div>
                             <div className="text-xs text-gray-500 dark:text-[#666]">Tuần</div>
                           </div>
-                          <div className="text-center">
-                            <div className={`text-sm font-medium mb-1 ${
-                              industry.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'
-                            }`}>
+                          <div className="bg-gray-50 dark:bg-[#252525] rounded p-2 text-center">
+                            <div className={`text-sm font-medium ${industry.percentM > 0 ? 'text-[#00FF00]' : 'text-[#FF4A4A]'}`}>
                               {industry.percentM > 0 ? '+' : ''}{industry.percentM.toFixed(2)}%
-                          </div>
+                            </div>
                             <div className="text-xs text-gray-500 dark:text-[#666]">Tháng</div>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-[#666]">
-                            {industry.stocks?.length || 0} cổ phiếu
-                          </span>
-                          <button className="text-[#09D1C7] hover:text-[#0a8f88] flex items-center gap-1">
-                            Chi tiết
-                            <ChevronRight className="h-4 w-4" />
+                        {/* Footer */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-[#09D1C7]/10 text-[#09D1C7]">
+                              Ngành
+                            </span>
+                            {industry.code && (
+                              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-[#252525] text-gray-600 dark:text-gray-400">
+                                {industry.code}
+                              </span>
+                            )}
+                          </div>
+                          <button className="flex items-center gap-1 text-[#09D1C7] hover:text-[#0a8f88] text-xs font-medium group-hover:translate-x-1 transition-all duration-300">
+                            <span>Chi tiết</span>
+                            <ChevronRight className="h-3 w-3" />
                           </button>
+                        </div>
                       </div>
-                  </div>
                     ))
-                )}
-                  </div>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -1962,16 +1980,6 @@ const WatchlistPage = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <DialogTitle className="text-xl font-semibold mb-1">{selectedIndustry?.name}</DialogTitle>
-              <DialogDescription className="text-[#666] flex items-center gap-2">
-                <span>SMG Score:</span>
-                <span className={`font-medium ${
-                  selectedIndustry?.smg >= 80 ? 'text-[#09D1C7]' : 
-                  selectedIndustry?.smg >= 50 ? 'text-[#FF6B00]' :
-                  'text-red-500'
-                }`}>
-                  {selectedIndustry?.smg}
-                </span>
-              </DialogDescription>
             </div>
 
             <div className="flex items-center gap-4">
@@ -2007,9 +2015,8 @@ const WatchlistPage = () => {
           {/* Stocks Table */}
           <div className="bg-gray-100 dark:bg-[#252525] rounded-lg border border-gray-200 dark:border-[#333] overflow-hidden">
             <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-200/50 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#333] text-sm font-medium text-[#666]">
-              <div className="col-span-2">Mã CK</div>
+              <div className="col-span-3">Mã CK</div>
               <div className="col-span-3">Biến động</div>
-              <div className="col-span-1 text-center">SMG</div>
               <div className="col-span-2 text-center">%D</div>
               <div className="col-span-2 text-center">%W</div>
               <div className="col-span-2 text-center">%M</div>
@@ -2021,19 +2028,11 @@ const WatchlistPage = () => {
                   key={stock.id}
                   className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-200/50 dark:hover:bg-[#2a2a2a] border-b border-gray-200 dark:border-[#333] last:border-0 transition-colors"
                 >
-                  <div className="col-span-2 flex items-center gap-2">
+                  <div className="col-span-3 flex items-center gap-2">
                     <span className="font-medium">{stock.ticketSymbol}</span>
                   </div>
                   <div className="col-span-3">
                     {renderMiniChart([stock.percentD, stock.percentW, stock.percentM])}
-                  </div>
-                  <div className="col-span-1 flex justify-center">
-                    <span className={`rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm
-                      ${stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7]' : 
-                        stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00]' :
-                        'bg-red-500/10 text-red-500'}`}>
-                      {stock.smg}
-                    </span>
                   </div>
                   <div className="col-span-2 text-center">
                     <span className={`inline-block min-w-[80px] text-sm px-2 py-1 rounded ${
@@ -2134,15 +2133,6 @@ const WatchlistPage = () => {
                       <div className="flex flex-col">
                         <span className="text-gray-900 dark:text-white font-medium">{industry.name}</span>
                         {industry.code && <span className="text-xs text-gray-500 dark:text-[#999]">Mã: {industry.code}</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm px-2 py-0.5 rounded ${
-                          industry.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
-                          industry.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500 dark:text-red-500'
-                        }`}>
-                          SMG: {industry.smg}
-                        </span>
                       </div>
                     </label>
                   </div>
