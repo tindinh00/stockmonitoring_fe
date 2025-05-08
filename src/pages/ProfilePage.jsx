@@ -179,6 +179,9 @@ const ProfilePage = () => {
   // Lưu trữ thông tin ban đầu để có thể hủy chỉnh sửa
   const [initialUserInfo, setInitialUserInfo] = useState({...userInfo});
   
+  // Thêm state cho features
+  const [userFeatures, setUserFeatures] = useState([]);
+  
   // Enhanced data loading function to check both sources
   useEffect(() => {
     try {
@@ -678,6 +681,24 @@ const ProfilePage = () => {
     navigate(`/profile?tab=${tab}`, { replace: true });
   };
   
+  // Thêm effect để lấy features từ localStorage
+  useEffect(() => {
+    try {
+      const featuresFromStorage = localStorage.getItem('user_features');
+      if (featuresFromStorage) {
+        const parsedFeatures = JSON.parse(featuresFromStorage);
+        console.log("Loaded features from localStorage:", parsedFeatures);
+        setUserFeatures(parsedFeatures);
+      } else {
+        console.log("No features found in localStorage");
+        setUserFeatures([]);
+      }
+    } catch (error) {
+      console.error("Error loading features from localStorage:", error);
+      setUserFeatures([]);
+    }
+  }, []);
+  
   return (
     <div className="relative min-h-screen bg-gray-50 dark:bg-[#09090B]">
       {/* Animated gradient overlay */}
@@ -1106,8 +1127,8 @@ const ProfilePage = () => {
 
                             <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Tính năng của gói:</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {Array.isArray(userInfo.features) && userInfo.features.length > 0 ? 
-                                userInfo.features.map((feature, index) => (
+                              {Array.isArray(userFeatures) && userFeatures.length > 0 ? 
+                                userFeatures.map((feature, index) => (
                                   <div key={index} className="flex items-center gap-2">
                                     <CheckCircle className="w-4 h-4 text-green-500" />
                                     <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>

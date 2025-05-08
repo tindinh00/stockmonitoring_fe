@@ -305,7 +305,7 @@ const HeatmapPage = () => {
           ))}
         </div>
       </div>
-      
+
       {/* Main Content Area */}
       <div className="flex-1 relative overflow-auto" ref={containerRef}>
         {/* Tooltip Element */}
@@ -320,15 +320,15 @@ const HeatmapPage = () => {
           {sectorLayout.map((sectorConfig, index) => {
             const stocks = getSectorStocks(sectorConfig.sector).slice(0, sectorConfig.maxStocks);
             return (
-              <div
+              <div 
                 key={index}
                 className="bg-[#0a0a14] border border-[#1C1C28] relative flex flex-col"
                 style={{ gridArea: sectorConfig.gridArea }}
               >
                 <div className="bg-[#1C1C28] px-1 py-0.5 text-white text-xs font-medium sticky top-0 z-10">
                   {sectorConfig.name}
-                </div>
-                
+      </div>
+
                 <div className="flex-1 grid gap-px p-px overflow-visible" 
                   style={{
                     gridTemplateColumns: `repeat(${Math.min(6, sectorConfig.colSpan * 2)}, minmax(32px, 1fr))`,
@@ -343,27 +343,27 @@ const HeatmapPage = () => {
                     const fontSize = colSpan > 1 || rowSpan > 1 ? 'text-sm' : 'text-xs';
                     const changeSize = colSpan > 1 || rowSpan > 1 ? 'text-xs' : 'text-[10px]';
                     
-                    return (
-                      <div
-                        key={stock.ticketSymbol}
+                      return (
+                        <div
+                          key={stock.ticketSymbol}
                         className={`${getColorByChange(stock.plusMinus)} flex flex-col items-center justify-center text-white cursor-pointer`}
-                        style={{
+                          style={{
                           gridColumn: `span ${Math.min(colSpan, 3)}`,
                           gridRow: `span ${Math.min(rowSpan, 2)}`
-                        }}
+                          }}
                         onMouseEnter={(e) => showDetails(e, stock)}
                         onMouseLeave={hideDetails}
-                      >
+                        >
                         <div className={`font-semibold ${fontSize}`}>
-                          {stock.ticketSymbol}
-                        </div>
+                            {stock.ticketSymbol}
+              </div>
                         <div className={`${changeSize}`}>
-                          {formatChange(stock.plusMinus)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                            {formatChange(stock.plusMinus)}
+            </div>
+          </div>
+                      );
+                    })}
+              </div>
               </div>
             );
           })}

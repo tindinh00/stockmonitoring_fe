@@ -6,8 +6,7 @@ export const FREE_FEATURES = [
   "Bản đồ nhiệt",
   "Xem tin tức thị trường",
   "Hộp thoại hỗ trợ người dùng (Chatbox)",
-  "Tìm kiếm và bộ lọc cổ phiếu",
-  "Cài đặt"
+  "Tìm kiếm và bộ lọc cổ phiếu"
 ];
 
 // Tính năng cao cấp
@@ -29,7 +28,6 @@ export const FEATURE_MAPPING = {
   "Xem tin tức thị trường": "Tin tức",
   "Hộp thoại hỗ trợ người dùng (Chatbox)": "Chat với hỗ trợ",
   "Tìm kiếm và bộ lọc cổ phiếu": "Bảng giá",
-  "Cài đặt": "Cài đặt",
   
   // Premium features
   "Quản lý danh mục theo dõi cổ phiếu": "Danh mục theo dõi",
