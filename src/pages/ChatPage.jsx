@@ -543,7 +543,7 @@ const ChatPage = () => {
             <input
               type="file"
               ref={fileInputRef}
-              onChange={handleImageSelect}
+              onChange={handleFileSelect}
               accept="image/*"
               className="hidden"
             />
