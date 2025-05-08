@@ -737,11 +737,7 @@ export default function HeaderLogined() {
                   background: rgba(21, 145, 155, 0.7);
                 }
               `}</style>
-              {loading ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#46DFB1]"></div>
-                </div>
-              ) : notifications.length > 0 ? (
+              {notifications.length > 0 ? (
                 notifications.map((notification) => (
                   <div 
                     key={notification.id} 
@@ -777,8 +773,8 @@ export default function HeaderLogined() {
                             }`}
                           >
                             {notification.stockCode || 
-                             notification.message.match(/Giá của mã (.*?) đã/)?.[1] || 
-                             "HTI"}
+                              notification.message.match(/Giá của mã (.*?) đã/)?.[1] || 
+                              "HTI"}
                           </Badge>
                           
                           {/* Force display exchange badge */}
@@ -787,8 +783,8 @@ export default function HeaderLogined() {
                             className="text-[10px] px-2 border-gray-300 dark:border-[#15919B]/30 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#1a2e3f]"
                           >
                             {notification.exchange || 
-                             notification.message.match(/theo sàn (.*?)$/)?.[1] || 
-                             "HSX"}
+                              notification.message.match(/theo sàn (.*?)$/)?.[1] || 
+                              "HSX"}
                           </Badge>
                         </div>
                         <div className={`text-sm text-gray-700 dark:text-gray-300 transition-all duration-200 overflow-hidden

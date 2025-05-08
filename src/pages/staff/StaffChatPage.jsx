@@ -233,15 +233,12 @@ export default function StaffChatPage() {
           setMessages(sortedMessages);
         } catch (error) {
           console.error("Error processing message data:", error);
-          toast.error("Có lỗi khi xử lý tin nhắn");
         }
       }, (error) => {
         console.error("Error loading messages:", error);
-        toast.error("Không thể tải tin nhắn. Vui lòng thử lại.");
       });
     } catch (error) {
       console.error("Error setting up message listener:", error);
-      toast.error("Không thể tải tin nhắn. Vui lòng thử lại sau.");
     }
     
     return () => {
@@ -269,7 +266,6 @@ export default function StaffChatPage() {
         setRooms([...roomData]);
       } catch (error) {
         console.error("Lỗi khi fetch dữ liệu phòng chat:", error);
-        toast.error("Không thể tải danh sách phòng chat. Vui lòng thử lại sau.");
       }
     };
 
@@ -340,7 +336,6 @@ export default function StaffChatPage() {
       setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error("Error sending message:", error);
-      toast.error('Không thể gửi tin nhắn. Vui lòng thử lại');
     } finally {
       setIsSending(false);
     }

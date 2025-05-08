@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { getUserId } from '@/api/Api';
 import axios from 'axios';
 import { toast } from "sonner";
-import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings, Plus, Trash2, Search, Calendar } from 'lucide-react';
+import { ArrowUpDown, ArrowDown, ArrowUp, Info, Loader2, ChevronLeft, ChevronRight, Save, Settings, Plus, Trash2, Search, Calendar as CalendarIcon } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { cn } from "@/lib/utils";
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const PersonalAnalyticsPage = () => {
   const [stocks, setStocks] = useState([]);
@@ -44,6 +45,10 @@ const PersonalAnalyticsPage = () => {
   
   // State for showing date picker dialog
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
+
+  // Add these refs inside the component function at the top with other state declarations
+  const startDateInputRef = useRef(null);
+  const endDateInputRef = useRef(null);
 
   useEffect(() => {
     fetchStocksData();
@@ -622,7 +627,7 @@ const PersonalAnalyticsPage = () => {
               onClick={() => setIsDateDialogOpen(true)}
               className="bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#252525] text-gray-700 dark:text-white px-4 py-2 rounded-lg"
             >
-              <Calendar className="mr-2 h-4 w-4" />
+              <CalendarIcon className="mr-2 h-4 w-4" />
               {`${format(dateRange.startDate, 'dd/MM/yyyy')} - ${format(dateRange.endDate, 'dd/MM/yyyy')}`}
             </Button>
             <Button
@@ -1004,45 +1009,49 @@ const PersonalAnalyticsPage = () => {
           <div className="p-6 space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
                   Ngày bắt đầu
                 </label>
                 <div className="relative">
                   <Input
-                    id="start-date"
-                    type="text"
-                    placeholder="DD/MM/YY"
-                    value={format(dateRange.startDate, 'dd/MM/yy')}
-                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
-                    onFocus={(e) => e.target.type = 'date'}
-                    onBlur={(e) => {
-                      e.target.type = 'text';
-                      e.target.value = format(dateRange.startDate, 'dd/MM/yy');
+                    type="date"
+                    value={format(dateRange.startDate, 'yyyy-MM-dd')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-4 pr-10 text-gray-900 dark:text-white cursor-pointer w-full"
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleDateChange('startDate', new Date(e.target.value));
+                      }
                     }}
-                    onChange={(e) => handleDateChange('startDate', e.target.value)}
                   />
-                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <div 
+                    className="absolute inset-0 cursor-pointer" 
+                    onClick={() => document.querySelector('input[type="date"]:first-of-type').showPicker()}
+                  ></div>
+                  <CalendarIcon className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-[#ccc]">
                   Ngày kết thúc
                 </label>
                 <div className="relative">
                   <Input
-                    id="end-date"
-                    type="text"
-                    placeholder="DD/MM/YY"
-                    value={format(dateRange.endDate, 'dd/MM/yy')}
-                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pr-10"
-                    onFocus={(e) => e.target.type = 'date'}
-                    onBlur={(e) => {
-                      e.target.type = 'text';
-                      e.target.value = format(dateRange.endDate, 'dd/MM/yy');
+                    type="date"
+                    value={format(dateRange.endDate, 'yyyy-MM-dd')}
+                    className="bg-gray-100 dark:bg-[#252525] border-gray-300 dark:border-[#333] pl-4 pr-10 text-gray-900 dark:text-white cursor-pointer w-full"
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleDateChange('endDate', new Date(e.target.value));
+                      }
                     }}
-                    onChange={(e) => handleDateChange('endDate', e.target.value)}
                   />
-                  <Calendar className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <div 
+                    className="absolute inset-0 cursor-pointer" 
+                    onClick={() => document.querySelectorAll('input[type="date"]')[1].showPicker()}
+                  ></div>
+                  <CalendarIcon className="h-4 w-4 text-gray-500 dark:text-[#666] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
