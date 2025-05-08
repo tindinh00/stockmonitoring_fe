@@ -734,7 +734,12 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(`${API_URL}/api/auth/refresh-token`, {
         refreshToken: currentRefreshToken
       }, {
-        timeout: 5000
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': '*/*',
+          'appname': 'STOCK_MONITORING'
+        }
       });
       
       if (!response || !response.data || !response.data.value) {

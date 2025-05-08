@@ -1245,7 +1245,8 @@ export const apiService = {
           headers: {
             'Authorization': `Bearer ${currentToken}`,
             'Content-Type': 'application/json',
-            'accept': '*/*'
+            'accept': '*/*',
+            'appname': 'STOCK_MONITORING'
           }
         }
       );
