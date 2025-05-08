@@ -356,22 +356,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-400 text-sm">
-                  <div className="bg-[#121828]/50 rounded-lg p-3 border border-gray-800/30">
-                    <div className="flex items-center text-xs md:text-sm">
-                      <div className="w-2 h-2 rounded-full bg-cyan-500 mr-2"></div>
-                      <span className="text-gray-400 font-medium">Từ:</span>
-                      <span className="ml-2 text-cyan-300 truncate">{formatDate(todayDetails.fromDate)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-[#121828]/50 rounded-lg p-3 border border-gray-800/30">
-                    <div className="flex items-center text-xs md:text-sm">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></div>
-                      <span className="text-gray-400 font-medium">Đến:</span>
-                      <span className="ml-2 text-indigo-300 truncate">{formatDate(todayDetails.toDate)}</span>
-                    </div>
-                  </div>
-                </div>
+                
               </>
             ) : (
               <div className="py-10 md:py-16 text-center text-gray-400 flex flex-col items-center">
