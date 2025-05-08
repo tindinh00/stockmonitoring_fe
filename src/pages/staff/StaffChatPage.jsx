@@ -191,25 +191,57 @@ export default function StaffChatPage() {
   useEffect(() => {
     let unsubscribe = null;
     
-    if (!selectedRoom) return;
+    if (!selectedRoom) {
+      // Clear messages when no room is selected
+      setMessages([]);
+      return;
+    }
     
     try {
-      // Query messages for specific room, ordered by timestamp
+      console.log("Loading messages for room:", selectedRoom.id);
+      
+      // Reset messages first to prevent seeing previous room's messages
+      setMessages([]);
+      
+      // Use a simpler query that doesn't require composite index
+      // Just filter by roomId without ordering
       const q = query(
         collection(db, "message"), 
-        where("roomId", "==", selectedRoom.id),
-        orderBy("timestamp", "asc")
+        where("roomId", "==", selectedRoom.id)
       );
-      //Update messages state when new messages are added
+      
       unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const messageData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setMessages(messageData);
+        try {
+          const messageData = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          // Sort the messages by timestamp client-side instead of in the query
+          const sortedMessages = messageData.sort((a, b) => {
+            // Handle missing timestamps
+            if (!a.timestamp) return -1;
+            if (!b.timestamp) return 1;
+            
+            // Convert Firebase timestamps to milliseconds for comparison
+            const timeA = a.timestamp.seconds * 1000 + (a.timestamp.nanoseconds || 0) / 1000000;
+            const timeB = b.timestamp.seconds * 1000 + (b.timestamp.nanoseconds || 0) / 1000000;
+            
+            return timeA - timeB;
+          });
+          
+          setMessages(sortedMessages);
+        } catch (error) {
+          console.error("Error processing message data:", error);
+          toast.error("Có lỗi khi xử lý tin nhắn");
+        }
+      }, (error) => {
+        console.error("Error loading messages:", error);
+        toast.error("Không thể tải tin nhắn. Vui lòng thử lại.");
       });
     } catch (error) {
       console.error("Error setting up message listener:", error);
+      toast.error("Không thể tải tin nhắn. Vui lòng thử lại sau.");
     }
     
     return () => {
@@ -220,32 +252,24 @@ export default function StaffChatPage() {
           console.error("Error cleaning up message listener:", error);
         }
       }
-    }
+    };
   }, [selectedRoom]);
   
 
-  //Get Rooms from firebase 
+  //Get Rooms from firebase - REMOVE the message fetching part
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get list of rooms
+        // Get list of rooms only - don't fetch all messages
         const roomSnapshot = await getDocs(collection(db, "room"));
         const roomData = roomSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
         setRooms([...roomData]);
-
-        // Get messages after get rooms
-        const messageSnapshot = await getDocs(collection(db, "message"));
-        const messageData = messageSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setMessages(messageData);
-        console.log("Messages:", messageData);
       } catch (error) {
-        console.error("Lỗi khi fetch dữ liệu:", error);
+        console.error("Lỗi khi fetch dữ liệu phòng chat:", error);
+        toast.error("Không thể tải danh sách phòng chat. Vui lòng thử lại sau.");
       }
     };
 
@@ -286,7 +310,7 @@ export default function StaffChatPage() {
       const newMsg = {
         userId: staffId,
         userName: staffName,
-        content: newMessage,
+        content: newMessage.trim(),
         timestamp: serverTimestamp(),
         type: selectedImage ? "image" : "text",
         roomId: selectedRoom.id,
@@ -299,7 +323,7 @@ export default function StaffChatPage() {
       // Update room's lastMessage and lastMessageTime
       const roomRef = doc(db, "room", selectedRoom.id);
       await updateDoc(roomRef, {
-        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : "Staff: " + newMessage,
+        lastMessage: selectedImage ? "Đã gửi một hình ảnh" : "Staff: " + newMessage.trim(),
         lastMessageTime: serverTimestamp()
       });
 
@@ -403,7 +427,7 @@ export default function StaffChatPage() {
     }
   };
 
-  // Cập nhật effect cho tin nhắn
+  // Cập nhật effect cho tin nhắn - simplify to avoid index issues
   useEffect(() => {
     if (!rooms) return;
     
@@ -415,8 +439,7 @@ export default function StaffChatPage() {
         const q = query(
           collection(db, "message"),
           where("roomId", "==", room.id),
-          orderBy("timestamp", "desc"),
-          // Chỉ lấy 1 tin nhắn mới nhất
+          // Removed orderBy to avoid needing an index
           limit(1)
         );
         
@@ -424,12 +447,14 @@ export default function StaffChatPage() {
           snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
               const message = { id: change.doc.id, ...change.doc.data() };
-              // Kiểm tra timestamp để đảm bảo là tin nhắn mới
+              // Kiểm tra timestamp để đảm bảo là tin nhắn mới (roughly within 10 seconds)
               if (message.timestamp && Date.now() - message.timestamp.toDate().getTime() < 10000) {
                 handleNewMessage(room.id, message, room);
               }
             }
           });
+        }, (error) => {
+          console.error("Error listening for notifications:", error);
         });
         
         messageListeners.push(unsubscribe);
@@ -452,7 +477,7 @@ export default function StaffChatPage() {
         clearTimeout(notificationTimeoutRef.current);
       }
     };
-  }, [rooms, selectedRoom]);
+  }, [rooms, selectedRoom, staffId]);
 
   // Reset thông báo khi chọn phòng chat
   useEffect(() => {
@@ -565,7 +590,7 @@ export default function StaffChatPage() {
                           <span className="h-2 w-2 rounded-full bg-green-500" />
                         )}
                         <p className="text-xs text-[#808191]">
-                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'} · ID: {selectedRoom.userId}
+                          {selectedRoom.online ? 'Đang hoạt động' : 'Không hoạt động'}
                         </p>
                       </div>
                     </div>
