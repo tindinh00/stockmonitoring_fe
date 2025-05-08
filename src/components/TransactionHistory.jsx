@@ -198,11 +198,14 @@ export function TransactionHistory() {
       : [];
   }, [filteredTransactions, currentPage, itemsPerPage]);
   
-  // Format date function
+  // Format date function - subtract 7 hours from date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: vi });
+      const date = new Date(dateString);
+      // Subtract 7 hours
+      date.setHours(date.getHours() - 7);
+      return format(date, 'dd/MM/yyyy HH:mm', { locale: vi });
     } catch (error) {
       console.error('Date formatting error:', error);
       return dateString;
