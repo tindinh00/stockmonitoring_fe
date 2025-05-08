@@ -9,8 +9,10 @@ class SignalRService {
     this.state = {
       connection: null,
       isConnecting: false,
+      isConnectingPromise: null,
       eventHandlers: new Map(),
-      connectionPromise: null
+      connectionPromise: null,
+      isStopping: false
     };
 
     // Initialize connection when service is created
@@ -18,8 +20,22 @@ class SignalRService {
   }
 
   async initializeConnection() {
-    if (this.state.connection || this.state.isConnecting) {
+    if (this.state.connection?.state === 'Connected') {
+      return this.state.connection;
+    }
+    
+    if (this.state.isConnecting) {
       return this.state.connectionPromise;
+    }
+    
+    if (this.state.isStopping) {
+      // If currently stopping, wait a bit and try again
+      console.log("[SignalR] Currently stopping, waiting before connecting again");
+      return new Promise(resolve => {
+        setTimeout(() => {
+          resolve(this.initializeConnection());
+        }, 1000);
+      });
     }
 
     console.log("[SignalR] Initializing connection");
@@ -31,6 +47,16 @@ class SignalRService {
         console.warn("[SignalR] No auth token found");
         this.state.isConnecting = false;
         return null;
+      }
+
+      // Clean up any existing connection before creating a new one
+      if (this.state.connection) {
+        try {
+          console.log("[SignalR] Removing old connection before creating new one");
+          await this.stop();
+        } catch (error) {
+          console.warn("[SignalR] Error cleaning up old connection:", error);
+        }
       }
 
       this.state.connection = new HubConnectionBuilder()
@@ -94,9 +120,20 @@ class SignalRService {
     }
 
     try {
-      await this.state.connection.start();
+      // Check for existing connection start attempt
+      if (this.state.isConnectingPromise) {
+        console.log("[SignalR] Connection already starting, waiting for result");
+        return await this.state.isConnectingPromise;
+      }
+
+      // Create a connection promise that we can track
+      this.state.isConnectingPromise = this.state.connection.start();
+      await this.state.isConnectingPromise;
+      
       console.log("[SignalR] Connection started successfully");
       this.state.isConnecting = false;
+      this.state.isConnectingPromise = null;
+      
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { 
           status: 'connected', 
@@ -107,6 +144,8 @@ class SignalRService {
     } catch (error) {
       console.error("[SignalR] Connection start failed:", error);
       this.state.isConnecting = false;
+      this.state.isConnectingPromise = null;
+      
       window.dispatchEvent(new CustomEvent('signalrConnectionStatus', { 
         detail: { status: 'error', error } 
       }));
@@ -316,16 +355,34 @@ class SignalRService {
 
   async stop() {
     try {
-      if (this.state.connection) {
+      this.state.isStopping = true;
+      
+      if (this.state.isConnectingPromise) {
+        // If connection is in the process of starting, we need to wait for it
+        // or let it fail naturally before calling stop()
+        console.log("[SignalR] Connection in process of starting, waiting before stopping");
+        try {
+          await this.state.isConnectingPromise;
+        } catch (error) {
+          // If the start fails, that's fine - just continue with the stop
+          console.log("[SignalR] Connection start failed during stop:", error);
+        }
+      }
+      
+      if (this.state.connection && this.state.connection.state !== 'Disconnected') {
+        console.log('[SignalR] Stopping connection...');
         await this.state.connection.stop();
         console.log('[SignalR] Connection stopped');
       }
+    } catch (error) {
+      console.error('[SignalR] Error stopping connection:', error);
+    } finally {
       this.state.connection = null;
       this.state.connectionPromise = null;
       this.state.isConnecting = false;
+      this.state.isConnectingPromise = null;
       this.state.eventHandlers.clear();
-    } catch (error) {
-      console.error('[SignalR] Error stopping connection:', error);
+      this.state.isStopping = false;
     }
   }
 }

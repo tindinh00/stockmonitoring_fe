@@ -46,7 +46,7 @@ const ContactPage = () => {
         </motion.div>
 
         {/* Add styles for animations */}
-        <style jsx>{`
+        <style jsx="true">{`
           @keyframes slide-right {
             0% {
               transform: translateX(0%);

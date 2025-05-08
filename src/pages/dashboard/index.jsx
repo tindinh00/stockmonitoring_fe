@@ -385,7 +385,7 @@ export default function DashboardPage() {
       </Dialog>
       
       {/* CSS cho custom scrollbar */}
-      <style jsx global>{`
+      <style jsx="true" global="true">{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
           height: 6px;
