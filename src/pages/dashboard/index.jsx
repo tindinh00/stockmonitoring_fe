@@ -131,6 +131,8 @@ export default function DashboardPage() {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
+      // Trừ đi 7 giờ
+      date.setHours(date.getHours() - 7);
       return date.toLocaleDateString('vi-VN', { 
         day: 'numeric', 
         month: 'numeric', 
@@ -180,7 +182,7 @@ export default function DashboardPage() {
             />
           </div>
           <StatsCard
-            title="Tổng doanh thu"
+            title="Tổng doanh thu trong tháng"
             value={formatVND(currentMonthStats.totalRevenue)}
             icon={<DollarSign className="h-4 w-4" />}
             helperText={`${revenueChange > 0 ? '+' : ''}${revenueChange}% so với tháng trước`}

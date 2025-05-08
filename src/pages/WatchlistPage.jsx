@@ -2413,15 +2413,6 @@ const WatchlistPage = () => {
                         <span className="text-gray-900 dark:text-white font-medium">{stock.ticketSymbol}</span>
                         {stock.name && <span className="text-xs text-gray-500 dark:text-[#999]">{stock.name}</span>}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm px-2 py-0.5 rounded ${
-                          stock.smg >= 80 ? 'bg-[#09D1C7]/10 text-[#09D1C7] dark:text-[#09D1C7]' : 
-                          stock.smg >= 50 ? 'bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF6B00]' :
-                          'bg-red-500/10 text-red-500 dark:text-red-500'
-                        }`}>
-                          SMG: {stock.smg}
-                        </span>
-                      </div>
                     </label>
                   </div>
                 ))
