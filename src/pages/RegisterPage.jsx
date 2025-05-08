@@ -68,7 +68,7 @@ const Register = () => {
     phone: Yup.string()
       .matches(/^[0-9]+$/, "Số điện thoại chỉ được chứa số")
       .min(10, "Số điện thoại phải có ít nhất 10 số")
-      .max(11, "Số điện thoại không được vượt quá 11 số")
+      .max(10, "Số điện thoại không được vượt quá 10 số")
       .required("Số điện thoại là bắt buộc"),
     password: Yup.string()
       .min(8, "Mật khẩu phải có ít nhất 8 ký tự")

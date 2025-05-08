@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, Share2, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,22 +131,23 @@ const NewsPage = () => {
       let cleanupFunction = () => {}; // Khởi tạo hàm cleanup mặc định
       
       try {
-        // Verificar status atual da conexão SignalR
-        const connectionStatus = signalRService.isConnected();
+        // Get SignalR connection
+        const connection = await signalRService.getConnection();
         
-        // Verificar se a conexão SignalR falhou ou não está disponível
-        if (connectionStatus.connectionFailed || !connectionStatus.appHub) {
+        // Check if connection is available
+        if (!connection) {
+          console.log('[SignalR] No connection available, falling back to polling');
           usePolling = true;
         } else {
           // Tentar configurar o listener
           try {
-            signalRService.on('ReceiveCafefNewsUpdate', handleNewsUpdate);
+            signalRService.onStock('ReceiveCafefNewsUpdate', handleNewsUpdate);
             console.log('Successfully set up SignalR event listener for news');
             
             // Lưu hàm cleanup cho kết nối SignalR
             cleanupFunction = () => {
               try {
-                signalRService.off('ReceiveCafefNewsUpdate', handleNewsUpdate);
+                signalRService.offStock('ReceiveCafefNewsUpdate');
                 console.log('Cleaned up SignalR event listener for news');
               } catch (err) {
                 console.error('Error cleaning up SignalR:', err);
@@ -505,6 +506,9 @@ const NewsPage = () => {
         {/* Article Detail Dialog */}
         <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
           <DialogContent className="bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white border-gray-200 dark:border-[#333] max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="sr-only">
+              {selectedArticle ? (newsDetail ? newsDetail.title : selectedArticle.title) : 'Chi tiết bài viết'}
+            </DialogTitle>
             {selectedArticle && (
               <div className="space-y-6">
                 {loadingDetail ? (

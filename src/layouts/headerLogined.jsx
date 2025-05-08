@@ -712,7 +712,7 @@ export default function HeaderLogined() {
               </button>
             </div>
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-              <style jsx global>{`
+              <style>{`
                 .custom-scrollbar::-webkit-scrollbar {
                   width: 6px;
                 }
